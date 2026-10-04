@@ -555,11 +555,11 @@
       <h2 class="section-title">基本情報の入力</h2>
                 <div class="grid-2">
                     <div class="form-group"><label>コードネーム / 氏名</label><input type="text" class="form-control" id="f-name" placeholder="キャラクター名を入力..."></div>
-                    <div class="form-group"><label>性別</label><select class="form-control" id="f-gender"><option>男</option><option>女</option><option>扶她</option><option>男娘</option><option>药娘</option><option>太监</option><option>无性别</option></select></div>
+                    <div class="form-group"><label>性別</label><select class="form-control" id="f-gender"><option value="男">男性</option><option value="女">女性</option><option value="扶她">ふたなり</option><option value="男娘">男の娘</option><option value="药娘">薬娘</option><option value="太监">宦官</option><option value="无性别">無性</option></select></div>
                     <div class="form-group"><label>年齢</label><input type="number" class="form-control" id="f-age" value="20"></div>
                     <div class="form-group"><label>種族</label><input type="text" class="form-control" id="f-race" value="人类" placeholder="例：人類、エルフ..."></div>
                 </div>
-                <div class="form-group"><label>陣営身分 (五類のみ)</label><select class="form-control" id="f-identity" onchange="updateFactionDesc()"><option>守护者</option><option>篡夺者</option><option>织梦者</option><option>残魂</option><option>穿越者</option></select></div>
+                <div class="form-group"><label>陣営身分 (五類のみ)</label><select class="form-control" id="f-identity" onchange="updateFactionDesc()"><option value="守护者">守護者</option><option value="篡夺者">簒奪者</option><option value="织梦者">夢織り</option><option value="残魂">残魂</option><option value="穿越者">穿越者</option></select></div>
                 <div class="faction-desc" id="faction-desc"></div>
 
                 <div class="attributes-panel">
@@ -1574,7 +1574,7 @@
                 <div class="form-group"><label>パートナー名</label><input type="text" id="cp-name" class="form-control" placeholder="パートナーの名前"></div>
                 <div class="form-group"><label>生命階層</label><select id="cp-tier" class="form-control" onchange="updatePartnerBuildBtnState()">${['Ⅰ','Ⅱ','Ⅲ'].map(r=>`<option>${r}</option>`).join('')}</select></div>
                 <div class="form-group"><label>種族</label><input type="text" id="cp-race" class="form-control" placeholder="例：エルフ"></div>
-                <div class="form-group"><label>性別</label><select id="cp-gender" class="form-control"><option>男</option><option>女</option><option>扶她</option><option>男娘</option><option>药娘</option><option>太监</option><option>无性别</option></select></div>
+                <div class="form-group"><label>性別</label><select id="cp-gender" class="form-control"><option value="男">男性</option><option value="女">女性</option><option value="扶她">ふたなり</option><option value="男娘">男の娘</option><option value="药娘">薬娘</option><option value="太监">宦官</option><option value="无性别">無性</option></select></div>
             </div>
             <div class="form-group"><label>外見特徴</label><input type="text" id="cp-app" class="form-control" placeholder="外見を簡単に描写..."></div>
             <div class="form-group"><label>好きなもの</label><input type="text" id="cp-like" class="form-control" placeholder="例：キャラとくっつくのが好き、甘いものが好き..."></div>
