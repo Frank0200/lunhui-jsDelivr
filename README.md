@@ -18,8 +18,8 @@ https://cdn.jsdelivr.net/gh/Frank0200/lunhui-jsDelivr@main/<file>
 | `结算任务美化.html` | 143,929 | **Japanese** (localized). |
 | `辅助计算脚本.js` | 122,639 | **Japanese** (localized). |
 | `开局.html` | 215,473 | **Japanese** (localized) — the character-creation wizard, including the full item/skill/world catalogue. |
-| `悬浮球状态栏.js` | 673,911 | Partially localized (5 of 8 chunks done) — currently the source mirror. |
-| `世界推进系统.js` | 636,210 | In progress (chunks 0–5 of 8 underway) — currently the source mirror. |
+| `悬浮球状态栏.js` | 728,243 | **Japanese** (localized) — the floating-ball status bar / 主神端末 HUD. |
+| `世界推进系统.js` | 673,120 | **Japanese** (localized) — the standalone world-engine panel. |
 
 Files marked "mirror" are byte-for-byte copies of
 `Unspoken-MomoTea/Battlefield-of-Reincarnation@main/dist/V20260916/`, re-hosted here so the
