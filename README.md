@@ -1,7 +1,6 @@
 # lunhui-jsDelivr
 
 Runtime assets for the Japanese edition of the SillyTavern character card
-**輪廻戦場 再構築版 V3.6.9-JP** (Japanese derivative of「轮回战场 重构版 V3.6.9」).
 
 Served through jsDelivr GitHub delivery:
 
