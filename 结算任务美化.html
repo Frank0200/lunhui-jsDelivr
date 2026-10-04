@@ -1,0 +1,2496 @@
+```text
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>轮回清算渲染器</title>
+    <!--
+      正则配置说明 (导入 SillyTavern 酒馆正则时):
+        findRegex:     /<settlement tasks>([\s\S]*?)<\/settlement tasks>/gsi
+        replaceString: 本文件 "替换模板开始" ~ "替换模板结束" 之间的全部内容
+        对应输出格式: 世界书/【结算任务】.txt
+        (settlement tasks 面板, 阶段数量与区块随 单一世界/世界超稳 模式动态变化: 3~5 阶段)
+    -->
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      :root {
+        --st-bg-1: rgba(13,17,26,0.97);
+        --st-bg-2: rgba(8,11,18,0.97);
+        --st-cyan: #2ee6ff;
+        --st-cyan-dim: rgba(46,230,255,0.55);
+        --st-cyan-bg: rgba(46,230,255,0.07);
+        --st-gold: #f5d76e;
+        --st-gold-deep: #d4af37;
+        --st-red: #f87171;
+        --st-text: #dbe4ee;
+        --st-text-dim: #8fa0b3;
+        --st-line: rgba(46,230,255,0.16);
+      }
+
+      body {
+        background: transparent;
+        color: var(--st-text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", Roboto, sans-serif;
+        padding: 16px;
+        line-height: 1.65;
+      }
+
+      .st-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 14px;
+        margin: 2px 0;
+        background: linear-gradient(135deg, rgba(14,32,42,0.94), rgba(9,18,28,0.94));
+        border: 1px solid var(--st-cyan-dim);
+        border-radius: 4px;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        user-select: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05);
+        clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+      }
+
+      .st-btn:hover {
+        background: linear-gradient(135deg, rgba(18,44,58,0.96), rgba(12,26,40,0.96));
+        border-color: var(--st-cyan);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 18px rgba(0,0,0,0.45), 0 0 14px rgba(46,230,255,0.18);
+      }
+
+      .st-btn.active {
+        background: linear-gradient(135deg, rgba(46,230,255,0.16), rgba(20,90,110,0.14));
+        border-color: var(--st-cyan);
+        box-shadow: 0 0 16px rgba(46,230,255,0.22), inset 0 1px 0 rgba(255,255,255,0.08);
+      }
+
+      .st-icon {
+        width: 19px;
+        height: 19px;
+        fill: var(--st-cyan);
+        flex-shrink: 0;
+        transition: transform 0.3s ease;
+        filter: drop-shadow(0 0 4px rgba(46,230,255,0.45));
+      }
+
+      .st-btn:hover .st-icon { transform: rotate(90deg) scale(1.08); }
+      .st-btn.active .st-icon { transform: rotate(180deg); }
+
+      .st-label {
+        font-size: 0.88em;
+        font-weight: 600;
+        color: var(--st-cyan);
+        letter-spacing: 1px;
+        max-width: 380px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .st-btn:hover .st-label, .st-btn.active .st-label {
+        text-shadow: 0 0 10px rgba(46,230,255,0.45);
+      }
+
+      .st-panel {
+        display: none;
+        margin: 10px 0 22px;
+        background: linear-gradient(135deg, var(--st-bg-1), var(--st-bg-2));
+        border: 1px solid var(--st-line);
+        border-radius: 10px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        overflow: hidden;
+        position: relative;
+        animation: stFadeIn 0.35s ease;
+      }
+
+      .st-panel.show { display: block; }
+
+      @keyframes stFadeIn {
+        from { opacity: 0; transform: translateY(-12px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .st-panel::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, var(--st-cyan), transparent);
+        background-size: 50% 100%;
+        background-repeat: no-repeat;
+        animation: stScan 3.2s linear infinite;
+        z-index: 2;
+      }
+
+      @keyframes stScan {
+        0% { background-position: -60% 0; }
+        100% { background-position: 160% 0; }
+      }
+
+      .st-banner {
+        padding: 16px 18px 14px;
+        background:
+          radial-gradient(ellipse at 20% 0%, rgba(46,230,255,0.12), transparent 55%),
+          linear-gradient(180deg, rgba(46,230,255,0.06), transparent);
+        border-bottom: 1px solid var(--st-line);
+      }
+
+      .st-banner-main {
+        font-size: 1.06em;
+        font-weight: 800;
+        letter-spacing: 2px;
+        color: var(--st-cyan);
+        text-shadow: 0 0 14px rgba(46,230,255,0.4);
+      }
+
+      .st-banner-tags {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+        font-size: 0.78em;
+      }
+
+      .st-tag {
+        padding: 1px 10px;
+        border-radius: 3px;
+        border: 1px solid rgba(46,230,255,0.3);
+        background: var(--st-cyan-bg);
+        color: #9be8f5;
+        letter-spacing: 0.5px;
+      }
+
+      .st-tag b { color: var(--st-cyan); font-weight: 700; }
+
+      .st-stage {
+        padding: 14px 18px 6px;
+        border-bottom: 1px dashed rgba(255,255,255,0.06);
+      }
+
+      .st-stage:last-child { border-bottom: none; }
+
+      .st-stage-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .st-stage-no {
+        flex-shrink: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.72em;
+        font-weight: 800;
+        color: var(--st-cyan);
+        border: 1px solid rgba(46,230,255,0.4);
+        background: var(--st-cyan-bg);
+        clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+      }
+
+      .st-stage-name {
+        font-size: 0.94em;
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: #bfeef8;
+      }
+
+      .st-stage-line {
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, rgba(46,230,255,0.35), transparent);
+      }
+
+      .st-stage.t-story  .st-stage-no { color:#c084fc; border-color:rgba(192,132,252,0.4); background:rgba(192,132,252,0.08); }
+      .st-stage.t-story  .st-stage-name { color: #e2cffc; }
+      .st-stage.t-story  .st-stage-line { background: linear-gradient(90deg, rgba(192,132,252,0.35), transparent); }
+      .st-stage.t-loot   .st-stage-no { color:#fb923c; border-color:rgba(251,146,60,0.4); background:rgba(251,146,60,0.08); }
+      .st-stage.t-loot   .st-stage-name { color: #fed7aa; }
+      .st-stage.t-loot   .st-stage-line { background: linear-gradient(90deg, rgba(251,146,60,0.35), transparent); }
+      .st-stage.t-income .st-stage-no { color:#f5d76e; border-color:rgba(212,175,55,0.45); background:rgba(212,175,55,0.08); }
+      .st-stage.t-income .st-stage-name { color: #f8e6ab; }
+      .st-stage.t-income .st-stage-line { background: linear-gradient(90deg, rgba(212,175,55,0.4), transparent); }
+      .st-stage.t-epilogue .st-stage-no { color:#86efac; border-color:rgba(134,239,172,0.4); background:rgba(134,239,172,0.07); }
+      .st-stage.t-epilogue .st-stage-name { color: #c9f5d9; }
+      .st-stage.t-epilogue .st-stage-line { background: linear-gradient(90deg, rgba(134,239,172,0.35), transparent); }
+
+      .st-kv {
+        display: flex;
+        gap: 8px;
+        padding: 3px 0;
+        font-size: 0.85em;
+        align-items: baseline;
+      }
+
+      .st-kv .k {
+        flex-shrink: 0;
+        min-width: 5.5em;
+        font-weight: 700;
+        color: var(--st-cyan);
+      }
+
+      .st-kv .v { color: var(--st-text); word-break: break-word; }
+      .st-kv.effect .v { color: #f0abda; }
+      .st-kv.income-v .v { color: #f8e6ab; }
+
+      .st-sub {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 10px 0 6px;
+        font-size: 0.8em;
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: #a8e8f5;
+      }
+
+      .st-sub::before {
+        content: '◈';
+        color: var(--st-cyan-dim);
+        font-size: 0.9em;
+      }
+
+      .st-sub::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, rgba(46,230,255,0.22), transparent);
+      }
+
+      .st-brand {
+        margin: 8px 0 12px;
+        padding: 12px 16px;
+        text-align: center;
+        position: relative;
+        background:
+          radial-gradient(ellipse at 50% 0%, rgba(192,132,252,0.14), transparent 70%),
+          rgba(255,255,255,0.02);
+        border: 1px solid rgba(192,132,252,0.25);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      .st-brand-label { font-size: 0.7em; letter-spacing: 4px; color: #a78bfa; margin-bottom: 4px; }
+      .st-brand-name { font-size: 1.3em; font-weight: 900; letter-spacing: 6px; color: #e9d5ff; text-shadow: 0 0 18px rgba(192,132,252,0.55); }
+      .st-brand::before, .st-brand::after { content: ''; position: absolute; top: 50%; width: 42px; height: 1px; background: linear-gradient(90deg, transparent, rgba(192,132,252,0.6)); }
+      .st-brand::before { left: 10px; }
+      .st-brand::after { right: 10px; transform: scaleX(-1); }
+
+      .st-tl { margin: 4px 0 8px; }
+      .st-tl-item { position: relative; padding: 6px 10px 6px 22px; margin: 4px 0; background: rgba(255,255,255,0.03); border-radius: 6px; font-size: 0.84em; transition: background 0.2s; }
+      .st-tl-item:hover { background: rgba(255,255,255,0.055); }
+      .st-tl-item::before { content: ''; position: absolute; left: 8px; top: 13px; width: 5px; height: 5px; border-radius: 50%; background: var(--st-cyan); box-shadow: 0 0 6px rgba(46,230,255,0.7); }
+      .st-tl-item::after { content: ''; position: absolute; left: 10px; top: 20px; bottom: -8px; width: 1px; background: rgba(46,230,255,0.16); }
+      .st-tl-item:last-child::after { display: none; }
+      .st-tl-item .t { font-weight: 700; color: #9be8f5; }
+      .st-tl-item.rumor::before { background: #c084fc; box-shadow: 0 0 6px rgba(192,132,252,0.7); }
+      .st-tl-item.rumor::after { background: rgba(192,132,252,0.16); }
+      .st-tl-item.rumor .t { color: #d8b4fe; }
+      .st-tl-item .d { color: #b9c4d2; }
+
+      .st-rate-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 4px 0; font-size: 0.85em; }
+      .st-rate-row .k { font-weight: 700; color: var(--st-cyan); min-width: 5.5em; flex-shrink: 0; }
+      .st-grade { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; padding: 1px 8px; border-radius: 4px; border: 1px solid; font-weight: 900; font-size: 0.92em; letter-spacing: 1px; }
+      .st-grade.g-F { color:#94a3b8; border-color:#94a3b8; background:rgba(148,163,184,0.14); }
+      .st-grade.g-E { color:#f8fafc; border-color:#f8fafc; background:rgba(248,250,252,0.10); }
+      .st-grade.g-D { color:#22c55e; border-color:#22c55e; background:rgba(34,197,94,0.14); }
+      .st-grade.g-C { color:#3b82f6; border-color:#3b82f6; background:rgba(59,130,246,0.14); }
+      .st-grade.g-B { color:#a855f7; border-color:#a855f7; background:rgba(168,85,247,0.16); }
+      .st-grade.g-A { color:#f97316; border-color:#f97316; background:rgba(249,115,22,0.16); }
+      .st-grade.g-S { color:#eab308; border-color:#eab308; background:rgba(234,179,8,0.16); text-shadow:0 0 5px rgba(234,179,8,0.55); }
+      .st-grade.g-SS { color:#ef4444; border-color:#ef4444; background:rgba(239,68,68,0.18); text-shadow:0 0 5px rgba(239,68,68,0.6); }
+      .st-grade.g-SSS { color:#ec4899; border-color:#ec4899; background:rgba(236,72,153,0.2); text-shadow:0 0 6px rgba(236,72,153,0.7); box-shadow:0 0 7px rgba(236,72,153,0.4); }
+      .st-grade.reincarnator { min-width: 46px; font-size: 1.25em; padding: 3px 12px; animation: stPulse 2.2s ease-in-out infinite; }
+      .st-grade.wave { font-size: 0.8em; color: var(--st-text-dim); border: none; background: none; min-width: 0; padding: 0; text-shadow: none; letter-spacing: 0; font-weight: 400; }
+      @keyframes stPulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.35); } }
+
+      .st-stab { margin: 8px 0 4px; padding: 8px 12px; background: rgba(255,255,255,0.03); border-radius: 6px; font-size: 0.8em; }
+      .st-stab-label { display: flex; justify-content: space-between; margin-bottom: 5px; color: var(--st-text-dim); }
+      .st-stab-label b { color: var(--st-text); }
+      .st-stab-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.08); overflow: hidden; }
+      .st-stab-fill { height: 100%; width: 0; border-radius: 3px; background: linear-gradient(90deg, #f87171, #facc15, #4ade80); box-shadow: 0 0 8px rgba(74,222,128,0.35); transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1); }
+
+      .st-comment { margin: 8px 0; padding: 10px 14px; font-size: 0.83em; color: #aec3d4; border-left: 2px solid rgba(46,230,255,0.45); background: linear-gradient(90deg, rgba(46,230,255,0.06), transparent); border-radius: 0 6px 6px 0; line-height: 1.7; }
+
+      .st-calc-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 5px 10px; margin: 3px 0; font-size: 0.83em; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; transition: all 0.2s; }
+      .st-calc-row:hover { background: rgba(212,175,55,0.06); border-color: rgba(212,175,55,0.25); }
+      .st-calc-src { font-weight: 700; color: #9be8f5; flex-shrink: 0; }
+      .st-calc-formula { flex: 1; min-width: 140px; color: var(--st-text-dim); font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 0.92em; letter-spacing: 0.3px; }
+      .st-calc-sum { flex-shrink: 0; font-weight: 800; color: var(--st-gold); font-family: 'Cascadia Code', 'Consolas', monospace; }
+
+      .st-sum-rows { margin: 4px 0 10px; padding: 8px 12px; border-radius: 6px; background: rgba(212,175,55,0.05); border: 1px dashed rgba(212,175,55,0.25); font-size: 0.8em; }
+      .st-sum-row { display: flex; gap: 8px; padding: 2px 0; color: #cbb98a; }
+      .st-sum-row .k { min-width: 7em; font-weight: 700; color: #b8a36b; }
+      .st-sum-row .v { color: var(--st-gold); font-weight: 700; }
+      .st-sum-row.final .v { color: #ffe9a0; text-shadow: 0 0 8px rgba(245,215,110,0.4); }
+
+      .st-task-reward-box {
+        border-color: rgba(134,239,172,0.25);
+        background: rgba(134,239,172,0.035);
+      }
+      .st-task-reward-box .st-sum-row .k {
+        min-width: 7em;
+        color: #86efac;
+      }
+      .st-task-reward-box .st-sum-row .v {
+        color: #c8d3df;
+        font-weight: 500;
+      }
+      .st-task-reward-box .st-sum-row .v.reward-ok {
+        color: #b4ddc3;
+      }
+
+      .st-punish { padding: 8px 12px; margin: 4px 0; background: linear-gradient(90deg, rgba(239,68,68,0.1), rgba(239,68,68,0.03)); border: 1px solid rgba(239,68,68,0.3); border-radius: 6px; font-size: 0.83em; }
+      .st-punish .t { font-weight: 700; color: var(--st-red); margin-right: 6px; }
+      .st-punish .d { color: #fda4af; word-break: break-word; }
+
+      .st-empty { padding: 6px 12px; margin: 4px 0; font-size: 0.8em; color: #7d8fa1; border: 1px dashed rgba(255,255,255,0.12); border-radius: 6px; }
+      .st-note { padding: 3px 0; font-size: 0.76em; color: #7d8fa1; letter-spacing: 0.3px; }
+      .st-notice { margin: 10px 0; padding: 9px 14px; font-size: 0.8em; color: #9be8f5; border: 1px dashed rgba(46,230,255,0.3); border-radius: 6px; background: rgba(46,230,255,0.04); letter-spacing: 0.4px; }
+      .st-warehouse { margin-top: 8px; padding: 7px 12px; font-size: 0.76em; color: #9fb3c6; background: rgba(255,255,255,0.03); border-radius: 6px; border-left: 2px solid rgba(46,230,255,0.35); word-break: break-all; }
+
+      .st-total { margin: 12px 0 6px; padding: 16px; text-align: center; position: relative; border: 1px solid rgba(212,175,55,0.4); border-radius: 10px; background: radial-gradient(ellipse at 50% 0%, rgba(212,175,55,0.16), transparent 65%), linear-gradient(180deg, rgba(212,175,55,0.07), rgba(212,175,55,0.02)); }
+      .st-total::before, .st-total::after { content: ''; position: absolute; width: 18px; height: 18px; border: 2px solid var(--st-gold-deep); }
+      .st-total::before { top: -2px; left: -2px; border-right: none; border-bottom: none; }
+      .st-total::after { bottom: -2px; right: -2px; border-left: none; border-top: none; }
+      .st-total-label { font-size: 0.74em; letter-spacing: 5px; color: var(--st-gold-deep); margin-bottom: 6px; }
+      .st-total-num { font-size: 1.9em; font-weight: 900; font-family: 'Cascadia Code', 'Consolas', monospace; color: var(--st-gold); text-shadow: 0 0 22px rgba(245,215,110,0.5); letter-spacing: 1px; }
+      .st-total-num .unit { font-size: 0.5em; font-weight: 700; letter-spacing: 2px; margin-left: 6px; color: #d8c48a; }
+      .st-total.neg .st-total-num { color: var(--st-red); text-shadow: 0 0 22px rgba(239,68,68,0.5); }
+      .st-total.neg { border-color: rgba(239,68,68,0.45); background: radial-gradient(ellipse at 50% 0%, rgba(239,68,68,0.14), transparent 65%), linear-gradient(180deg, rgba(239,68,68,0.06), transparent); }
+      .st-total.neg .st-total-label { color: #ef6a6a; }
+      .st-total.neg::before, .st-total.neg::after { border-color: #ef4444; }
+      .st-total-debt { margin-top: 6px; font-size: 0.76em; color: var(--st-red); letter-spacing: 1px; }
+      .st-total-done { margin-top: 4px; font-size: 0.72em; color: #a89a6d; letter-spacing: 3px; }
+
+      .st-cert { margin: 10px 0; padding: 14px 16px; border: 1px solid rgba(245,215,110,0.4); border-radius: 8px; background: linear-gradient(135deg, rgba(212,175,55,0.1), rgba(212,175,55,0.03)); }
+      .st-cert-title { display: flex; align-items: center; gap: 8px; font-weight: 800; letter-spacing: 2px; color: var(--st-gold); font-size: 0.92em; margin-bottom: 8px; text-shadow: 0 0 10px rgba(245,215,110,0.35); }
+      .st-cert-desc { font-size: 0.8em; color: #d6c791; line-height: 1.7; padding: 2px 0; }
+      .st-cert.no-grant { border-color: rgba(148,163,184,0.28); background: linear-gradient(135deg, rgba(148,163,184,0.07), rgba(148,163,184,0.02)); }
+      .st-cert.no-grant .st-cert-title { color: #cbd5e1; text-shadow: none; }
+      .st-cert-status { font-size: 0.84em; font-weight: 700; color: #cbd5e1; padding: 2px 0 5px; }
+      .st-cert-reasons { margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(245,215,110,0.18); }
+      .st-cert.no-grant .st-cert-reasons { border-top-color: rgba(148,163,184,0.16); }
+      .st-cert-reason { position: relative; padding: 2px 0 2px 14px; font-size: 0.78em; line-height: 1.65; color: #c9bd95; }
+      .st-cert.no-grant .st-cert-reason { color: #aeb8c6; }
+      .st-cert-reason::before { content: '•'; position: absolute; left: 2px; color: currentColor; opacity: 0.72; }
+
+      .st-trial-check { margin: 10px 0; padding: 14px 16px; border: 1px solid rgba(134,239,172,0.4); border-radius: 8px; background: linear-gradient(135deg, rgba(134,239,172,0.09), rgba(134,239,172,0.02)); }
+      .st-trial-check.pending { border-color: rgba(251,146,60,0.42); background: linear-gradient(135deg, rgba(251,146,60,0.08), rgba(251,146,60,0.02)); }
+      .st-trial-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+      .st-trial-title { color:#86efac; font-size:0.9em; font-weight:800; letter-spacing:1px; text-shadow:0 0 10px rgba(134,239,172,0.28); }
+      .st-trial-check.pending .st-trial-title { color:#fdba74; text-shadow:0 0 10px rgba(251,146,60,0.24); }
+      .st-trial-count { color:#b9c8d6; font:700 0.76em 'Cascadia Code','Consolas',monospace; }
+      .st-trial-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:10px; padding:6px 10px; margin:4px 0; border:1px solid rgba(255,255,255,0.07); border-radius:6px; background:rgba(255,255,255,0.025); }
+      .st-trial-name { min-width:0; overflow:hidden; text-overflow:ellipsis; color:#c8d3df; font-size:0.8em; }
+      .st-trial-state { padding:1px 8px; border-radius:999px; border:1px solid; font-size:0.72em; font-weight:800; white-space:nowrap; }
+      .st-trial-state.ok { color:#86efac; border-color:rgba(134,239,172,0.4); background:rgba(134,239,172,0.07); }
+      .st-trial-state.wait { color:#fdba74; border-color:rgba(251,146,60,0.4); background:rgba(251,146,60,0.07); }
+      .st-trial-state.bad { color:#f87171; border-color:rgba(248,113,113,0.4); background:rgba(248,113,113,0.07); }
+      .st-trial-bar { height:6px; margin:9px 0 8px; overflow:hidden; border-radius:3px; background:rgba(255,255,255,0.08); }
+      .st-trial-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,#22c55e,#86efac); transition:width .45s ease; }
+
+      /* ===== 晋升试炼盖章结果 ===== */
+      .st-trial-result {
+        min-height: 58px;
+        padding: 10px 12px 3px;
+        border-top: 1px dashed rgba(255,255,255,0.1);
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        overflow: hidden;
+      }
+      .st-trial-stamp {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 128px;
+        padding: 7px 16px 6px;
+        border: 2px solid currentColor;
+        border-radius: 4px;
+        font-family: "STKaiti", "KaiTi", "Microsoft YaHei", sans-serif;
+        font-size: 1.02em;
+        font-weight: 900;
+        letter-spacing: 4px;
+        line-height: 1.15;
+        opacity: 0.9;
+        transform: rotate(-5deg);
+        transform-origin: center;
+        text-shadow: 0 0 5px currentColor;
+        box-shadow: inset 0 0 0 2px rgba(0,0,0,0.42), 0 0 9px rgba(0,0,0,0.25);
+      }
+      .st-trial-stamp::before {
+        content: '';
+        position: absolute;
+        inset: 3px;
+        border: 1px dashed currentColor;
+        border-radius: 2px;
+        opacity: 0.65;
+        pointer-events: none;
+      }
+      .st-trial-stamp::after {
+        content: '';
+        position: absolute;
+        left: 8%;
+        right: 8%;
+        top: 50%;
+        height: 1px;
+        background: currentColor;
+        opacity: 0.16;
+        transform: rotate(-2deg);
+        pointer-events: none;
+      }
+      .st-trial-stamp.pass {
+        color: #86efac;
+        background: rgba(34,197,94,0.055);
+        filter: drop-shadow(0 0 4px rgba(134,239,172,0.25));
+      }
+      .st-trial-stamp.fail {
+        color: #f87171;
+        background: rgba(239,68,68,0.055);
+        transform: rotate(5deg);
+        filter: drop-shadow(0 0 5px rgba(248,113,113,0.3));
+      }
+
+      .st-relic { margin: 12px 0; padding: 16px 18px; border: 1px solid rgba(236,72,153,0.35); border-radius: 10px; background: radial-gradient(ellipse at 30% 0%, rgba(236,72,153,0.12), transparent 60%), linear-gradient(180deg, rgba(236,72,153,0.05), transparent); position: relative; overflow: hidden; }
+      .st-relic::after { content: '✦'; position: absolute; right: 14px; top: 10px; font-size: 1.4em; color: rgba(236,72,153,0.35); text-shadow: 0 0 12px rgba(236,72,153,0.5); animation: stTwinkle 2.6s ease-in-out infinite; }
+      @keyframes stTwinkle { 0%, 100% { opacity: 0.35; transform: scale(1) rotate(0deg); } 50% { opacity: 0.9; transform: scale(1.15) rotate(18deg); } }
+      .st-relic-label { font-size: 0.7em; letter-spacing: 4px; color: #f0abda; margin-bottom: 8px; }
+      .st-relic-name { font-size: 1.02em; font-weight: 800; letter-spacing: 1px; color: #f9a8d4; text-shadow: 0 0 12px rgba(236,72,153,0.4); margin-bottom: 8px; }
+      .st-relic .st-kv .k { color: #f0abda; }
+      .st-relic-quote { margin-top: 10px; padding: 10px 14px; font-size: 0.85em; font-style: italic; color: #e9c6dc; text-align: center; border-top: 1px dashed rgba(236,72,153,0.25); line-height: 1.8; }
+      .st-relic.gold { border-color: rgba(212,175,55,0.4); background: radial-gradient(ellipse at 30% 0%, rgba(212,175,55,0.12), transparent 60%), linear-gradient(180deg, rgba(212,175,55,0.05), transparent); }
+      .st-relic.gold::after { color: rgba(212,175,55,0.4); text-shadow: 0 0 12px rgba(212,175,55,0.5); }
+      .st-relic.gold .st-relic-label { color: #d8c48a; }
+      .st-relic.gold .st-relic-name { color: var(--st-gold); text-shadow: 0 0 12px rgba(212,175,55,0.4); }
+      .st-relic.gold .st-kv .k { color: #e6cf95; }
+      .st-relic.gold .st-relic-quote { color: #e9dbb2; border-top-color: rgba(212,175,55,0.25); }
+
+      .st-reason-head { margin: 10px 0 3px; font-size: 0.72em; font-weight: 700; letter-spacing: 3px; color: #d8c48a; }
+      .st-reason { position: relative; padding: 2px 0 2px 15px; font-size: 0.78em; color: #b3a888; word-break: break-word; }
+      .st-reason::before { content: '▪'; position: absolute; left: 3px; color: rgba(212,175,55,0.65); }
+      .st-relic:not(.gold) .st-reason-head { color: #d8a3c8; }
+      .st-relic:not(.gold) .st-reason { color: #c2b0cb; }
+      .st-relic:not(.gold) .st-reason::before { color: rgba(236,72,153,0.5); }
+      .st-verdict { display: inline-block; margin: 8px 0 2px; padding: 4px 12px; font-size: 0.8em; font-weight: 700; border-radius: 4px; letter-spacing: 0.5px; }
+      .st-verdict.ok { color:#86efac; background:rgba(134,239,172,0.08); border:1px solid rgba(134,239,172,0.3); }
+      .st-verdict.no { color:#8fa0b3; background:rgba(255,255,255,0.03); border:1px dashed rgba(255,255,255,0.15); }
+
+      .st-loot-item { padding: 7px 12px; margin: 4px 0; background: rgba(251,146,60,0.05); border: 1px solid rgba(251,146,60,0.2); border-radius: 6px; font-size: 0.83em; transition: background 0.2s; }
+      .st-loot-item:hover { background: rgba(251,146,60,0.09); }
+      .st-loot-item .n { font-weight: 700; color: #fdba74; }
+      .st-loot-item .d { color: #c7b6a4; }
+      .st-loot-item .compress { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 3px; font-size: 0.88em; font-weight: 700; color: #fdba74; border: 1px solid rgba(251,146,60,0.4); background: rgba(251,146,60,0.1); }
+
+      .st-para { font-size: 0.84em; color: #b9c8d6; padding: 4px 0; line-height: 1.8; text-align: justify; }
+      .st-closing { margin: 12px 0 8px; padding: 12px; text-align: center; font-size: 0.86em; font-weight: 700; letter-spacing: 2px; color: #86efac; background: linear-gradient(90deg, transparent, rgba(134,239,172,0.08), transparent); border-top: 1px solid rgba(134,239,172,0.2); border-bottom: 1px solid rgba(134,239,172,0.2); text-shadow: 0 0 10px rgba(134,239,172,0.3); }
+      .st-plain-line { padding: 3px 0; font-size: 0.87em; color: var(--st-text); white-space: pre-wrap; word-break: break-word; }
+
+      @media (max-width: 600px) {
+        body { padding: 10px; }
+        .st-btn { max-width: 96%; }
+        .st-label { max-width: calc(88vw - 54px); }
+        .st-banner { padding: 13px 13px 11px; }
+        .st-stage { padding: 12px 13px 4px; }
+        .st-kv { flex-direction: column; gap: 0; padding: 3px 0; }
+        .st-kv .k { min-width: 0; }
+        .st-rate-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+        .st-rate-row .k { min-width: 0; }
+        .st-calc-row { flex-wrap: wrap; }
+        .st-calc-formula { min-width: 100%; order: 3; }
+        .st-total-num { font-size: 1.55em; }
+        .st-brand-name { font-size: 1.1em; letter-spacing: 4px; }
+        .st-trial-row { grid-template-columns:minmax(0,1fr) auto; }
+        .st-task-reward-box .st-sum-row { flex-direction: row; }
+        .st-trial-result { min-height: 52px; padding-right: 6px; }
+        .st-trial-stamp { min-width: 112px; font-size: 0.92em; letter-spacing: 3px; }
+      }
+    </style>
+</head>
+<body>
+
+    <!-- 替换模板开始 -->
+    <div class="st-wrapper">
+      <div class="st-btn">
+        <svg class="st-icon" viewBox="0 0 24 24">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95.49-7.4-2.47-7.4-6.42 0-1.74.69-3.31 1.81-4.46l1.42 1.42C7.88 10.42 7.4 11.55 7.4 12.8c0 2.81 2.29 5.1 5.11 5.1.16 0 .33-.01.49-.02v1.05zm0-3.94v1.02c-2.14-.25-3.81-2.05-3.81-4.25 0-1.06.39-2.03 1.03-2.78l1.44 1.44c-.31.4-.5.9-.5 1.45 0 .87.55 1.61 1.32 1.9l.52.52v.7zm6.59 1.94l-1.42-1.42c.71-1.02 1.13-2.26 1.13-3.6 0-3.47-2.83-6.3-6.3-6.3-.2 0-.4.01-.6.03V5.07c3.95-.49 7.4 2.47 7.4 6.42 0 1.79-.7 3.41-1.85 4.62l1.64 1.82z"/>
+        </svg>
+        <span class="st-label"></span>
+      </div>
+      <div class="st-panel"></div>
+      <div class="st-raw" style="display:none;">$1</div>
+
+      <script>
+        (function() {
+          'use strict';
+          const currentScript = document.currentScript;
+          if (!currentScript) return;
+          const wrapper = currentScript.closest('.st-wrapper');
+          if (!wrapper) return;
+
+          function escapeHtml(s) {
+            if (typeof s !== 'string') return '';
+            return s.replace(/&/g, '&')
+                .replace(/</g, '<')
+                .replace(/>/g, '>')
+                .replace(/"/g, '"');
+          }
+
+          function stripDecor(s) {
+            return String(s || '')
+                .replace(/\*\*/g, '')
+                .replace(/^[*_\s]+/, '')
+                .replace(/[*_\s]+$/, '')
+                .trim();
+          }
+
+          const GRADES = ['F','E','D','C','B','A','S','SS','SSS'];
+
+          // 结算容错：主神任务/晋升试炼的完成态允许常见同义写法，避免AI偶发措辞漂移被误判失败。
+          const SETTLEMENT_SUCCESS_STATUSES = new Set(['可结算','可交付','待结算','结算','已结算','完成','已完成','结算完成']);
+          const SETTLEMENT_FAILURE_STATUSES = new Set(['失败','已失败','任务失败']);
+          function settlementTaskStatus(value) { return String(value || '').trim(); }
+          function isSettlementTaskSuccessful(value) { return SETTLEMENT_SUCCESS_STATUSES.has(settlementTaskStatus(value)); }
+          function isSettlementTaskFailed(value) { return SETTLEMENT_FAILURE_STATUSES.has(settlementTaskStatus(value)); }
+          function isSettlementTaskTerminal(value) { return isSettlementTaskSuccessful(value) || isSettlementTaskFailed(value); }
+
+          function gradeTier(d) {
+            const m = String(d || '').toUpperCase().match(/(SSS|SS|S|A|B|C|D|E|F)/);
+            return m ? m[1] : 'F';
+          }
+
+          function gradeFloor(v) {
+            const s = String(v || '').toUpperCase();
+            const all = s.match(/(SSS|SS|S|A|B|C|D|E|F)/g) || [];
+            if (!all.length) return '';
+            let best = all[0];
+            for (const g of all) if (GRADES.indexOf(g) < GRADES.indexOf(best)) best = g;
+            return best;
+          }
+
+          function parseCnNum(s) {
+            const m = String(s || '').replace(/[,，]/g, '').match(/-?\d+(?:\.\d+)?(?:万)?/);
+            if (!m) return null;
+            let n = parseFloat(m[0].replace('万', ''));
+            if (/万$/.test(m[0])) n *= 10000;
+            return isFinite(n) ? n : null;
+          }
+
+          function fmtNum(n) {
+            if (n == null || !isFinite(n)) return '';
+            const neg = n < 0;
+            const v = Math.abs(Math.round(n));
+            return (neg ? '-' : '') + v.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+          }
+
+          // SETTLEMENT_COIN_CORE_START
+          const SETTLEMENT_COIN_GRADES = ['F','E','D','C','B','A','S','SS','SSS'];
+          const SETTLEMENT_COIN_BASES = [100,500,2500,12000,50000,200000,800000,3200000,12800000];
+          const SETTLEMENT_KILL_TIERS = ['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'];
+          const SETTLEMENT_KILL_UNITS = [10,50,250,1200,5000,20000,80000,320000,1280000];
+
+          function parseSpaceCoinTotal(value, penaltyMode) {
+            let source = String(value || '').replace(/[,，]/g, '');
+            const values = [];
+            function take(re) {
+              source = source.replace(re, function(_, num, wan) {
+                let n = Number(num);
+                if (!Number.isFinite(n)) return '';
+                if (wan) n *= 10000;
+                values.push(n);
+                return '';
+              });
+            }
+            take(/(-?\d+(?:\.\d+)?)\s*(万)?\s*空间币/g);
+            take(/空间币\s*(?:奖励|惩罚|扣除|损失|减少|[：:]|\s)*\s*(-?\d+(?:\.\d+)?)\s*(万)?/g);
+            return values.reduce(function(sum, n) {
+              return sum + (penaltyMode ? Math.abs(n) : Math.max(0, n));
+            }, 0);
+          }
+
+          function stripSpaceCoinText(value) {
+            return String(value || '')
+              .split(/[；;、|｜+＋\n]+/)
+              .map(function(x) { return x.trim(); })
+              .filter(function(x) { return x && x.indexOf('空间币') < 0; })
+              .join('；');
+          }
+
+          function calculateSpaceCoinSettlement(data) {
+            const stat = data && (data.stat_data || data) || {};
+            const isSingleWorld = !!(stat.设置 && stat.设置.单一世界 === true);
+            const grades = String(stat.世界 && stat.世界.难度 || '').toUpperCase().match(/SSS|SS|S|A|B|C|D|E|F/g) || [];
+            let gradeIndex = grades.length ? Math.min.apply(null, grades.map(function(g) { return SETTLEMENT_COIN_GRADES.indexOf(g); }).filter(function(i) { return i >= 0; })) : 0;
+            if (!Number.isFinite(gradeIndex) || gradeIndex < 0) gradeIndex = 0;
+            const base = SETTLEMENT_COIN_BASES[gradeIndex] || 0;
+
+            // SETTLEMENT_COIN_TASK_INDEPENDENCE
+            // 空间币金额是任务数据事实：只看任务终态与明确金额，不以委托方/任务身份作为发放权限。
+            const taskRewardDetails = [];
+            const penaltyDetails = [];
+            const taskList = stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
+            Object.keys(taskList).forEach(function(name) {
+              const task = taskList[name] || {};
+              if (isSettlementTaskSuccessful(task.状态)) {
+                const amount = parseSpaceCoinTotal(task.奖励, false);
+                if (amount > 0) taskRewardDetails.push({ name:name, amount:amount });
+              } else if (isSettlementTaskFailed(task.状态)) {
+                const amount = parseSpaceCoinTotal(task.惩罚, true);
+                if (amount > 0) penaltyDetails.push({ name:name, amount:amount });
+              }
+            });
+            const taskReward = taskRewardDetails.reduce(function(sum, x) { return sum + x.amount; }, 0);
+            const penalty = penaltyDetails.reduce(function(sum, x) { return sum + x.amount; }, 0);
+
+            const kills = stat.任务 && stat.任务.击杀 && typeof stat.任务.击杀 === 'object' ? stat.任务.击杀 : {};
+            const killDetails = [];
+            let killRaw = 0;
+            SETTLEMENT_KILL_TIERS.forEach(function(tier, index) {
+              const count = Math.max(0, Number(kills[tier]) || 0);
+              if (!count) return;
+              const unit = SETTLEMENT_KILL_UNITS[index];
+              const subtotal = count * unit;
+              killRaw += subtotal;
+              killDetails.push({ tier:tier, count:count, unit:unit, subtotal:subtotal });
+            });
+            const killCap = base * 10;
+            const killReward = Math.min(killRaw, killCap);
+
+            const explorationDetails = [];
+            let explorationRaw = 0;
+            const exploration = stat.世界 && stat.世界.探索 && typeof stat.世界.探索 === 'object' ? stat.世界.探索 : {};
+            if (!isSingleWorld) {
+              Object.keys(exploration).forEach(function(name) {
+                const entry = exploration[name] || {};
+                const progress = Math.max(0, Math.min(100, Number(entry.探索度) || 0));
+                if (!progress) return;
+                if (progress !== 100) return;
+                const subtotal = base * 0.5;
+                explorationRaw += subtotal;
+                explorationDetails.push({ name:name, progress:progress, subtotal:subtotal });
+              });
+            }
+            const explorationCap = base * 3;
+            const explorationReward = isSingleWorld ? 0 : Math.min(explorationRaw, explorationCap);
+
+            const reputationDetails = [];
+            let reputationRaw = 0;
+            const factions = stat.世界 && stat.世界.势力 && typeof stat.世界.势力 === 'object' ? stat.世界.势力 : {};
+            if (!isSingleWorld) {
+              Object.keys(factions).forEach(function(name) {
+                const entry = factions[name] || {};
+                const reputation = Number(entry.声望) || 0;
+                if (reputation <= 0) return;
+                const subtotal = base * reputation / 100;
+                reputationRaw += subtotal;
+                reputationDetails.push({ name:name, reputation:reputation, subtotal:subtotal });
+              });
+            }
+            const reputationCap = base * 3;
+            const reputationReward = isSingleWorld ? 0 : Math.min(reputationRaw, reputationCap);
+
+            const totalReward = taskReward + killReward + explorationReward + reputationReward - penalty;
+            const balanceBefore = Number(stat.角色 && stat.角色.空间币) || 0;
+            const balanceAfter = balanceBefore + totalReward;
+            return {
+              isSingleWorld:isSingleWorld,
+              base:base,
+              taskRewardDetails:taskRewardDetails,
+              taskReward:taskReward,
+              penaltyDetails:penaltyDetails,
+              penalty:penalty,
+              killDetails:killDetails,
+              killRaw:killRaw,
+              killCap:killCap,
+              killReward:killReward,
+              explorationDetails:explorationDetails,
+              explorationRaw:explorationRaw,
+              explorationCap:explorationCap,
+              explorationReward:explorationReward,
+              reputationDetails:reputationDetails,
+              reputationRaw:reputationRaw,
+              reputationCap:reputationCap,
+              reputationReward:reputationReward,
+              totalReward:totalReward,
+              balanceBefore:balanceBefore,
+              balanceAfter:balanceAfter
+            };
+          }
+          // SETTLEMENT_COIN_CORE_END
+
+          // SETTLEMENT_COIN_WRITE_GUARD_START
+          // SETTLEMENT_COIN_BALANCE_BASELINE_FIX
+          function rebaseSettlementCoinBalance(settlement, authoritativeBefore) {
+            if (!settlement || typeof settlement !== 'object') return settlement;
+            const before = Number(authoritativeBefore);
+            const reward = Number(settlement.totalReward);
+            if (!Number.isFinite(before) || !Number.isFinite(reward)) return settlement;
+            return Object.assign({}, settlement, {
+              balanceBefore: before,
+              balanceAfter: before + reward
+            });
+          }
+
+          function settlementCoinWriteTarget(currentCoin, settlement) {
+            const current = Number(currentCoin);
+            const before = Number(settlement && settlement.balanceBefore);
+            const after = Number(settlement && settlement.balanceAfter);
+            if (!Number.isFinite(current) || !Number.isFinite(before) || !Number.isFinite(after)) return null;
+            // 结算币只允许从“结算前真实余额”推进到“结算后余额”。
+            // 已结算余额以及商城消费后的任意余额都属于后续真实状态，禁止旧结算面板回写覆盖。
+            if (current !== before || current === after) return null;
+            return after;
+          }
+
+          function settlementCoinLegacyRepairTarget(currentCoin, rawSettlement, rebasedSettlement) {
+            const current = Number(currentCoin);
+            const rawBefore = Number(rawSettlement && rawSettlement.balanceBefore);
+            const before = Number(rebasedSettlement && rebasedSettlement.balanceBefore);
+            const after = Number(rebasedSettlement && rebasedSettlement.balanceAfter);
+            if (![current, rawBefore, before, after].every(Number.isFinite)) return null;
+            // 只修旧版“任务快照余额 != 真实结算前余额”导致的漏发；其它旧结算状态一律不补发。
+            if (rawBefore === before) return null;
+            if (current !== before || current === after) return null;
+            return after;
+          }
+          // SETTLEMENT_COIN_WRITE_GUARD_END
+
+          // SETTLEMENT_COIN_MESSAGE_MARKER_START
+          const SETTLEMENT_COIN_MESSAGE_MARKER_KEY = '__samsara_settlement_coin_applied';
+
+          function settlementMessageVarHost(win) {
+            const candidates = [];
+            if (win) candidates.push(win);
+            try { if (typeof window !== 'undefined' && window && !candidates.includes(window)) candidates.push(window); } catch (e) {}
+            try {
+              if (typeof window !== 'undefined' && window && window.parent && !candidates.includes(window.parent)) {
+                candidates.push(window.parent);
+              }
+            } catch (e) {}
+            for (const candidate of candidates) {
+              if (candidate && typeof candidate.getMessageVar === 'function' && typeof candidate.setMessageVar === 'function') {
+                return candidate;
+              }
+            }
+            return null;
+          }
+
+          function settlementMessageVarOptions(messageId, defaults) {
+            const numericId = Number(messageId);
+            const withMsg = Number.isInteger(numericId) && numericId >= 0
+              ? { id: numericId }
+              : { role: 'assistant' };
+            const options = { withMsg: withMsg, noCache: true };
+            if (arguments.length > 1) options.defaults = defaults;
+            return options;
+          }
+
+          function readSettlementCoinMessageMarker(win, messageId) {
+            const host = settlementMessageVarHost(win);
+            if (!host) return '';
+            try {
+              return String(host.getMessageVar(
+                SETTLEMENT_COIN_MESSAGE_MARKER_KEY,
+                settlementMessageVarOptions(messageId, '')
+              ) || '');
+            } catch (e) {
+              return '';
+            }
+          }
+
+          function writeSettlementCoinMessageMarker(win, messageId, marker) {
+            const host = settlementMessageVarHost(win);
+            if (!host) return false;
+            try {
+              host.setMessageVar(
+                SETTLEMENT_COIN_MESSAGE_MARKER_KEY,
+                String(marker || ''),
+                settlementMessageVarOptions(messageId)
+              );
+              return true;
+            } catch (e) {
+              return false;
+            }
+          }
+
+          function settlementCoinReceiptMarker(marker, settlement) {
+            const id = String(marker || '');
+            const before = Number(settlement && settlement.balanceBefore);
+            const after = Number(settlement && settlement.balanceAfter);
+            if (!id || !Number.isFinite(before) || !Number.isFinite(after)) return id;
+            return ['v2', id, before, after].join('|');
+          }
+
+          function settlementCoinMarkerState(recorded, marker) {
+            const value = String(recorded || '');
+            const id = String(marker || '');
+            if (!value) return 'empty';
+            if (value === id) return 'legacy';
+            if (id && value.indexOf('v2|' + id + '|') === 0) return 'applied';
+            return 'other';
+          }
+          // SETTLEMENT_COIN_MESSAGE_MARKER_END
+
+          function clonePlain(value) {
+            try {
+              if (typeof _ !== 'undefined' && _ && _.cloneDeep) return _.cloneDeep(value);
+              return JSON.parse(JSON.stringify(value));
+            } catch (e) { return value; }
+          }
+
+          function getMvuContext() {
+            try {
+              const wins = [];
+              try { if (typeof GS_PARENT !== 'undefined' && GS_PARENT) wins.push(GS_PARENT); } catch (e) {}
+              try { if (window.parent && window.parent !== window) wins.push(window.parent); } catch (e) {}
+              wins.push(window);
+              for (const win of wins) {
+                if (!win || !win.Mvu || typeof win.Mvu.getMvuData !== 'function') continue;
+                const data = win.Mvu.getMvuData({ type: 'message', message_id: 'latest' });
+                if (data) return { win: win, data: data, stat: data.stat_data || data };
+              }
+            } catch (e) {}
+            return null;
+          }
+
+          function isSingleWorldMode() {
+            const ctx = getMvuContext();
+            const stat = ctx && ctx.stat ? ctx.stat : {};
+            return !!(stat.设置 && stat.设置.单一世界 === true);
+          }
+
+
+          function extractTrialTasks(data) {
+            const stat = data && (data.stat_data || data) || {};
+            const list = stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
+            const sys = stat && stat.系统状态 && typeof stat.系统状态 === 'object' ? stat.系统状态 : {};
+            const marked = sys.是否试炼任务 === true;
+            const exactNames = Array.isArray(sys.试炼任务名单)
+              ? sys.试炼任务名单.map(function(name) { return String(name || '').trim(); }).filter(Boolean)
+              : [];
+            let keys = [];
+
+            // 新版：隐藏名单是权威身份，不再依赖AI可改写的委托方。
+            if (marked && exactNames.length) {
+              keys = exactNames.filter(function(key) { return list[key] && typeof list[key] === 'object'; });
+              // 极端旧档若任务被改名，只用委托方关键词补足缺失数量；不得额外扩大试炼集合。
+              const missing = Math.max(0, exactNames.length - keys.length);
+              if (missing > 0) {
+                const fallback = Object.keys(list).filter(function(key) {
+                  if (keys.indexOf(key) >= 0) return false;
+                  const task = list[key];
+                  return task && /(主神|系统|空间|普升|晋升|试炼)/.test(String(task.委托方 || '').trim());
+                });
+                keys = keys.concat(fallback.slice(0, missing));
+              }
+            } else if (marked) {
+              // 兼容已经带试炼标记、但尚无任务名单的过渡存档。
+              keys = Object.keys(list).filter(function(key) {
+                const task = list[key];
+                return task && /(主神|系统|空间|普升|晋升|试炼)/.test(String(task.委托方 || '').trim());
+              });
+            } else {
+              // 旧存档优先沿用标准值；若委托方已被AI改坏，只在同时命中程序级试炼签名时救援。
+              // TRIAL_COMMISSIONER_ALIAS_V2：旧档精确兼容“普升试炼”，不扩大到普通“主神空间”任务。
+              const canonical = Object.keys(list).filter(function(key) {
+                const task = list[key];
+                return task && ['晋升试炼','普升试炼'].includes(String(task.委托方 || '').trim());
+              });
+              if (canonical.length) {
+                keys = canonical;
+              } else {
+                keys = Object.keys(list).filter(function(key) {
+                  const task = list[key];
+                  if (!task || typeof task !== 'object') return false;
+                  const commissioner = String(task.委托方 || '').trim();
+                  if (!/(主神|系统|空间|普升|晋升|试炼)/.test(commissioner)) return false;
+                  const delivery = String(task.交付 || '').trim();
+                  const legacyKey = String(key || '').trim();
+                  return delivery === '全部试炼主任务完成后统一结算' || /晋升试炼[·.]\s*\d+/.test(legacyKey);
+                });
+              }
+            }
+
+            return keys.map(function(key, index) {
+              const task = list[key] || {};
+              return {
+                key: key,
+                name: String(task.名称 || task.任务名 || task.标题 || key || ('晋升试炼·' + (index + 1))),
+                status: String(task.状态 || '').trim()
+              };
+            });
+          }
+          function readTrialTasks() {
+            const ctx = getMvuContext();
+            return extractTrialTasks(ctx && ctx.stat);
+          }
+
+          function settlementTaskKeysForData(data) {
+            const stat = data && (data.stat_data || data) || {};
+            const list = stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
+            const keys = Object.keys(list).filter(function(key) {
+              const commissioner = String(list[key] && list[key].委托方 || '').trim();
+              return commissioner === '主神任务' || commissioner === '晋升试炼' || commissioner === '普升试炼';
+            });
+            extractTrialTasks(data).forEach(function(task) {
+              if (task && task.key && keys.indexOf(task.key) < 0) keys.push(task.key);
+            });
+            return keys;
+          }
+
+          let achievementBaselineData = null;
+          let achievementUsedFallback = false;
+
+          // SETTLEMENT_PANEL_TARGET_START
+          function normalizeSettlementComparableText(value) {
+            return String(value || '').replace(/\r/g, '').replace(/\s+/g, ' ').trim();
+          }
+
+          function latestChatMessage(win) {
+            try {
+              const getMsgs = (typeof getChatMessages === 'function')
+                ? getChatMessages
+                : (win && typeof win.getChatMessages === 'function' ? win.getChatMessages.bind(win) : null);
+              const list = getMsgs ? getMsgs(-1) : null;
+              return list && list[0] ? list[0] : null;
+            } catch (e) {}
+            return null;
+          }
+
+          function latestChatMessageId(message) {
+            const raw = message && (message.message_id != null ? message.message_id : message.id);
+            const id = Number(raw);
+            return Number.isInteger(id) && id >= 0 ? id : null;
+          }
+
+          function extractSettlementBlock(value) {
+            const source = String(value || '');
+            const match = source.match(/<settlement tasks>([\s\S]*?)<\/settlement tasks>/i);
+            return match ? String(match[1] || '').trim() : '';
+          }
+
+          function resolveSettlementRawText(value, win) {
+            const raw = String(value || '');
+            const captureToken = '\u0024' + '1';
+            if (raw.trim() && raw.trim() !== captureToken) return raw;
+
+            let directId = null;
+            const getters = [];
+            try { if (typeof getCurrentMessageId === 'function') getters.push(function() { return getCurrentMessageId(); }); } catch (e) {}
+            try { if (win && typeof win.getCurrentMessageId === 'function') getters.push(function() { return win.getCurrentMessageId(); }); } catch (e) {}
+            try {
+              if (typeof window !== 'undefined' && window.parent && window.parent !== window && typeof window.parent.getCurrentMessageId === 'function') {
+                getters.push(function() { return window.parent.getCurrentMessageId(); });
+              }
+            } catch (e) {}
+            for (const getter of getters) {
+              try {
+                const id = Number(getter());
+                if (Number.isInteger(id) && id >= 0) { directId = id; break; }
+              } catch (e) {}
+            }
+
+            const latest = latestChatMessage(win);
+            const latestId = latestChatMessageId(latest);
+            if (directId !== null && latestId !== null && directId !== latestId) return raw;
+            const body = latest && (latest.message != null ? latest.message : (latest.mes != null ? latest.mes : latest.content));
+            return extractSettlementBlock(body) || raw;
+          }
+
+          function panelTextBelongsToMessage(panelText, message) {
+            const panel = normalizeSettlementComparableText(panelText);
+            const body = normalizeSettlementComparableText(message && (message.message != null ? message.message : (message.mes != null ? message.mes : message.content)));
+            return !!panel && !!body && body.indexOf(panel) >= 0;
+          }
+          // SETTLEMENT_PANEL_TARGET_END
+
+          // SETTLEMENT_SRCDOC_MESSAGE_ID_V3
+          function settlementFrameHostMessageId() {
+            try {
+              let node = (typeof window !== 'undefined') ? window.frameElement : null;
+              let depth = 0;
+              while (node && depth < 12) {
+                let raw = null;
+                try {
+                  if (typeof node.getAttribute === 'function') {
+                    raw = node.getAttribute('mesid');
+                    if (raw == null || raw === '') raw = node.getAttribute('data-message-id');
+                    if (raw == null || raw === '') raw = node.getAttribute('message_id');
+                  }
+                } catch (e) {}
+                try {
+                  if ((raw == null || raw === '') && node.dataset) {
+                    if (node.dataset.messageId != null) raw = node.dataset.messageId;
+                    else if (node.dataset.mesid != null) raw = node.dataset.mesid;
+                  }
+                } catch (e) {}
+                const id = Number(raw);
+                if (raw !== null && raw !== '' && Number.isInteger(id) && id >= 0) return id;
+                node = node.parentElement;
+                depth += 1;
+              }
+            } catch (e) {}
+            return null;
+          }
+
+          function getPanelMessageId(win) {
+            const getters = [];
+            try { if (typeof getCurrentMessageId === 'function') getters.push(function() { return getCurrentMessageId(); }); } catch (e) {}
+            try { if (win && typeof win.getCurrentMessageId === 'function') getters.push(function() { return win.getCurrentMessageId(); }); } catch (e) {}
+            try {
+              if (window.parent && window.parent !== window && typeof window.parent.getCurrentMessageId === 'function') {
+                getters.push(function() { return window.parent.getCurrentMessageId(); });
+              }
+            } catch (e) {}
+            for (const getter of getters) {
+              try {
+                const id = Number(getter());
+                if (Number.isInteger(id) && id >= 0) return id;
+              } catch (e) {}
+            }
+
+            const hostMessageId = settlementFrameHostMessageId();
+            if (hostMessageId !== null) return hostMessageId;
+
+            // 酒馆正则 iframe 中 getCurrentMessageId 可能不可用；只有当前面板原文确实属于 latest 消息时才安全回落。
+            try {
+              const raw = wrapper && wrapper.querySelector ? wrapper.querySelector('.st-raw') : null;
+              const panelText = resolveSettlementRawText(raw ? raw.textContent : '', win);
+              const latest = latestChatMessage(win);
+              if (panelTextBelongsToMessage(panelText, latest)) return latestChatMessageId(latest);
+            } catch (e) {}
+            return null;
+          }
+
+          const ACHIEVEMENT_LOOKBACK = 8;
+
+          function extractAchievementTasks(data) {
+            const stat = data && (data.stat_data || data);
+            const dict = stat && stat.任务 && stat.任务.副本成就 && typeof stat.任务.副本成就 === 'object' ? stat.任务.副本成就 : {};
+            return Object.keys(dict).map(function(key) {
+              const x = dict[key] || {};
+              return { name:String(x.名称 || x.成就名 || key), desc:String(x.说明 || x.描述 || ''), difficulty:String(x.难度 || ''), reward:String(x.奖励 || ''), status:String(x.状态 || '').trim() };
+            });
+          }
+
+          function achievementTaskSignature(tasks) {
+            return (tasks || []).map(function(x) { return String(x && x.name || ''); }).filter(Boolean).sort().join('|');
+          }
+
+          function achievementTaskScore(tasks) {
+            const list = Array.isArray(tasks) ? tasks : [];
+            const achieved = list.filter(function(x) { return String(x && x.status || '').trim() === '已达成'; }).length;
+            return achieved * 1000 + list.length;
+          }
+
+          function preferAchievementTasks(current, candidate) {
+            const a = Array.isArray(current) ? current : [];
+            const b = Array.isArray(candidate) ? candidate : [];
+            if (!b.length) return a;
+            if (!a.length) return b;
+            if (achievementTaskSignature(a) !== achievementTaskSignature(b)) return a;
+            return achievementTaskScore(b) > achievementTaskScore(a) ? b : a;
+          }
+
+          function readAchievementTasks() {
+            achievementUsedFallback = false;
+            if (isSingleWorldMode()) return [];
+
+            const ctx = getMvuContext();
+            const win = ctx && ctx.win;
+            const mvu = win && win.Mvu;
+            const currentId = getPanelMessageId(win);
+            let chosen = [];
+            let signature = '';
+            let firstPreviousData = null;
+
+            function consider(data, fallback) {
+              const tasks = extractAchievementTasks(data);
+              if (!tasks.length) return;
+              const sig = achievementTaskSignature(tasks);
+              if (!signature) signature = sig;
+              if (sig !== signature) return;
+              const preferred = preferAchievementTasks(chosen, tasks);
+              if (preferred !== chosen) {
+                chosen = preferred;
+                achievementUsedFallback = !!fallback;
+              }
+            }
+
+            if (mvu && typeof mvu.getMvuData === 'function' && currentId !== null) {
+              try { consider(mvu.getMvuData({ type:'message', message_id:currentId }), false); } catch (e) {}
+              const currentIsLatest = typeof isLatestPanelMessage === 'function' && isLatestPanelMessage(win, currentId);
+              if (currentIsLatest) consider(ctx && ctx.data, false);
+
+              for (let step=1; step<=ACHIEVEMENT_LOOKBACK; step++) {
+                const id=currentId-step;
+                if (id<0) break;
+                try {
+                  const data=mvu.getMvuData({type:'message',message_id:id});
+                  const tasks=extractAchievementTasks(data);
+                  if (!tasks.length) continue;
+                  const sig=achievementTaskSignature(tasks);
+                  if (!signature) signature=sig;
+                  if (sig!==signature) continue;
+                  if (!firstPreviousData) firstPreviousData=data;
+                  consider(data,true);
+                } catch (e) {}
+              }
+            } else {
+              consider(ctx && ctx.data,false);
+            }
+
+            if (!achievementBaselineData && firstPreviousData) achievementBaselineData=firstPreviousData;
+            return chosen;
+          }
+
+          const SETTLEMENT_BASELINE_LOOKBACK = 8;
+          function settlementSnapshotTaskCount(data) {
+            return settlementTaskKeysForData(data).length;
+          }
+
+          function settlementSnapshotTaskScore(data) {
+            const stat=data && (data.stat_data || data);
+            const list=stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
+            const marked=!!(stat && stat.系统状态 && stat.系统状态.是否试炼任务 === true);
+            let count=0, score=0;
+            settlementTaskKeysForData(data).forEach(function(key) {
+              const task=list[key] || {};
+              count++;
+              const status=String(task.状态 || '').trim();
+              const terminal=(typeof isSettlementTaskTerminal === 'function')
+                ? isSettlementTaskTerminal(status)
+                : ['可结算','可交付','待结算','结算','已结算','完成','已完成','结算完成','失败','已失败','任务失败'].indexOf(status)>=0;
+              if (terminal) score+=100;
+              else if (status) score+=10;
+            });
+            // 活跃试炼标记是程序身份，必须压过历史普通副本快照。
+            return {count:count,score:score+count+(marked?10000:0)};
+          }
+
+          function settlementSnapshotWorld(data) {
+            const stat=data && (data.stat_data || data);
+            return String(stat && stat.世界 && stat.世界.名称 || '').trim();
+          }
+
+          function preferSettlementSnapshot(current,candidate) {
+            if (!candidate) return current;
+            const next=settlementSnapshotTaskScore(candidate);
+            if (!next.count) return current;
+            if (!current) return candidate;
+            const prev=settlementSnapshotTaskScore(current);
+            if (!prev.count) return candidate;
+            const a=settlementSnapshotWorld(current), b=settlementSnapshotWorld(candidate);
+            if (a && b && a!==b) return current;
+            return next.score>prev.score ? candidate : current;
+          }
+
+          function readSettlementBaselineData() {
+            const ctx=getMvuContext();
+            const win=ctx && ctx.win;
+            const mvu=win && win.Mvu;
+            const currentId=getPanelMessageId(win);
+            let chosen=null;
+            let fallback=null;
+
+            function consider(data) {
+              if (!data) return;
+              if (!fallback) fallback=data;
+              chosen=preferSettlementSnapshot(chosen,data);
+            }
+
+            if (mvu && typeof mvu.getMvuData === 'function' && currentId !== null) {
+              try { consider(mvu.getMvuData({type:'message',message_id:currentId})); } catch (e) {}
+              const currentIsLatest = typeof isLatestPanelMessage === 'function' && isLatestPanelMessage(win,currentId);
+              if (currentIsLatest) consider(ctx && ctx.data);
+              for (let step=1; step<=SETTLEMENT_BASELINE_LOOKBACK; step++) {
+                const id=currentId-step;
+                if (id<0) break;
+                try { consider(mvu.getMvuData({type:'message',message_id:id})); } catch (e) {}
+              }
+            } else consider(ctx && ctx.data);
+
+            return chosen || fallback || (ctx && ctx.data);
+          }
+
+          // SETTLEMENT_COIN_SNAPSHOT_V2
+          function settlementCoinSnapshotScore(data, expectedWorld) {
+            const stat = data && (data.stat_data || data);
+            if (!stat || typeof stat !== 'object') return -1;
+            const worldName = String(stat.世界 && stat.世界.名称 || '').trim();
+            if (expectedWorld && worldName && worldName !== expectedWorld) return -1;
+
+            const tasks = stat.任务 && typeof stat.任务 === 'object' ? stat.任务 : {};
+            const world = stat.世界 && typeof stat.世界 === 'object' ? stat.世界 : {};
+            const taskList = tasks.列表 && typeof tasks.列表 === 'object' ? tasks.列表 : {};
+            const kills = tasks.击杀 && typeof tasks.击杀 === 'object' ? tasks.击杀 : {};
+            const exploration = world.探索 && typeof world.探索 === 'object' ? world.探索 : {};
+            const factions = world.势力 && typeof world.势力 === 'object' ? world.势力 : {};
+
+            let terminalTasks = 0;
+            let explicitCoinTasks = 0;
+            Object.keys(taskList).forEach(function(name) {
+              const task = taskList[name] || {};
+              if (isSettlementTaskTerminal(task.状态)) terminalTasks += 1;
+              if (isSettlementTaskSuccessful(task.状态) && parseSpaceCoinTotal(task.奖励, false) > 0) explicitCoinTasks += 1;
+              else if (isSettlementTaskFailed(task.状态) && parseSpaceCoinTotal(task.惩罚, true) > 0) explicitCoinTasks += 1;
+            });
+
+            const positiveKills = SETTLEMENT_KILL_TIERS.reduce(function(count, tier) {
+              return count + ((Number(kills[tier]) || 0) > 0 ? 1 : 0);
+            }, 0);
+            const trackedExploration = Object.keys(exploration).filter(function(name) {
+              const entry = exploration[name] || {};
+              return Number(entry.探索度) > 0;
+            }).length;
+            const trackedFactions = Object.keys(factions).filter(function(name) {
+              const entry = factions[name] || {};
+              return Number.isFinite(Number(entry.声望));
+            }).length;
+
+            const taskCount = Object.keys(taskList).length;
+            const sourceCount = taskCount + positiveKills + trackedExploration + trackedFactions;
+            if (!sourceCount) return -1;
+
+            // 先保证任务终态/金额完整，再用世界收益字段完整度打破同分；绝不以委托方作为评分依据。
+            return explicitCoinTasks * 100000
+              + terminalTasks * 10000
+              + taskCount * 1000
+              + trackedFactions * 100
+              + trackedExploration * 10
+              + positiveKills;
+          }
+
+          function preferSpaceCoinSnapshot(current, candidate, expectedWorld) {
+            if (!candidate) return current;
+            const nextScore = settlementCoinSnapshotScore(candidate, expectedWorld);
+            if (nextScore < 0) return current;
+            if (!current) return candidate;
+            const currentScore = settlementCoinSnapshotScore(current, expectedWorld);
+            return nextScore > currentScore ? candidate : current;
+          }
+
+          function readSpaceCoinBaselineData() {
+            const ctx = getMvuContext();
+            const win = ctx && ctx.win;
+            const mvu = win && win.Mvu;
+            const panelMessageId = getPanelMessageId(win);
+            const currentId = panelMessageId === null ? null : Number(panelMessageId);
+            const expectedWorld = settlementSnapshotWorld(settlementBaselineData) || settlementSnapshotWorld(ctx && ctx.data);
+            let chosen = null;
+
+            function consider(candidate) {
+              chosen = preferSpaceCoinSnapshot(chosen, candidate, expectedWorld);
+            }
+
+            // 金额核算扫描结算消息之前整个回溯窗口，避免命中“任务已清空”或“势力数据缺失”的半残快照。
+            if (mvu && typeof mvu.getMvuData === 'function' && Number.isInteger(currentId) && currentId >= 0) {
+              for (let step = 1; step <= SETTLEMENT_BASELINE_LOOKBACK; step++) {
+                const id = currentId - step;
+                if (id < 0) break;
+                try { consider(mvu.getMvuData({ type:'message', message_id:id })); } catch (e) {}
+              }
+            }
+
+            consider(settlementBaselineData);
+            consider(ctx && ctx.data);
+            return chosen || settlementBaselineData || (ctx && ctx.data);
+          }
+
+          function settlementCoinValue(data) {
+            const stat = data && (data.stat_data || data);
+            const raw = stat && stat.角色 ? Number(stat.角色.空间币) : NaN;
+            return Number.isFinite(raw) ? raw : null;
+          }
+
+          function readSettlementCoinBalanceBefore() {
+            const ctx = getMvuContext();
+            const win = ctx && ctx.win;
+            const mvu = win && win.Mvu;
+            const currentId = getPanelMessageId(win);
+            const numericId = currentId === null ? null : Number(currentId);
+
+            // 空间币不是任务快照的一部分：优先读取结算消息之前最近的真实账户余额。
+            if (mvu && typeof mvu.getMvuData === 'function' && Number.isInteger(numericId) && numericId >= 0) {
+              for (let step = 1; step <= SETTLEMENT_BASELINE_LOOKBACK; step++) {
+                const id = numericId - step;
+                if (id < 0) break;
+                try {
+                  const coin = settlementCoinValue(mvu.getMvuData({ type:'message', message_id:id }));
+                  if (coin !== null) return coin;
+                } catch (e) {}
+              }
+            }
+
+            // 极少数环境拿不到楼层号时，首次渲染发生在程序结算写回前，latest 余额可作为安全兜底。
+            return settlementCoinValue(ctx && ctx.data);
+          }
+
+          function readReincarnatorTier(data) {
+            const stat = data && (data.stat_data || data);
+            return String(stat && stat.角色 && stat.角色.层级 || '').trim();
+          }
+
+          // SETTLEMENT_CREDENTIAL_CORE_START
+          function resolveCredentialDecision(data) {
+            const stat = data && (data.stat_data || data);
+            if (!stat || !stat.角色) {
+              return { granted:false, reasonCode:'missing_data', grade:'', name:'', playerTier:'', playerGrade:'', requiredGrade:'', sourceGrade:'', basis:'', successfulTaskCount:0 };
+            }
+            const LIFE_TIERS = ['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'];
+            const tierRaw = String(stat.角色.层级 || 'Ⅰ').trim();
+            let reincarnatorIndex = LIFE_TIERS.indexOf(tierRaw);
+            if (reincarnatorIndex < 0) reincarnatorIndex = GRADES.indexOf(gradeTier(tierRaw));
+            if (reincarnatorIndex < 0) reincarnatorIndex = 0;
+            const playerGrade = GRADES[reincarnatorIndex] || GRADES[0];
+            const isSingleWorld = !!(stat.设置 && stat.设置.单一世界 === true);
+            const basis = isSingleWorld ? '成功主神任务最高难度' : '世界最低难度';
+
+            if (reincarnatorIndex >= GRADES.length - 1) {
+              return { granted:false, reasonCode:'max_tier', grade:'', name:'', playerTier:tierRaw, playerGrade:playerGrade, requiredGrade:'', sourceGrade:'', basis:basis, successfulTaskCount:0 };
+            }
+
+            const list = stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
+            let successfulTaskCount = 0;
+            let bestIndex = -1;
+            Object.keys(list).forEach(function(key) {
+              const task = list[key] || {};
+              if (String(task.委托方 || '').trim() !== '主神任务') return;
+              if (!isSettlementTaskSuccessful(task.状态)) return;
+              successfulTaskCount += 1;
+              if (!isSingleWorld) return;
+              const idx = GRADES.indexOf(gradeTier(task.难度 || ''));
+              if (idx > bestIndex) bestIndex = idx;
+            });
+
+            if (!successfulTaskCount) {
+              return { granted:false, reasonCode:'no_success_task', grade:'', name:'', playerTier:tierRaw, playerGrade:playerGrade, requiredGrade:GRADES[reincarnatorIndex + 1] || '', sourceGrade:'', basis:basis, successfulTaskCount:0 };
+            }
+
+            let baseGrade = '';
+            if (isSingleWorld) {
+              if (bestIndex >= 0) baseGrade = GRADES[bestIndex];
+            } else {
+              baseGrade = gradeFloor(stat.世界 && stat.世界.难度);
+            }
+
+            const gradeIndex = GRADES.indexOf(baseGrade);
+            const targetIndex = reincarnatorIndex + 1;
+            const requiredGrade = GRADES[targetIndex] || '';
+            if (gradeIndex < 0) {
+              return { granted:false, reasonCode:'invalid_source_grade', grade:'', name:'', playerTier:tierRaw, playerGrade:playerGrade, requiredGrade:requiredGrade, sourceGrade:'', basis:basis, successfulTaskCount:successfulTaskCount };
+            }
+            if (gradeIndex < targetIndex) {
+              return { granted:false, reasonCode:'grade_not_high_enough', grade:'', name:'', playerTier:tierRaw, playerGrade:playerGrade, requiredGrade:requiredGrade, sourceGrade:baseGrade, basis:basis, successfulTaskCount:successfulTaskCount };
+            }
+
+            return {
+              granted:true,
+              reasonCode:'granted',
+              grade:baseGrade,
+              name:baseGrade + '级权限凭证',
+              playerTier:tierRaw,
+              playerGrade:playerGrade,
+              requiredGrade:requiredGrade,
+              sourceGrade:baseGrade,
+              basis:basis,
+              successfulTaskCount:successfulTaskCount
+            };
+          }
+
+          function resolveCredentialGrant(data) {
+            const decision = resolveCredentialDecision(data);
+            return decision && decision.granted ? decision : null;
+          }
+          // SETTLEMENT_CREDENTIAL_CORE_END
+
+          function renderCredentialPanel(decision) {
+            decision = decision || { granted:false, reasonCode:'missing_data' };
+            const reasons = [];
+            if (decision.granted) {
+              reasons.push('判定依据：' + decision.basis + ' ' + decision.sourceGrade + '；本次检测到' + decision.successfulTaskCount + '个已完成主神任务。');
+              reasons.push('层级门槛：当前先驱层级' + decision.playerTier + '（同阶' + decision.playerGrade + '），凭证必须高于当前层级，最低需' + decision.requiredGrade + '级。');
+              reasons.push(decision.sourceGrade + '级达到门槛，因此发放' + decision.grade + '级权限凭证。');
+            } else if (decision.reasonCode === 'no_success_task') {
+              reasons.push('本次没有已完成主神任务，未触发权限凭证发放。');
+            } else if (decision.reasonCode === 'grade_not_high_enough') {
+              reasons.push('判定依据：' + decision.basis + ' ' + decision.sourceGrade + '。');
+              reasons.push('层级门槛：当前先驱层级' + decision.playerTier + '（同阶' + decision.playerGrade + '），凭证必须高于当前层级，最低需' + decision.requiredGrade + '级；' + decision.sourceGrade + '级未达到门槛。');
+            } else if (decision.reasonCode === 'max_tier') {
+              reasons.push('当前先驱层级已达Ⅸ，已无更高等级权限凭证可发放。');
+            } else if (decision.reasonCode === 'invalid_source_grade') {
+              reasons.push('未取得有效的凭证判定难度，无法发放权限凭证。');
+            } else {
+              reasons.push('结算数据不完整，无法进行权限凭证判定。');
+            }
+
+            const reasonHtml = reasons.map(function(reason) {
+              return '<div class="st-cert-reason">' + escapeHtml(reason) + '</div>';
+            }).join('');
+            const gradeHtml = decision.granted
+              ? '<div class="st-kv"><span class="k">凭证等级</span><span class="v">' + gradeBadge(decision.grade, false) + '</span></div>'
+              : '<div class="st-cert-status">本次未获得权限凭证</div>';
+            const resultHtml = decision.granted
+              ? '<div class="st-cert-desc">系统核录完毕，本次获得【' + escapeHtml(decision.name) + '】×1。凭证可累计持有，源力灌注普升时每次消耗1枚。</div>'
+              : '';
+            return '<div class="st-cert' + (decision.granted ? '' : ' no-grant') + '">' +
+              '<div class="st-cert-title">◆ 主神权限凭证</div>' +
+              gradeHtml + resultHtml +
+              '<div class="st-cert-reasons">' + reasonHtml + '</div>' +
+              '</div>';
+          }
+
+          function trialScore(tasks) {
+            return (tasks || []).reduce(function(sum, task) {
+              if (isSettlementTaskTerminal(task.status)) return sum + 3;
+              if (task.status === '进行中') return sum + 1;
+              return sum;
+            }, 0);
+          }
+
+          let settlementBaselineData = readSettlementBaselineData();
+          // 结算核验优先使用结算前任务快照，避免当前结算楼层的 MVU 快照与 EJS 已生成结果不同步。
+          let trialTasks = extractTrialTasks(settlementBaselineData);
+          if (!trialTasks.length) trialTasks = readTrialTasks();
+          let bestTrialScore = trialScore(trialTasks);
+          let settlementWriteBusy = false;
+          let settlementWritePending = false;
+          let settlementCoinWriteDone = false;
+          let achievementTasks = readAchievementTasks();
+          let bestAchievementScore = achievementTaskScore(achievementTasks);
+          function readSettlementTaskKeys(data) {
+            return settlementTaskKeysForData(data);
+          }
+
+          // 当正文变量已经清掉任务，仍从结算前快照核验；不以正文“已晋升”代替完成状态。
+          let settlementTaskKeys = readSettlementTaskKeys(settlementBaselineData);
+          // 仅保留旧任务快照结果用于安全修复历史漏发标记；正式金额不再使用它。
+          let legacyRawSpaceCoinSettlement = calculateSpaceCoinSettlement(settlementBaselineData);
+          let spaceCoinBaselineData = readSpaceCoinBaselineData();
+          let rawSpaceCoinSettlement = calculateSpaceCoinSettlement(spaceCoinBaselineData);
+          let settlementCoinBalanceBefore = readSettlementCoinBalanceBefore();
+          let spaceCoinSettlement = rebaseSettlementCoinBalance(rawSpaceCoinSettlement, settlementCoinBalanceBefore);
+          // 固定结算前的角色层级，防止旧结算面板为已经普升的层级重复授予资格。
+          let settlementBaselineTier = readReincarnatorTier(settlementBaselineData);
+          const credentialDecision = resolveCredentialDecision(settlementBaselineData);
+          const credentialGrant = credentialDecision && credentialDecision.granted ? credentialDecision : null;
+
+          function refreshSettlementBaseline() {
+            const candidate=readSettlementBaselineData();
+            const preferred=preferSettlementSnapshot(settlementBaselineData,candidate);
+            if (preferred) settlementBaselineData=preferred;
+            settlementTaskKeys=readSettlementTaskKeys(settlementBaselineData);
+            legacyRawSpaceCoinSettlement=calculateSpaceCoinSettlement(settlementBaselineData);
+            spaceCoinBaselineData=readSpaceCoinBaselineData();
+            rawSpaceCoinSettlement=calculateSpaceCoinSettlement(spaceCoinBaselineData);
+            if (settlementCoinBalanceBefore === null) settlementCoinBalanceBefore=readSettlementCoinBalanceBefore();
+            spaceCoinSettlement=rebaseSettlementCoinBalance(rawSpaceCoinSettlement, settlementCoinBalanceBefore);
+            settlementBaselineTier=readReincarnatorTier(settlementBaselineData);
+            const nextTrials=extractTrialTasks(settlementBaselineData);
+            if (nextTrials.length) {
+              const score=trialScore(nextTrials);
+              if (score>=bestTrialScore) { trialTasks=nextTrials; bestTrialScore=score; }
+            }
+          }
+
+          function isTrialPassed(tasks) {
+            return tasks.length > 0 && tasks.every(function(task) { return isSettlementTaskSuccessful(task.status); });
+          }
+
+          function inferTrialTasksFromSettlement(text) {
+            const source = String(text || '');
+            const rewards = {};
+            const re = /【?晋升试炼[·.]\s*(\d+)】?\s*[：:]\s*([^\n]+)/g;
+            let m;
+            let maxNo = 0;
+            while ((m = re.exec(source)) !== null) {
+              const no = parseInt(m[1], 10);
+              if (!Number.isFinite(no) || no <= 0) continue;
+              rewards[no] = String(m[2] || '').trim();
+              maxNo = Math.max(maxNo, no);
+            }
+            if (!maxNo) return [];
+            const out = [];
+            for (let no = 1; no <= maxNo; no++) {
+              out.push({
+                key: 'replay-' + no,
+                name: '晋升试炼·' + no,
+                status: rewards[no] ? '可结算' : '进行中',
+                replay: true
+              });
+            }
+            return out;
+          }
+
+          function renderTrialPanel() {
+            const live = trialTasks.length > 0;
+            const displayTasks = live ? trialTasks : inferTrialTasksFromSettlement(rawText);
+            if (!displayTasks.length) return '';
+            const done = displayTasks.filter(function(task) { return isSettlementTaskSuccessful(task.status); }).length;
+            const displayPassed = displayTasks.every(function(task) { return isSettlementTaskSuccessful(task.status); });
+            const passed = live && isTrialPassed(trialTasks);
+            const pct = Math.round(done / displayTasks.length * 100);
+            let html = '<div class="st-trial-check' + (displayPassed ? '' : ' pending') + '">';
+            html += '<div class="st-trial-head"><div class="st-trial-title">◆ 晋升试炼结算核验</div><div class="st-trial-count">' + done + ' / ' + displayTasks.length + '</div></div>';
+            displayTasks.forEach(function(task) {
+              let cls = 'wait';
+              let label = task.status || '未标记';
+              if (isSettlementTaskSuccessful(task.status)) { cls = 'ok'; label = '已完成'; }
+              else if (isSettlementTaskFailed(task.status)) { cls = 'bad'; label = '失败'; }
+              else if (task.status === '进行中') { label = '未完成'; }
+              html += '<div class="st-trial-row"><div class="st-trial-name">' + escapeHtml(task.name) + '</div><div class="st-trial-state ' + cls + '">' + escapeHtml(label) + '</div></div>';
+            });
+            html += '<div class="st-trial-bar"><div class="st-trial-fill" style="width:' + pct + '%"></div></div>';
+            html += '<div class="st-trial-result"><div class="st-trial-stamp ' + (passed ? 'pass' : 'fail') + '">' + (passed ? '试炼已完成 · 请在状态栏点击开始进阶' : !live ? '正文结果待变量核验' : displayTasks.some(function(task){return task.status === '失败';}) ? '试炼未通过' : '等待试炼任务结算') + '</div></div>';
+            html += '</div>';
+            return html;
+          }
+
+          function renderAchievementPanel() {
+            if (!achievementTasks.length) return '';
+            const done = achievementTasks.filter(function(x) { return x.status === '已达成'; }).length;
+            const pct = Math.round(done / achievementTasks.length * 100);
+            let html = '<div class="st-trial-check pending">';
+            html += '<div class="st-trial-head"><div class="st-trial-title" style="color:#f5d76e">✦ 副本成就结算</div><div class="st-trial-count">' + done + ' / ' + achievementTasks.length + '</div></div>';
+            achievementTasks.forEach(function(x) {
+              const ok = x.status === '已达成';
+              html += '<div class="st-trial-row"><div class="st-trial-name"><b>' + escapeHtml((x.difficulty ? x.difficulty + ' · ' : '') + x.name) + '</b>';
+              if (x.desc) html += '<div style="margin-top:2px;color:#8fa0b3;font-size:.9em;white-space:normal">' + escapeHtml(x.desc) + '</div>';
+              if (x.reward) html += '<div style="margin-top:2px;color:#d6c791;font-size:.9em;white-space:normal">🎁 ' + escapeHtml(x.reward) + '</div>';
+              html += '</div><div class="st-trial-state ' + (ok ? 'ok' : 'wait') + '">' + (ok ? '已达成' : '未达成') + '</div></div>';
+            });
+            html += '<div class="st-trial-bar"><div class="st-trial-fill" style="width:' + pct + '%;background:linear-gradient(90deg,#f97316,#f5d76e)"></div></div>';
+            html += '<div class="st-note" style="text-align:center">' + (done ? ('已达成 ' + done + ' 项，成就盲盒将在本次结算统一发放。') : '本次无成就盲盒发放。') + '</div></div>';
+            return html;
+          }
+
+          function refreshAchievementTasks() {
+            const latest=readAchievementTasks();
+            const preferred=preferAchievementTasks(achievementTasks,latest);
+            const score=achievementTaskScore(preferred);
+            if (score>=bestAchievementScore) {
+              achievementTasks=preferred;
+              bestAchievementScore=score;
+            }
+            panelDiv.querySelectorAll('.st-achievement-host').forEach(function(host) {
+              host.innerHTML=renderAchievementPanel();
+            });
+          }
+
+          function sanitizeMvuObjectKey(value) {
+            return String(value || '')
+              .replace(/[.\/\\]+/g, '·')
+              .replace(/·{2,}/g, '·')
+              .replace(/^·+|·+$/g, '')
+              .trim();
+          }
+
+          function parseAchievementReward(reward, fallbackWorld) {
+            const v = String(reward || '').trim();
+            let m = v.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*级盲盒\s*[·・]\s*(.+)$/i);
+            if (!m) m = v.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*级盲盒\s*[（(]\s*([^）)]*)\s*[）)]$/i);
+            if (!m) m = v.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*级盲盒\s*$/i);
+            if (!m) return null;
+            const grade = gradeTier(m[1]);
+            const world = String(m[2] || fallbackWorld || '').replace(/[【】《》]/g, '').trim();
+            const safeWorldKey = sanitizeMvuObjectKey(world);
+            return { grade:grade, world:world, name:grade + '级盲盒' + (safeWorldKey ? '·' + safeWorldKey : '') };
+          }
+
+          function parseSettlement(text) {
+            const out = { title: '', serial: '', player: '', stages: [] };
+            const lines = String(text).replace(/\r/g, '').split('\n');
+            let inNote = false;
+            let curStage = null;
+            let curSub = '';
+            let cardSec = '';
+
+            function classifyStage(name) {
+              const n = String(name || '');
+              if (/评估|难度|稳定/.test(n)) return 'assess';
+              if (/烙印|回放|传闻|风格/.test(n)) return 'story';
+              if (/法则|战利品|遗物/.test(n)) return 'loot';
+              if (/收益|核算|空间币/.test(n)) return 'income';
+              if (/演进|暗流|最终|因果/.test(n)) return 'epilogue';
+              return 'generic';
+            }
+
+            function newStage(name) {
+              curStage = { name: name, type: classifyStage(name), items: [] };
+              out.stages.push(curStage);
+              curSub = '';
+              cardSec = '';
+            }
+
+            function push(kind, data) {
+              if (!curStage) newStage('');
+              curStage.items.push(Object.assign({ kind: kind, sub: curSub }, data));
+            }
+
+            for (let i = 0; i < lines.length; i++) {
+              const isList = /^\s*[*+-]\s+/.test(lines[i]);
+              let line = lines[i].trim();
+              if (!line) continue;
+              if (line.startsWith('>')) line = line.replace(/^>\s*/, '').trim();
+              if (!line) continue;
+              if (inNote) { if (/\)\s*$/.test(line)) inNote = false; continue; }
+              if (/^\$\(\s*(注|若)/.test(line)) { if (!/\)\s*$/.test(line)) inNote = true; continue; }
+              if (/^<\/?(settlement tasks|System_Rules|dm_think)/i.test(line)) continue;
+
+              let m;
+              if ((m = line.match(/^####(?!#)\s*(.+)$/))) { newStage(stripDecor(m[1]).replace(/^【|】$/g, '')); continue; }
+              if ((m = line.match(/^#{1,3}(?!#)\s*(.+)$/))) { out.title = stripDecor(m[1]).replace(/^【|】$/g, ''); continue; }
+              if ((m = line.match(/^\*{0,2}\[?\s*协议序列\s*\]?\*{0,2}\s*[：:]\s*(.+)$/))) { out.serial = stripDecor(m[1]); continue; }
+              if ((m = line.match(/^\*{0,2}\[?\s*轮回者\s*\]?\*{0,2}\s*[：:]\s*(.+)$/))) { out.player = stripDecor(m[1]); continue; }
+
+              let body = isList ? line.replace(/^\s*[*+-]\s+/, '').trim() : line;
+              body = body.replace(/^\$\((.+?)\)\s*[：:]\s*/, '\u0024' + '1：');
+
+              if (/^[\*【]*提示[：:]/.test(body)) { push('notice', { text: stripDecor(body.replace(/^[\*【]*提示[：:]?\s*/, '').replace(/[\*】]*$/, '')) }); curSub = ''; continue; }
+              if ((m = body.match(/^\*{0,2}副本烙印\s*[｜|]?\s*(.+)$/))) { push('brand', { name: stripDecor(m[1]) }); continue; }
+              if (/主神权限凭证/.test(body) && body.replace(/\*/g, '').length < 30) { curSub = '主神权限凭证'; cardSec = ''; push('cert', {}); continue; }
+              if (/世界结晶/.test(body) && body.replace(/[*【】（）()：:]/g, '').length < 30) { curSub = '世界结晶'; cardSec = ''; push('relic', { label: '世界结晶 · 通关纪念物', name: '', type: '', effect: '', desc: '' }); continue; }
+              if (/世界遗物特别嘉奖/.test(body) && body.replace(/\*/g, '').length < 30) { curSub = '世界遗物'; cardSec = ''; push('relicGold', { label: '世界遗物 · 特别嘉奖', name: '', type: '', effect: '', desc: '', origin: '' }); continue; }
+
+              if ((m = body.match(/^\*{0,2}[【\[]?([^*【】\[\]：:]{2,16})[】\]]?\*{0,2}\s*[：:]\s*$/))) {
+                const subName = m[1].trim();
+                if (!/判定依据|判定结果|^获得$|获得物品|检定源|^结果$/.test(subName)) { curSub = subName; push('sub', { name: subName }); continue; }
+              }
+
+              if (curStage && curStage.type === 'income' && /×/.test(body) && /=/.test(body)) {
+                let src = '', formula = body.replace(/\*\*/g, '');
+                let sm2 = formula.match(/^\[([^\]]+)\]\s*(.+)$/);
+                if (!sm2) sm2 = formula.match(/^[^×\[]+×\s*\[([^\]]+)\]\s*(.+)$/);
+                if (sm2) { src = sm2[1].trim(); formula = sm2[2].trim(); }
+                else { const bm = formula.match(/\[([^\]]+)\]/); if (bm) src = bm[1]; }
+                push('calc', { src: src, formula: formula, result: formula.split('=').pop().trim() });
+                continue;
+              }
+
+              if (curStage && curStage.type === 'loot' && /产地/.test(body)) {
+                const cm = body.match(/^(.+?)\s*[（(]\s*产地[：:]\s*([^）)]+)[）)]\s*[：:]?\s*(.*)$/);
+                if (cm) { push('lootItem', { name: stripDecor(cm[1]), origin: cm[2].trim(), note: stripDecor(cm[3]) }); continue; }
+              }
+
+              if ((m = body.match(/^[\(*]*检测仓库物品[：:]?\s*(.+?)\)*$/))) { push('warehouse', { text: m[1].replace(/[\)*]+$/, '').trim() }); continue; }
+
+              if (curStage && (curSub === '世界结晶' || curSub === '世界遗物')) {
+                const secM = stripDecor(body).match(/^(判定依据|判定结果|获得|获得物品)[：:]?$/);
+                if (secM) {
+                  if (secM[1] === '判定依据' || secM[1] === '判定结果') { cardSec = 'reasons'; push('reasonHead', { text: secM[1] }); }
+                  else cardSec = 'item';
+                  continue;
+                }
+                if (cardSec === 'reasons') {
+                  const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界结晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
+                  const plainR = stripDecor(body);
+                  if (card && plainR && !/[：:]/.test(plainR) && plainR.length <= 40) { card.reasons = (card.reasons || []).concat(plainR); push('reason', { text: plainR }); continue; }
+                }
+              }
+
+
+              if ((m = body.match(/^\*{0,2}[【\[]?([^*【】\[\]：:]{1,22})[】\]]?\*{0,2}\s*[：:]\s*(.+)$/))) {
+                const k = m[1].trim();
+                const v = stripDecor(m[2]);
+
+                if (curSub === '世界结晶' || curSub === '世界遗物') {
+                  if (k === '判定依据') cardSec = 'reasons';
+                  else if (k === '获得' || k === '获得物品') cardSec = 'item';
+                  else cardSec = '';
+                }
+
+                if (curStage && (curSub === '世界结晶' || curSub === '世界遗物') && /^\d+[.、]/.test(k)) {
+                  const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界结晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
+                  if (card) { card.effect = (card.effect ? card.effect + '\n' : '') + k + '：' + v; push('para', { text: k + '：' + v }); continue; }
+                }
+
+                if (curStage && curStage.type === 'income' && /合计|上限|实际计入/.test(k)) { push('sum', { name: k, v: v }); continue; }
+                if (/总收益/.test(k)) { const nm = v.match(/-?[\d,，\.]+\s*万?/); push('total', { num: nm ? parseCnNum(nm[0]) : null, text: v, debt: /负债/.test(v) }); continue; }
+                if (/稳定/.test(k) && /→|->/.test(v)) { const pm = v.match(/(\d+(?:\.\d+)?)\s*%\s*(?:→|->)\s*(\d+(?:\.\d+)?)\s*%/); if (pm) { push('stab', { from: parseFloat(pm[1]), to: parseFloat(pm[2]) }); continue; } }
+                if (/^注/.test(k)) { push('note', { text: k + '：' + v }); continue; }
+                if (curStage && curStage.type === 'income' && isList && !/^注/.test(k) && /->|→|强制执行惩罚/.test(v)) { push('punish', { name: k.replace(/[[\]]/g, ''), desc: v.replace(/^强制执行惩罚\s*(?:->|→)?\s*/, '') }); continue; }
+                if (curStage && curStage.type === 'story' && isList && curSub && /高光|回放/.test(curSub)) { push('hl', { t: k, d: v }); continue; }
+
+                if (curStage && (curSub === '世界结晶' || curSub === '世界遗物')) {
+                  const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界结晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
+                  if (card) {
+                    if (k === '获得物品' || k === '获得') card.name = v.replace(/^[【[]|[】\]]$/g, '').trim() || v;
+                    else if (k === '类型') card.type = v;
+                    else if (k === '效果') card.effect = (card.effect ? card.effect + '\n' : '') + v;
+                    else if (k === '描述') card.desc = v;
+                    else if (k === '来源') card.origin = v;
+                  }
+                }
+                push('kv', { k: k, v: v });
+                continue;
+              }
+
+              const plainBody = stripDecor(body);
+              if (!/[：:]/.test(plainBody) && plainBody.length < 60 && /未|无/.test(plainBody) && /惩罚|失败|获得|遗物|检测|压缩|抵扣/.test(plainBody)) { push('empty', { text: plainBody }); continue; }
+              if (/^【.*完毕.*】$/.test(stripDecor(body))) { push('closing', { text: stripDecor(body) }); continue; }
+
+              if (curStage && (curSub === '世界结晶' || curSub === '世界遗物') && /^\d+[.、]\s*\S/.test(stripDecor(body))) {
+                const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界结晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
+                if (card) { card.effect = (card.effect ? card.effect + '\n' : '') + stripDecor(body); push('para', { text: stripDecor(body) }); continue; }
+              }
+              if (curStage && (curSub === '世界结晶' || curSub === '世界遗物')) {
+                const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界结晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
+                const plain0 = stripDecor(body);
+                if (card && !card.name && plain0 && !/[：:]/.test(plain0) && (cardSec === 'item' || /^[【\[]/.test(plain0)) && plain0.replace(/^[【[]|[】\]]$/g, '').trim().length <= 30) card.name = plain0.replace(/^[【[]|[】\]]$/g, '').trim();
+              }
+              push('para', { text: stripDecor(body) });
+            }
+            return out;
+          }
+
+          function buildProgrammaticIncomeItems(result) {
+            const items = [];
+            function sub(name) { items.push({ kind:'sub', sub:'', name:name }); }
+            function sum(name, value) { items.push({ kind:'sum', sub:'', name:name, v:fmtNum(value) + ' 空间币' }); }
+
+            sub('主神/试炼任务保底空间币');
+            if (result.taskRewardDetails.length) {
+              result.taskRewardDetails.forEach(function(x) {
+                items.push({ kind:'kv', sub:'主神/试炼任务保底空间币', k:'[' + x.name + ']', v:fmtNum(x.amount) + ' 空间币' });
+              });
+            } else {
+              items.push({ kind:'empty', sub:'主神/试炼任务保底空间币', text:'本次无成功任务空间币奖励' });
+            }
+            sum('任务空间币合计', result.taskReward);
+
+            sub('击杀目标附加收益明细');
+            if (result.killDetails.length) {
+              result.killDetails.forEach(function(x) {
+                items.push({ kind:'calc', sub:'击杀目标附加收益明细', src:x.tier, formula:fmtNum(x.count) + ' × ' + fmtNum(x.unit), result:fmtNum(x.subtotal) + ' 空间币' });
+              });
+            } else {
+              items.push({ kind:'empty', sub:'击杀目标附加收益明细', text:'本次无击杀收益' });
+            }
+            sum('击杀奖励合计', result.killRaw);
+            sum('击杀奖励上限', result.killCap);
+            sum('击杀实际计入收益', result.killReward);
+
+            if (!result.isSingleWorld) {
+              sub('世界探索附加收益明细');
+              if (result.explorationDetails.length) {
+                result.explorationDetails.forEach(function(x) {
+                  items.push({ kind:'calc', sub:'世界探索附加收益明细', src:x.name, formula:fmtNum(result.base) + ' × 50%', result:fmtNum(x.subtotal) + ' 空间币' });
+                });
+              } else {
+                items.push({ kind:'empty', sub:'世界探索附加收益明细', text:'本次无探索收益' });
+              }
+              sum('探索奖励合计', result.explorationRaw);
+              sum('探索奖励上限', result.explorationCap);
+              sum('探索实际计入收益', result.explorationReward);
+
+              sub('势力羁绊附加收益明细');
+              if (result.reputationDetails.length) {
+                result.reputationDetails.forEach(function(x) {
+                  items.push({ kind:'calc', sub:'势力羁绊附加收益明细', src:x.name, formula:fmtNum(result.base) + ' × (' + x.reputation + ' ÷ 100)', result:fmtNum(x.subtotal) + ' 空间币' });
+                });
+              } else {
+                items.push({ kind:'empty', sub:'势力羁绊附加收益明细', text:'本次无正声望收益' });
+              }
+              sum('声望奖励合计', result.reputationRaw);
+              sum('声望奖励上限', result.reputationCap);
+              sum('声望实际计入收益', result.reputationReward);
+            }
+
+            if (result.penaltyDetails.length) {
+              sub('失败/未完成空间币惩罚');
+              result.penaltyDetails.forEach(function(x) {
+                items.push({ kind:'punish', sub:'失败/未完成空间币惩罚', name:x.name, desc:'扣除 ' + fmtNum(x.amount) + ' 空间币' });
+              });
+              sum('空间币惩罚合计', -result.penalty);
+            }
+
+            items.push({ kind:'total', sub:'', num:result.totalReward, text:fmtNum(result.totalReward) + ' 空间币', debt:result.balanceAfter < 0 });
+            items.push({ kind:'sum', sub:'', name:'结算后余额', v:fmtNum(result.balanceBefore) + ' → ' + fmtNum(result.balanceAfter) + ' 空间币' });
+            return items;
+          }
+
+          function injectProgrammaticIncomeStage(d, result) {
+            let stage = d.stages.find(function(s) { return s.type === 'income'; });
+            if (!stage) {
+              stage = { name:'空间币收益核算', type:'income', items:[] };
+              const epilogueIndex = d.stages.findIndex(function(s) { return s.type === 'epilogue'; });
+              if (epilogueIndex >= 0) d.stages.splice(epilogueIndex, 0, stage);
+              else d.stages.push(stage);
+            }
+            // SETTLEMENT_LEGACY_INCOME_CLEANUP
+            const legacyIncomeSubs = new Set(['击杀目标附加收益明细','世界探索附加收益明细','势力羁绊附加收益明细']);
+            const aiNonCoinItems = (stage.items || []).filter(function(item) {
+              if (item.kind === 'calc' || item.kind === 'sum' || item.kind === 'total') return false;
+              const legacySub = String(item && item.sub || '').trim();
+              const legacyName = String(item && item.name || '').trim();
+              if (legacyIncomeSubs.has(legacySub) || legacyIncomeSubs.has(legacyName)) return false;
+              try { if (/空间币/.test(JSON.stringify(item))) return false; } catch (e) {}
+              return true;
+            });
+            stage.items = buildProgrammaticIncomeItems(result).concat(aiNonCoinItems);
+          }
+
+          function gradeBadge(v, reincarnator) {
+            const t = gradeTier(v);
+            return '<span class="st-grade g-' + t + (reincarnator ? ' reincarnator' : '') + '">' + escapeHtml(t) + '</span>';
+          }
+
+          function rateRow(k, v) {
+            const gm = String(v).trim().match(/^([A-Za-z]{1,3})\s*[-~—–]\s*([A-Za-z]{1,3})$/);
+            if (gm && GRADES.indexOf(gm[1].toUpperCase()) >= 0 && GRADES.indexOf(gm[2].toUpperCase()) >= 0) {
+              return '<div class="st-rate-row"><span class="k">' + escapeHtml(k) + '</span>' +
+                  '<span class="st-grade g-' + gradeTier(gm[1]) + '">' + escapeHtml(gm[1].toUpperCase()) + '</span>' +
+                  '<span class="st-grade wave">~</span>' +
+                  '<span class="st-grade g-' + gradeTier(gm[2]) + '">' + escapeHtml(gm[2].toUpperCase()) + '</span></div>';
+            }
+            return '<div class="st-rate-row"><span class="k">' + escapeHtml(k) + '</span>' + gradeBadge(v, /表现/.test(k)) + '</div>';
+          }
+
+          function renderItem(it, st) {
+            switch (it.kind) {
+              case 'sub': return '<div class="st-sub">' + escapeHtml(it.name) + '</div>';
+              case 'kv': {
+                const k = it.k, v = it.v;
+                if (/评级|等级|难度|基准/.test(k) && /^[A-Za-z]{1,3}$/.test(v.trim()) && GRADES.indexOf(v.trim().toUpperCase()) >= 0) return rateRow(k, v);
+                if (/难度|评级/.test(k) && /^[A-Za-z]{1,3}\s*[-~—–]\s*[A-Za-z]{1,3}$/.test(v.trim())) return rateRow(k, v);
+                if ((k === '获得物品' || k === '获得') && /^【.+】$/.test(v)) return '<div class="st-relic-name">' + escapeHtml(v) + '</div>';
+                if (k === '判定结果') { const okV = /满足|授予/.test(v) && !/未获得/.test(v); return '<div class="st-verdict ' + (okV ? 'ok' : 'no') + '">' + (okV ? '✔ ' : '✕ ') + escapeHtml(v) + '</div>'; }
+                if (k === '描述' && /[“”"]/.test(v)) return '<div class="st-relic-quote">' + escapeHtml(v) + '</div>';
+                if (k === '效果' && /事迹留存/.test(v)) return '<div class="st-kv effect"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>';
+                if (/评述/.test(k)) return '<div class="st-comment">' + escapeHtml(v) + '</div>';
+                if (st && st.type === 'income' && /奖励|收益/.test(k)) return '<div class="st-kv income-v"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>';
+                return '<div class="st-kv"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>';
+              }
+              case 'reasonHead': return '<div class="st-reason-head">' + escapeHtml(it.text) + '</div>';
+              case 'reason': return '<div class="st-reason">' + escapeHtml(it.text) + '</div>';
+              case 'stab': { const width = Math.max(0, Math.min(100, Number(it.to) || 0)); return '<div class="st-stab"><div class="st-stab-label"><span>世界稳定值变动</span><span><b>100%</b> → <b>' + it.to + '%</b></span></div><div class="st-stab-bar"><div class="st-stab-fill" data-w="' + width + '" style="width:' + width + '%"></div></div></div>'; }
+              case 'brand': return '<div class="st-brand"><div class="st-brand-label">副 本 烙 印</div><div class="st-brand-name">' + escapeHtml(it.name) + '</div></div>';
+              case 'hl': return '<div class="st-tl-item"><span class="t">' + escapeHtml(it.t) + '</span>' + (it.d ? '<span class="d">：' + escapeHtml(it.d) + '</span>' : '') + '</div>';
+              case 'calc': {
+                const tier = (String(it.src).match(/[ⅠⅡⅢⅣⅤⅥⅦⅧⅨ]/) || [''])[0];
+                const srcTxt = tier ? (tier + '级目标') : (it.src || '收益项');
+                return '<div class="st-calc-row"><span class="st-calc-src">[' + escapeHtml(srcTxt) + ']</span><span class="st-calc-formula">' + escapeHtml(it.formula) + '</span><span class="st-calc-sum">= ' + escapeHtml(it.result) + '</span></div>';
+              }
+              case 'punish': return '<div class="st-punish"><span class="t">⚠ ' + escapeHtml(it.name) + '</span><span class="d">' + escapeHtml(it.desc) + '</span></div>';
+              case 'sum': return '<div class="st-sum-row' + (/计入/.test(it.name) ? ' final' : '') + '"><span class="k">' + escapeHtml(it.name) + '</span><span class="v">' + escapeHtml(it.v) + '</span></div>';
+              case 'total': {
+                const neg = it.num != null && it.num < 0;
+                const numText = it.num != null ? fmtNum(it.num) : it.text;
+                return '<div class="st-total' + (neg ? ' neg' : '') + '"><div class="st-total-label">个 人 最 终 总 收 益</div><div class="st-total-num"><span class="st-num-val">' + escapeHtml(numText) + '</span><span class="unit">空间币</span></div>' + (it.debt ? '<div class="st-total-debt">⚠ 余额不足 · 账户进入负债状态 · 脱离主神空间前需强制偿还</div>' : '') + '<div class="st-total-done">已 清 算 完 毕</div></div>';
+              }
+              case 'note': return '<div class="st-note">※ ' + escapeHtml(it.text) + '</div>';
+              case 'notice': return '<div class="st-notice">◈ ' + escapeHtml(it.text) + '</div>';
+              case 'empty': return '<div class="st-empty">' + escapeHtml(it.text) + '</div>';
+              case 'warehouse': return '<div class="st-warehouse">📦 仓库检测：' + escapeHtml(it.text) + '</div>';
+              case 'lootItem': {
+                const tm = String(it.note || '').match(/[【\[]([^】\]]+)[】\]]/);
+                const badge = tm ? tm[1] : it.note;
+                return '<div class="st-loot-item"><span class="n">' + escapeHtml(it.name) + '</span><span class="d"> (产地: ' + escapeHtml(it.origin) + ')</span>' + (badge ? '<span class="compress">⚡ ' + escapeHtml(badge) + '</span>' : '') + '</div>';
+              }
+              case 'closing': return '<div class="st-closing">' + escapeHtml(it.text) + '</div>';
+              case 'para': {
+                const t = it.text;
+                const sub = it.sub || '';
+                if (/^【.+】$/.test(t)) return '<div class="st-relic-name">' + escapeHtml(t) + '</div>';
+                if (/凭证/.test(sub)) return '<div class="st-cert-desc">' + escapeHtml(t) + '</div>';
+                if (/遗物/.test(sub)) return '<div class="st-note">' + escapeHtml(t) + '</div>';
+                if (/传闻/.test(sub)) return '<div class="st-tl-item rumor"><span class="d">' + escapeHtml(t) + '</span></div>';
+                return '<div class="st-para">' + escapeHtml(t) + '</div>';
+              }
+              default: return '';
+            }
+          }
+
+          function renderSettlement(d) {
+            let html = '';
+            let achievementInserted = false;
+            let credentialInserted = false;
+            const hasLegacyCredentialPanel = d.stages.some(function(stage) {
+              return stage.items.some(function(item) { return item.kind === 'cert'; });
+            });
+            html += '<div class="st-banner"><div class="st-banner-main">' + escapeHtml(d.title || '主神空间 · 轮回清算协议') + '</div><div class="st-banner-tags">';
+            if (d.serial) html += '<span class="st-tag">协议序列 <b>' + escapeHtml(d.serial) + '</b></span>';
+            if (d.player) html += '<span class="st-tag">轮回者 <b>' + escapeHtml(d.player) + '</b></span>';
+            html += '</div></div>';
+
+            d.stages.forEach(function(st, idx) {
+              if (!st.items.length) return;
+              let inner = '';
+              const items = st.items;
+              let i = 0;
+              let rewardSeen = false;
+              let trialInserted = false;
+
+              while (i < items.length) {
+                const it = items[i];
+
+                if (it.kind === 'sub' && /任务专属奖励/.test(it.name || '')) rewardSeen = true;
+                if (rewardSeen && !trialInserted && it.kind === 'sub' && !/任务专属奖励/.test(it.name || '') && (trialTasks.length || /晋升试炼[·\.]/.test(rawText))) {
+                  inner += '<div class="st-trial-host">' + renderTrialPanel() + '</div>';
+                  trialInserted = true;
+                }
+
+                if (it.kind === 'kv' && /任务专属奖励/.test(it.sub || '')) {
+                  let rows = '';
+                  while (i < items.length && items[i].kind === 'kv' && /任务专属奖励/.test(items[i].sub || '')) {
+                    const reward = items[i];
+                    const valueClass = /已发放|获得|到账/.test(reward.v || '') ? ' reward-ok' : '';
+                    rows += '<div class="st-sum-row"><span class="k">' + escapeHtml(reward.k) + '</span><span class="v' + valueClass + '">' + escapeHtml(reward.v) + '</span></div>';
+                    i++;
+                  }
+                  inner += '<div class="st-sum-rows st-task-reward-box">' + rows + '</div>';
+                  continue;
+                }
+
+                if (it.kind === 'sum') {
+                  let rows = '';
+                  while (i < items.length && items[i].kind === 'sum') { rows += renderItem(items[i], st); i++; }
+                  inner += '<div class="st-sum-rows">' + rows + '</div>';
+                  continue;
+                }
+
+                if (it.kind === 'cert' || it.kind === 'relic' || it.kind === 'relicGold') {
+                  const cardSub = it.sub;
+                  i++;
+                  let card = '';
+                  while (i < items.length && (items[i].kind === 'kv' || items[i].kind === 'para' || items[i].kind === 'reasonHead' || items[i].kind === 'reason') && items[i].sub === cardSub) {
+                    card += renderItem(items[i], st);
+                    i++;
+                  }
+                  if (!card) card = '<div class="st-cert-desc">系统核录完毕。</div>';
+                  if (it.kind === 'cert') inner += '<div class="st-cert"><div class="st-cert-title">◆ 主神权限凭证</div>' + card + '</div>';
+                  else if (it.kind === 'relic') inner += '<div class="st-relic"><div class="st-relic-label">' + escapeHtml(it.label || '世界结晶') + '</div>' + card + '</div>';
+                  else inner += '<div class="st-relic gold"><div class="st-relic-label">' + escapeHtml(it.label || '世界遗物') + '</div>' + card + '</div>';
+                  continue;
+                }
+
+                inner += renderItem(it, st);
+                i++;
+              }
+
+              if (rewardSeen && !trialInserted && (trialTasks.length || /晋升试炼[·\.]/.test(rawText))) {
+                inner += '<div class="st-trial-host">' + renderTrialPanel() + '</div>';
+              }
+
+              if (!achievementInserted && st.type === 'income' && achievementTasks.length) {
+                inner += '<div class="st-achievement-host">' + renderAchievementPanel() + '</div>';
+                achievementInserted = true;
+              }
+
+              if (!credentialInserted && !hasLegacyCredentialPanel && st.type === 'income') {
+                inner += '<div class="st-cert-host">' + renderCredentialPanel(credentialDecision) + '</div>';
+                credentialInserted = true;
+              }
+
+              html += '<div class="st-stage t-' + st.type + '"><div class="st-stage-head"><span class="st-stage-no">' + (idx + 1) + '</span><span class="st-stage-name">' + escapeHtml(st.name || '结算阶段') + '</span><span class="st-stage-line"></span></div>' + inner + '</div>';
+            });
+            return html;
+          }
+
+          function renderPlain(text) {
+            return String(text).replace(/\r/g, '').split('\n')
+                .filter(function(l) { return l.trim(); })
+                .map(function(l) { return '<div class="st-plain-line">' + escapeHtml(l.trim()) + '</div>'; })
+                .join('');
+          }
+
+          function hasSettlementHeader(text) {
+            return String(text || '').includes('轮回清算协议');
+          }
+
+          function isFullSettlement(text) {
+            const source = String(text || '');
+            return ['轮回清算协议', '世界因果与综合评估', '因果烙印与干涉回放', '因果演进与世界暗流']
+              .every(function(kw) { return source.includes(kw); });
+          }
+
+          function isLatestPanelMessage(win, targetMessageId) {
+            if (targetMessageId === null || targetMessageId === undefined) return false;
+            try {
+              const latestId = latestChatMessageId(latestChatMessage(win));
+              return latestId != null && Number(latestId) === Number(targetMessageId);
+            } catch (e) {}
+            return false;
+          }
+
+          function settlementTextFingerprint(value) {
+            const source = normalizeSettlementComparableText(value);
+            let hash = 2166136261;
+            for (let i = 0; i < source.length; i++) {
+              hash ^= source.charCodeAt(i);
+              hash = Math.imul(hash, 16777619);
+            }
+            return (hash >>> 0).toString(36);
+          }
+
+          function resolveSettlementMessageTarget(win, panelText) {
+            const panelMessageId = getPanelMessageId(win);
+            if (panelMessageId !== null) {
+              return {
+                targetMessageId: panelMessageId,
+                marker: String(panelMessageId),
+                isLatestPanel: isLatestPanelMessage(win, panelMessageId)
+              };
+            }
+
+            // 极少数环境连 latest 的数字ID都不给：仅当 latest 原文完整包含当前面板结算文本时允许写 latest。
+            const latest = latestChatMessage(win);
+            if (!panelTextBelongsToMessage(panelText, latest)) return null;
+            const latestId = latestChatMessageId(latest);
+            return {
+              targetMessageId: 'latest',
+              marker: latestId !== null ? String(latestId) : ('text:' + settlementTextFingerprint(panelText)),
+              isLatestPanel: true
+            };
+          }
+
+          function applySettlementFinalization(c, isLatestPanel) {
+            // 历史结算面板只负责展示，绝不清理当前数据库。
+            if (!isLatestPanel) return false;
+            const stat = c && (c.stat_data || c);
+            if (!stat) return false;
+
+            const hasHeader = hasSettlementHeader(rawText);
+            const fullSettlement = isFullSettlement(rawText);
+            const trialPassed = isTrialPassed(trialTasks);
+            const currentReincarnatorTier = readReincarnatorTier(stat);
+            const reincarnatorTierChanged = currentReincarnatorTier !== settlementBaselineTier;
+            let changed = false;
+
+            function sameValue(a, b) {
+              if (a === b) return true;
+              try { return JSON.stringify(a) === JSON.stringify(b); }
+              catch (e) { return false; }
+            }
+
+            function setValue(target, key, value) {
+              if (sameValue(target[key], value)) return;
+              target[key] = value;
+              changed = true;
+            }
+
+            function ensureObject(target, key) {
+              const cur = target[key];
+              if (!cur || typeof cur !== 'object' || Array.isArray(cur)) {
+                target[key] = {};
+                changed = true;
+              }
+              return target[key];
+            }
+
+            // 对齐原 onShouldIAdvance：仅出现清算协议标题时，也可补写晋升完成标记；
+            // 完整清算则沿用原 onClearCache 语义，只要数据库中的晋升试炼全部处于认可完成态就记为完成。
+            // 层级已经变化表示本次资格已用于普升；旧结算面板不得再次补写。
+            if (hasHeader && trialPassed && !reincarnatorTierChanged) {
+              const currentSys = stat.系统状态 && typeof stat.系统状态 === 'object' ? stat.系统状态 : {};
+              if (currentSys.试炼已完成 !== true) {
+                const sys = ensureObject(stat, '系统状态');
+                setValue(sys, '试炼已完成', true);
+              }
+            }
+
+            if (!fullSettlement) return changed;
+            // 等待任务变量落到认可完成态/失败，避免先清空后再也无法核验晋升资格。
+            if (trialTasks.some(function(task){return !isSettlementTaskTerminal(task.status);})) return changed;
+
+            // 成功/失败都表示本轮试炼生命周期结束；身份标记只消费一次，历史面板不能复活它。
+            const activeTrialSys = stat.系统状态 && typeof stat.系统状态 === 'object' ? stat.系统状态 : null;
+            if (activeTrialSys && activeTrialSys.是否试炼任务 === true) {
+              const sys = ensureObject(stat, '系统状态');
+              setValue(sys, '是否试炼任务', false);
+              setValue(sys, '试炼任务名单', []);
+            }
+
+            const isSingleWorld = !!(stat.设置 && stat.设置.单一世界 === true);
+            const tasks = ensureObject(stat, '任务');
+            const world = ensureObject(stat, '世界');
+            setValue(tasks, '击杀', {Ⅰ:0, Ⅱ:0, Ⅲ:0, Ⅳ:0, Ⅴ:0, Ⅵ:0, Ⅶ:0, Ⅷ:0, Ⅸ:0});
+
+            if (!isSingleWorld) {
+              setValue(world, '探索', {});
+              // 与副本缓存同生命周期，避免后台事件跨副本继承。
+              setValue(world, '后台', {});
+
+              // 普通副本离开当前世界时，关系人物也必须遵循世界生命周期。
+              // 只有明确建立组队关系的正式队友可跨世界保留；高好感、仍在场或普通关系都不是保留条件。
+              const relations = ensureObject(stat, '关系列表');
+              Object.keys(relations).forEach(function(name) {
+                const npc = relations[name];
+                if (!npc || npc.是否队友 !== true) delete relations[name];
+              });
+
+              setValue(world, '势力', {});
+              setValue(world, '稳定', 100);
+              const radar = ensureObject(world, '异端雷达');
+              setValue(radar, '当前模式', '');
+              setValue(radar, '名单', {});
+              setValue(world, '法则', []);
+              setValue(world, '货币', {});
+              setValue(world, '因果轨道', {});
+              setValue(tasks, '列表', {});
+              setValue(tasks, '副本成就', {});
+
+              // 普通副本结束时只保留玩家拥有/共管的资产；纯NPC、势力或无主资产随副本清理。
+              // <user> 是提示词宏；程序侧以 Tavern 当前 Persona 名为正式玩家身份，旧标记只做兼容。
+              const assets = ensureObject(stat, '资产');
+              const playerOwnerName = (() => {
+                try {
+                  const host = (window.parent && window.parent !== window) ? window.parent : window;
+                  const tavern = host?.SillyTavern;
+                  return String(tavern?.getContext?.()?.name1 || tavern?.name1 || '').trim();
+                } catch (e) { return ''; }
+              })();
+              const isPlayerAssetOwner = owner => {
+                const value = String(owner || '').trim();
+                if (!value) return false;
+                return (!!playerOwnerName && value === playerOwnerName)
+                  || value === '<user>'
+                  || value === '{{user}}'
+                  || value === '玩家';
+              };
+              Object.keys(assets).forEach(function(assetName) {
+                const asset = assets[assetName];
+                const rawOwners = asset && typeof asset === 'object' ? asset.所属对象 : null;
+                // 旧存档缺失所属对象时沿用既有迁移语义：视为玩家资产，避免误删。
+                if (rawOwners == null) return;
+                const owners = Array.isArray(rawOwners) ? rawOwners : [rawOwners];
+                if (owners.some(isPlayerAssetOwner)) return;
+                delete assets[assetName];
+                changed = true;
+              });
+
+              const rumors = ensureObject(stat, '传闻');
+              setValue(rumors, '街头巷议', {});
+              setValue(rumors, '情报交易', {});
+              setValue(rumors, '布告与檄文', {});
+
+              const sys = ensureObject(stat, '系统状态');
+              // 主神空间使用独立轮回历：第1个游玩日从轮回历1年-04月-04日开始，
+              // 之后只按系统状态.游玩天数映射，不继承任何副本世界的年代。
+              const playDays = Math.max(1, Math.floor(Number(sys.游玩天数) || 1));
+              const samsaraDayIndex = ((4 - 1) * 30 + (4 - 1)) + (playDays - 1);
+              const samsaraYear = Math.floor(samsaraDayIndex / 360) + 1;
+              const samsaraDayOfYear = samsaraDayIndex % 360;
+              const samsaraMonth = Math.floor(samsaraDayOfYear / 30) + 1;
+              const samsaraDay = (samsaraDayOfYear % 30) + 1;
+              const settlementPad2 = function(value) { return String(value).padStart(2, '0'); };
+              const samsaraTime = '轮回历' + samsaraYear + '年-' + settlementPad2(samsaraMonth) + '月-' + settlementPad2(samsaraDay) + '日-清晨';
+
+              setValue(world, '名称', '主神空间');
+              setValue(world, '位格', 'Ⅸ');
+              setValue(world, '难度', 'F~SSS');
+              setValue(world, '时间', samsaraTime);
+              // 历法属于副本世界生命周期；主神空间不保留上一副本历法。
+              setValue(world, '历法', {});
+              // 与轮回历展示值同步锚点，避免辅助计算把“回主神空间”误算成额外跨日。
+              setValue(sys, '上次世界日期', samsaraYear + '-' + samsaraMonth + '-' + samsaraDay);
+              setValue(sys, '是否在主神空间', true);
+            } else {
+              // 单一世界继续使用同一世界：探索档案长期保留，但不参与空间币结算。
+              // 单一世界没有副本成就；结算时同步清理旧副本/旧版本残留，但不影响当前世界与未结算任务。
+              setValue(tasks, '副本成就', {});
+              const taskList = ensureObject(tasks, '列表');
+              settlementTaskKeys.forEach(function(taskKey) {
+                if (!Object.hasOwn(taskList, taskKey)) return;
+                delete taskList[taskKey];
+                changed = true;
+              });
+            }
+
+            return changed;
+          }
+
+          async function writeSettlementToMvu(d, worldName) {
+            if (settlementWriteBusy) { settlementWritePending = true; return; }
+            settlementWriteBusy = true;
+            try {
+              const win = window.parent || window;
+              if (!win.Mvu || !win._ || !win._.set) return;
+              const settlementTarget = resolveSettlementMessageTarget(win, rawText);
+              if (!settlementTarget) return;
+              const targetMessageId = settlementTarget.targetMessageId;
+              const isLatestPanel = settlementTarget.isLatestPanel;
+              const c = win.Mvu.getMvuData({ type: 'message', message_id: targetMessageId });
+              if (!c) return;
+              const settlementStat = c.stat_data || c;
+              const isSingleWorldSettlement = !!(settlementStat.设置 && settlementStat.设置.单一世界 === true);
+
+              // 未完成的晋升试炼只阻止晋升资格与最终清理；已完成主神任务的空间币/凭证/战利品仍正常结算。
+              let changed = false;
+              let settlementCoinMarkerPending = null;
+              if (!settlementCoinWriteDone && isLatestPanel && isFullSettlement(rawText) && settlementStat.角色) {
+                const settlementMarker = String(settlementTarget.marker || targetMessageId);
+                const recordedMarker = readSettlementCoinMessageMarker(win, targetMessageId);
+                const markerState = settlementCoinMarkerState(recordedMarker, settlementMarker);
+                const currentCoin = Number(settlementStat.角色.空间币);
+                let nextCoin = null;
+                settlementCoinWriteDone = true;
+
+                if (markerState === 'legacy') {
+                  // 旧版可能已写“一次性标记”却因历史任务快照余额过旧而漏发空间币。
+                  nextCoin = settlementCoinLegacyRepairTarget(currentCoin, legacyRawSpaceCoinSettlement, spaceCoinSettlement);
+                  settlementCoinMarkerPending = settlementCoinReceiptMarker(settlementMarker, spaceCoinSettlement);
+                } else if (markerState !== 'applied') {
+                  nextCoin = settlementCoinWriteTarget(currentCoin, spaceCoinSettlement);
+                  settlementCoinMarkerPending = settlementCoinReceiptMarker(settlementMarker, spaceCoinSettlement);
+                }
+
+                if (nextCoin !== null) {
+                  settlementStat.角色.空间币 = nextCoin;
+                  changed = true;
+                }
+              }
+              function exists(path) {
+                try {
+                  const cur = win._.get(c, path);
+                  return cur && typeof cur === 'object' && Object.keys(cur).length > 0;
+                } catch (e) { return false; }
+              }
+
+              let baseGrade = '';
+              const assess = d.stages.find(function(s) { return s.type === 'assess'; });
+              (assess ? assess.items : []).forEach(function(it) {
+                if (it.kind !== 'kv') return;
+                if (/难度/.test(it.k) && /评级|等级/.test(it.k) && !baseGrade) baseGrade = gradeFloor(it.v);
+              });
+              if (!baseGrade) {
+                d.stages.forEach(function(s) {
+                  s.items.forEach(function(it) {
+                    if (it.kind === 'kv' && /难度/.test(it.k) && /评级|等级/.test(it.k) && !baseGrade) baseGrade = gradeFloor(it.v);
+                  });
+                });
+              }
+              if (!baseGrade) baseGrade = 'F';
+
+              const relics = [];
+              const golds = [];
+              d.stages.forEach(function(s) {
+                s.items.forEach(function(it) {
+                  if (it.kind === 'relic' && it.name) relics.push(it);
+                  if (it.kind === 'relicGold' && it.name) golds.push(it);
+                });
+              });
+              const world = worldName || '';
+
+              if (!isSingleWorldSettlement) {
+              const achievementGrants = {};
+              achievementTasks.forEach(function(x) {
+                if (x.status !== '已达成') return;
+                const r = parseAchievementReward(x.reward, world);
+                if (!r) { console.warn('[结算美化] 无法识别成就奖励:', x.name, x.reward); return; }
+                if (!achievementGrants[r.name]) achievementGrants[r.name] = { grade:r.grade, world:r.world, count:0 };
+                achievementGrants[r.name].count++;
+              });
+              Object.keys(achievementGrants).forEach(function(name) {
+                const g = achievementGrants[name], key = 'stat_data.角色.道具.' + name;
+                const old = win._.get(c, key) || {};
+                const currentQty = Number(old.数量) || 0;
+                const baselineQty = achievementBaselineData
+                  ? (Number(win._.get(achievementBaselineData, key + '.数量')) || 0)
+                  : currentQty;
+                const requiredQty = baselineQty + g.count;
+                const missing = Math.max(0, requiredQty - currentQty);
+
+                if (missing <= 0) return;
+
+                const tags = Array.isArray(old.标签) ? old.标签.slice() : [];
+                ['主神空间','盲盒',g.world].filter(Boolean).forEach(function(t) { if (tags.indexOf(t) < 0) tags.push(t); });
+                win._.set(c, key + '.品质', g.grade);
+                win._.set(c, key + '.类型', '盲盒');
+                win._.set(c, key + '.数量', currentQty + missing);
+                win._.set(c, key + '.标签', tags);
+                win._.set(c, key + '.效果', old.效果 && typeof old.效果 === 'object' ? old.效果 : { 开启:'盲盒抽奖，打开后随机抽取「' + (g.world || '主神空间') + '」对应品质的奖励。' });
+                win._.set(c, key + '.描述', old.描述 || '副本成就奖励。');
+                win._.set(c, key + '.状态', [0,1,2].includes(Number(old.状态)) ? Number(old.状态) : 0);
+                changed = true;
+              });
+              }
+
+              if (credentialGrant) {
+                const key = 'stat_data.角色.权限凭证.' + credentialGrant.grade;
+                const currentQty = Math.max(0, Number(win._.get(c, key)) || 0);
+                const baselineQty = settlementBaselineData
+                  ? Math.max(0, Number(win._.get(settlementBaselineData, key)) || 0)
+                  : currentQty;
+                const requiredQty = baselineQty + 1;
+                if (currentQty < requiredQty) {
+                  win._.set(c, key, requiredQty);
+                  changed = true;
+                }
+              }
+
+              function parseEffectLines(txt) {
+                const eff = {};
+                if (!txt) return eff;
+                txt.split('\n').map(function(x) { return x.trim(); }).filter(Boolean).forEach(function(ln) {
+                  const nm = ln.match(/^\d+[.、]\s*(.+)$/);
+                  const em = ln.match(/^[【\[]([^【】\[\]：:]{1,12})[】\]]\s*[：:]\s*(.+)$/);
+                  const bm = ln.match(/^[【\[]([^【】\[\]：:]{1,12})[】\]]\s*(.+)$/);
+                  if (nm && nm[1].indexOf('：') >= 0) {
+                    const pm = nm[1].split('：');
+                    eff[pm[0].trim()] = pm.slice(1).join('：').trim();
+                  } else if (em) eff[em[1].trim()] = em[2].trim();
+                  else if (nm && bm) eff[bm[1].trim()] = bm[2].trim();
+                  else if (nm) eff['事迹' + (Object.keys(eff).length + 1)] = nm[1];
+                  else if (bm) eff[bm[1].trim()] = bm[2].trim();
+                  else {
+                    const last = Object.keys(eff).pop();
+                    if (last) eff[last] += ' ' + ln;
+                    else eff['持有时'] = ln;
+                  }
+                });
+                return eff;
+              }
+
+              golds.forEach(function(g) {
+                if (!g.name || exists('stat_data.角色.装备.' + g.name)) return;
+                const key = 'stat_data.角色.装备.' + g.name;
+                win._.set(c, key + '.品质', baseGrade);
+                win._.set(c, key + '.类型', 8);
+                win._.set(c, key + '.标签', ['主神空间', g.origin || world].filter(Boolean));
+                win._.set(c, key + '.原始属性', {});
+                win._.set(c, key + '.效果', parseEffectLines(g.effect));
+                win._.set(c, key + '.描述', g.desc || (world ? ('世界遗物, 来源: ' + world) : '世界遗物'));
+                win._.set(c, key + '.消耗', '');
+                win._.set(c, key + '.状态', 0);
+                changed = true;
+              });
+
+              relics.forEach(function(r) {
+                if (!r.name || exists('stat_data.角色.道具.' + r.name)) return;
+                const key = 'stat_data.角色.道具.' + r.name;
+                win._.set(c, key + '.品质', baseGrade);
+                win._.set(c, key + '.类型', r.type || '纪念物');
+                win._.set(c, key + '.数量', 1);
+                win._.set(c, key + '.标签', ['主神空间', world].filter(Boolean));
+                win._.set(c, key + '.效果', parseEffectLines(r.effect));
+                win._.set(c, key + '.描述', r.desc || '');
+                win._.set(c, key + '.状态', 0);
+                changed = true;
+              });
+
+              if (isLatestPanel && isFullSettlement(rawText)) {
+                const engine = win.Samsara && win.Samsara.worldEngine;
+                if (engine) engine.cancel();
+              }
+              if (applySettlementFinalization(c, isLatestPanel)) changed = true;
+
+              if (!changed) {
+                if (settlementCoinMarkerPending !== null) {
+                  writeSettlementCoinMessageMarker(win, targetMessageId, settlementCoinMarkerPending);
+                }
+                return;
+              }
+              await win.Mvu.replaceMvuData(c, { type: 'message', message_id: targetMessageId });
+
+              if (isLatestPanel) {
+                try { await win.Mvu.replaceMvuData(c, { type: 'chat' }); } catch (e3) {}
+              }
+              if (settlementCoinMarkerPending !== null) {
+                writeSettlementCoinMessageMarker(win, targetMessageId, settlementCoinMarkerPending);
+              }
+            } catch (e) { console.warn('结算任务写入数据库失败:', e); }
+            finally {
+              settlementWriteBusy = false;
+              if (settlementWritePending) { settlementWritePending = false; setTimeout(refreshTrialPanel, 0); }
+            }
+          }
+
+          const btn = wrapper.querySelector('.st-btn');
+          const rawDiv = wrapper.querySelector('.st-raw');
+          const labelSpan = wrapper.querySelector('.st-label');
+          const panelDiv = wrapper.querySelector('.st-panel');
+          if (!btn || !rawDiv || !labelSpan || !panelDiv) return;
+
+          const rawText = resolveSettlementRawText(rawDiv.textContent, window.parent || window);
+          const d = parseSettlement(rawText);
+          injectProgrammaticIncomeStage(d, spaceCoinSettlement);
+
+          let worldName = '';
+          const sm = (d.serial || '').match(/^Ω-(.+)-结算$/);
+          if (sm) worldName = sm[1];
+          labelSpan.textContent = worldName ? ('轮回清算 · ' + worldName) : '轮回清算协议';
+
+          const hasStruct = d.title || d.serial || d.player ||
+              d.stages.some(function(s) {
+                return s.name || s.items.some(function(i) { return i.kind !== 'para'; });
+              });
+          panelDiv.innerHTML = hasStruct ? renderSettlement(d) : renderPlain(rawText);
+
+          // 首次渲染只展示；待本楼 MVU 状态稳定后再执行程序结算与清理。
+
+          function refreshTrialPanel() {
+            refreshSettlementBaseline();
+            refreshAchievementTasks();
+            injectProgrammaticIncomeStage(d, spaceCoinSettlement);
+            panelDiv.innerHTML = hasStruct ? renderSettlement(d) : renderPlain(rawText);
+            const latest = readTrialTasks();
+            if (latest.length) {
+              // 不因AI漏写一项就缩小“全部试炼完成”的判定集合。
+              const byKey = new Map(latest.map(function(task){return [task.key, task];}));
+              const merged = trialTasks.map(function(task){const next=byKey.get(task.key);byKey.delete(task.key);return next || task;}).concat(Array.from(byKey.values()));
+              const score = trialScore(merged);
+              if (score >= bestTrialScore) {
+                trialTasks = merged;
+                bestTrialScore = score;
+              }
+            }
+            // “重新处理变量”只触发 VARIABLE_UPDATE_ENDED 时，也重新执行幂等结算写入。
+            if (hasStruct) writeSettlementToMvu(d, worldName);
+            panelDiv.querySelectorAll('.st-trial-host').forEach(function(host) {
+              host.innerHTML = renderTrialPanel();
+            });
+          }
+
+          try {
+            const ctx = getMvuContext();
+            const win = ctx && ctx.win;
+            const onFn = win && typeof win.eventOn === 'function' ? win.eventOn : (typeof eventOn === 'function' ? eventOn : null);
+            const mvu = win && win.Mvu ? win.Mvu : (typeof Mvu !== 'undefined' ? Mvu : null);
+            if (onFn && mvu && mvu.events && mvu.events.VARIABLE_UPDATE_ENDED) {
+              onFn(mvu.events.VARIABLE_UPDATE_ENDED, function() { setTimeout(refreshTrialPanel, 0); });
+            }
+          } catch (e) {}
+          setTimeout(refreshTrialPanel, 250);
+          setTimeout(refreshTrialPanel, 600);
+
+          setTimeout(function() {
+            panelDiv.querySelectorAll('.st-stab-fill').forEach(function(el) {
+              el.style.width = (el.getAttribute('data-w') || 0) + '%';
+            });
+          }, 60);
+
+          panelDiv.querySelectorAll('.st-num-val').forEach(function(el) {
+            const nm = el.textContent.match(/-?[\d,]+/);
+            if (!nm) return;
+            const target = parseCnNum(nm[0]);
+            if (target == null) return;
+            const dur = 900;
+            const t0 = performance.now();
+            (function tick(t) {
+              const p = Math.min(1, (t - t0) / dur);
+              const eased = 1 - Math.pow(1 - p, 3);
+              el.textContent = fmtNum(target * eased);
+              if (p < 1) requestAnimationFrame(tick);
+            })(t0);
+          });
+
+          btn.addEventListener('click', function() {
+            btn.classList.toggle('active');
+            panelDiv.classList.toggle('show');
+          });
+
+        })();
+      </script>
+    </div>
+    <!-- 替换模板结束 -->
+
+</body>
+</html>
+```

@@ -1,0 +1,2547 @@
+```
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>轮回建档协议 - 主神空间</title>
+    <style>
+        :root {
+            --bg:#0b0c10; --surface:#12141a; --surface-light:#1f222b;
+            --text:#c5c6c7; --text-sub:#7a7f85; --accent:#66fcf1; --accent-dark:#45a29e;
+            --danger:#e74c3c; --success:#4caf50; --info:#2196f3;
+            --border:rgba(102,252,241,0.2); --border-strong:rgba(102,252,241,0.45); --border-light:rgba(255,255,255,0.05);
+            --input-bg:rgba(0,0,0,0.35); --card-bg:var(--surface-light); --primary-bg:#000;
+            --radius-sm:3px; --radius-md:5px; --radius-lg:8px;
+            --shadow-sm:0 1px 3px rgba(0,0,0,0.4); --shadow-md:0 4px 14px rgba(0,0,0,0.55); --shadow-lg:0 0 30px rgba(0,0,0,0.8);
+            --tf:0.2s; --tn:0.3s;
+            --t-F:#94a3b8; --t-E:#f8fafc; --t-D:#22c55e; --t-C:#3b82f6; --t-B:#a855f7; --t-A:#f97316; --t-S:#eab308; --t-SS:#ef4444; --t-SSS:#ec4899;
+            --t-Ⅰ:#6b7280; --t-Ⅱ:#22c55e; --t-Ⅲ:#3b82f6; --t-Ⅳ:#a855f7; --t-Ⅴ:#f97316; --t-Ⅵ:#eab308; --t-Ⅶ:#ef4444; --t-Ⅷ:#ec4899; --t-Ⅸ:#f43f5e;
+            --sidebar-width:140px;
+            --font-mono:'Consolas','Courier New',monospace;
+        }
+        * { box-sizing:border-box; word-break:break-word; overflow-wrap:break-word; }
+        body { background:var(--bg); color:var(--text); font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif; margin:0; min-height:100vh; display:flex; justify-content:center; align-items:flex-start; padding:20px; }
+        .wizard-layout { width:100%; max-width:1120px; min-height:650px; display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--border); box-shadow:var(--shadow-lg); border-radius:var(--radius-lg); overflow:hidden; }
+
+        .app-header { display:flex; justify-content:space-between; align-items:center; padding:18px 30px; border-bottom:1px dashed var(--border); background:rgba(0,0,0,0.25); gap:12px; flex-wrap:wrap; }
+        .app-header h1 { margin:0; font-size:1.3rem; color:#fff; letter-spacing:2px; }
+        .header-actions { display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+        .wallet { font-size:0.95rem; } .wallet .coins { color:#f1c40f; font-weight:bold; font-family:var(--font-mono); font-size:1.1rem; margin-left:8px; }
+        .icon-btn { padding:8px 14px; font-size:0.85rem; background:transparent; color:var(--accent); border:1px solid var(--accent-dark); border-radius:var(--radius-md); cursor:pointer; transition:var(--tn); }
+        .icon-btn:hover { background:var(--accent); color:var(--primary-bg); }
+
+        .step-nav { width:100%; display:flex; align-items:center; gap:2px; background:var(--surface-light); border-bottom:1px solid var(--border); padding:6px 10px; }
+        .step-nav .step { flex:1; display:flex; align-items:center; justify-content:center; color:var(--text-sub); font-size:0.92rem; font-weight:bold; background:var(--surface); margin-left:-6px; clip-path:polygon(14px 0,100% 0,calc(100% - 14px) 50%,100% 100%,14px 100%,0 50%); transition:var(--tn); padding:10px 20px; position:relative; cursor:pointer; }
+        .step-nav .step:first-child { clip-path:polygon(0 0,100% 0,calc(100% - 14px) 50%,100% 100%,0 100%,0 50%); padding-left:18px; margin-left:0; }
+        .step-nav .step:last-child { clip-path:polygon(14px 0,100% 0,100% 50%,100% 100%,14px 100%,0 50%); padding-right:18px; }
+        .step-nav .step .title { text-align:center; width:100%; line-height:1.3; word-break:keep-all; }
+        .step-nav .step.active { background:var(--accent); color:var(--primary-bg); }
+        .step-nav .step.pass { background:var(--accent-dark); color:#fff; }
+
+        .content-area { flex:1; overflow-y:auto; padding:28px; min-height:0; }
+        .step-pane { display:none; animation:fadeIn 0.4s ease; } .step-pane.active { display:block; }
+        @keyframes fadeIn { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+
+        .app-footer { display:flex; justify-content:space-between; padding:16px 30px; border-top:1px solid var(--border); background:var(--surface-light); }
+        .btn { padding:11px 24px; font-size:0.92rem; font-weight:bold; background:transparent; color:var(--text); border:1px solid var(--text-sub); border-radius:var(--radius-md); cursor:pointer; transition:var(--tn); }
+        .btn:hover { border-color:#fff; color:#fff; }
+        .btn.primary { background:var(--accent); color:#000; border:none; }
+        .btn.primary:hover { background:#fff; box-shadow:0 0 15px rgba(102,252,241,0.5); }
+        .btn.danger { border-color:var(--danger); color:var(--danger); }
+        .btn.danger:hover { background:var(--danger); color:#fff; }
+
+        /* 伙伴建档费用：按钮旁单行内联提示 */
+        .cp-cost-tip {
+            display:inline-block; padding:6px 12px; border-radius: var(--radius-md);
+            background: rgba(102,252,241,0.08); color: var(--accent);
+            font-size: 0.85rem; line-height:1.3; white-space:nowrap; transition: var(--tn);
+        }
+        .cp-cost-tip.insufficient {
+            background: rgba(255,77,79,0.14); color: var(--danger); font-weight:bold;
+        }
+        .form-group { margin-bottom:18px; }
+        .form-group > label, .form-label { display:block; margin-bottom:6px; color:var(--accent-dark); font-size:0.82rem; font-weight:bold; letter-spacing:0.5px; }
+        .form-control { width:100%; padding:10px 12px; background:var(--input-bg); border:1px solid var(--border); color:#fff; border-radius:var(--radius-md); outline:none; transition:var(--tn); font-size:0.92rem; }
+        .form-control:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(102,252,241,0.12); background:#000; }
+        textarea.form-control { resize:vertical; line-height:1.5; }
+        .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+        .grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+        .section-title { font-size:1.1rem; color:#fff; margin:0 0 14px 0; padding-bottom:8px; border-bottom:2px solid var(--border); font-weight:700; }
+
+        /* ====== 重构的属性面板 ====== */
+        .attributes-panel { margin-top:26px; background:var(--input-bg); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+        .attributes-panel .panel-header { padding:14px 18px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; background:rgba(0,0,0,0.2); }
+        .attributes-panel .panel-header h3 { margin:0; color:#fff; font-size:1.05rem; font-weight:700; }
+        .points-summary { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+        .points-badge { font-size:0.85rem; color:var(--text); padding:5px 11px; background:var(--primary-bg); border:1px solid var(--border); border-radius:var(--radius-sm); }
+        .points-badge strong { color:var(--accent); font-size:1.05rem; font-family:var(--font-mono); margin-left:4px; }
+        .points-badge strong.error { color:var(--danger); animation:shake 0.3s; }
+        @keyframes shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-4px);} 75%{transform:translateX(4px);} }
+        
+        .attribute-editor { padding:16px 18px; }
+        .attribute-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap:12px; }
+        .attribute-item { display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.28); padding:10px 14px; border:1px solid var(--border); border-left:3px solid var(--accent-dark); border-radius:var(--radius-md); transition:var(--tn); }
+        .attribute-item:hover { border-color:var(--accent); background:rgba(0,0,0,0.42); }
+        .attribute-item .attr-label { font-size:0.95rem; color:var(--text); font-weight:700; width:45px; letter-spacing:1px; }
+        
+        /* 核心控件区 */
+        .attr-controls { display:flex; align-items:center; gap:8px; }
+        .attr-controls .attr-step { width:28px; height:28px; border:1px solid var(--accent-dark); background:rgba(102,252,241,0.06); color:var(--accent); font-size:1.2rem; font-weight:bold; cursor:pointer; border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:center; transition:var(--tn); line-height:0; padding-bottom:2px; }
+        .attr-controls .attr-step:hover:not(:disabled) { background:var(--accent); color:#000; box-shadow:0 0 8px rgba(102,252,241,0.4); }
+        .attr-controls .attr-step:active:not(:disabled) { transform:scale(0.92); }
+        /* 按钮灰度防呆处理 */
+        .attr-controls .attr-step:disabled { opacity:0.25; cursor:not-allowed; border-color:var(--text-sub); color:var(--text-sub); background:transparent; }
+        .attr-controls .attr-input { width:46px; text-align:center; background:#000; color:var(--accent); font-weight:bold; border:1px solid var(--accent-dark); padding:4px; border-radius:var(--radius-sm); font-size:1rem; font-family:var(--font-mono); outline:none; transition:var(--tn); }
+        .attr-controls .attr-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(102,252,241,0.12); }
+        .attr-controls .attr-input.over-limit { color:var(--danger); border-color:var(--danger); }
+        /* 隐藏数字框自带的上下箭头 */
+        .attr-controls .attr-input::-webkit-outer-spin-button, .attr-controls .attr-input::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+        .attr-controls .attr-input[type=number] { -moz-appearance:textfield; appearance:textfield; }
+
+        .attribute-item .attr-tier { font-size:0.78rem; padding:3px 10px; min-width:42px; text-align:center; }
+
+        /* 变量更新方式：与状态栏设置共享 samsara_variable_api_mode */
+        .variable-api-mode { margin-bottom:22px; padding:16px; border:1px solid var(--border); border-radius:var(--radius-md); background:rgba(0,0,0,0.22); }
+        .variable-api-mode-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-bottom:6px; }
+        .variable-api-mode-title { margin:0; color:#fff; font-size:1.05rem; font-weight:800; letter-spacing:1px; }
+        .variable-api-mode-intro { margin:0 0 12px; color:var(--text-sub); font-size:0.82rem; line-height:1.6; }
+        .variable-api-mode-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+        .variable-api-mode-card { position:relative; width:100%; min-height:132px; padding:15px 16px; text-align:left; color:var(--text); background:rgba(31,34,43,0.72); border:1px solid var(--border); border-radius:var(--radius-md); cursor:pointer; transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,background .18s ease; font:inherit; }
+        .variable-api-mode-card:hover { transform:translateY(-1px); border-color:var(--accent-dark); background:rgba(31,34,43,0.92); }
+        .variable-api-mode-card.active { border-color:var(--accent); box-shadow:0 0 0 1px rgba(102,252,241,.24),0 0 16px rgba(102,252,241,.10); background:rgba(102,252,241,.055); }
+        .variable-api-mode-card[disabled] { opacity:.62; cursor:wait; transform:none; }
+        .variable-api-mode-card-title { display:flex; align-items:center; gap:8px; margin-bottom:8px; color:#fff; font-size:0.96rem; font-weight:800; }
+        .variable-api-mode-badge { display:inline-flex; align-items:center; padding:1px 7px; border-radius:10px; border:1px solid rgba(102,252,241,.32); color:var(--accent); background:rgba(102,252,241,.08); font-size:0.68rem; font-weight:700; }
+        .variable-api-mode-desc { color:var(--text-sub); font-size:0.79rem; line-height:1.62; }
+        .variable-api-mode-tags { display:flex; flex-wrap:wrap; gap:5px; margin-top:10px; }
+        .variable-api-mode-tag { padding:2px 7px; border-radius:9px; color:var(--accent-dark); background:rgba(69,162,158,.10); border:1px solid rgba(69,162,158,.18); font-size:0.68rem; }
+        .variable-api-mode-status { min-height:20px; margin-top:10px; color:var(--text-sub); font-size:0.76rem; line-height:1.5; }
+        .variable-api-mode-status.ok { color:#72d8a0; }
+        .variable-api-mode-status.err { color:#ff7b7b; }
+        @media (max-width:720px) { .variable-api-mode-grid { grid-template-columns:1fr; } .variable-api-mode-card { min-height:0; } }
+
+        /* 阵营身份说明 */
+        .faction-desc { margin-top:10px; padding:12px 16px; background:rgba(0,0,0,0.3); border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:var(--radius-md); font-size:0.84rem; color:var(--text); line-height:1.65; }
+        .faction-desc .fac-title { color:var(--accent); font-weight:700; font-size:0.95rem; margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+        .faction-desc .fac-row { margin-bottom:4px; }
+        .faction-desc .fac-label { color:var(--accent-dark); font-weight:600; margin-right:6px; }
+        .faction-desc .fac-ability { margin-top:6px; padding:6px 10px; background:rgba(102,252,241,0.06); border-left:2px solid var(--accent-dark); border-radius:var(--radius-sm); font-size:0.8rem; }
+
+        .tier-badge { display:inline-block; padding:2px 9px; border-radius:var(--radius-sm); font-weight:900; font-size:0.76rem; font-family:var(--font-mono); white-space:nowrap; }
+        /* 层级徽章: 浅底深字 / 深底白字, 保证对比度; S 系独立配色+辉光 */
+        .t-F{background:var(--t-F);color:#1a1a1a!important;font-weight:900;text-shadow:0 0 1px rgba(0,0,0,0.45);}
+        .t-E{background:var(--t-E);color:#1a1a1a!important;border:1px solid #94a3b8;font-weight:900;text-shadow:0 0 1px rgba(0,0,0,0.45);}
+        .t-D{background:var(--t-D);color:#fff!important;}
+        .t-C{background:var(--t-C);color:#fff!important;}
+        .t-B{background:var(--t-B);color:#fff!important;}
+        .t-A{background:var(--t-A);color:#fff!important;}
+        .t-S{background:var(--t-S);color:#1a1a1a!important;box-shadow:0 0 6px var(--t-S);}
+        .t-SS{background:var(--t-SS);color:#fff!important;box-shadow:0 0 8px var(--t-SS);}
+        .t-SSS{background:var(--t-SSS);color:#fff!important;box-shadow:0 0 10px var(--t-SSS);}
+        .t-Ⅰ{background:var(--t-Ⅰ);color:#fff!important;}
+        .t-Ⅱ{background:var(--t-Ⅱ);color:#fff!important;}
+        .t-Ⅲ{background:var(--t-Ⅲ);color:#fff!important;}
+        .t-Ⅳ{background:var(--t-Ⅳ);color:#fff!important;}
+        .t-Ⅴ{background:var(--t-Ⅴ);color:#fff!important;}
+        .t-Ⅵ{background:var(--t-Ⅵ);color:#1a1a1a!important;box-shadow:0 0 6px var(--t-Ⅵ);}
+        .t-Ⅶ{background:var(--t-Ⅶ);color:#fff!important;box-shadow:0 0 8px var(--t-Ⅶ);}
+        .t-Ⅷ{background:var(--t-Ⅷ);color:#fff!important;box-shadow:0 0 10px var(--t-Ⅷ);}
+        .t-Ⅸ{background:var(--t-Ⅸ);color:#fff!important;box-shadow:0 0 12px var(--t-Ⅸ);}
+
+        /* 装备/技能页 */
+        .selections-container { display:flex; flex-direction:column; gap:20px; }
+        .category-tabs { display:flex; gap:8px; padding:8px; background:var(--card-bg); border-radius:var(--radius-lg); border:1px solid var(--border); }
+        .tab-button { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:9px 12px; background:var(--input-bg); border:1px solid var(--border); border-radius:var(--radius-md); cursor:pointer; transition:var(--tn); font-size:0.88rem; font-weight:600; color:var(--text); }
+        .tab-button:hover { border-color:var(--accent); background:rgba(102,252,241,0.08); }
+        .tab-button.active { background:var(--accent); border-color:var(--accent); color:var(--primary-bg); }
+
+        .category-selection-layout { display:grid; grid-template-columns:var(--sidebar-width) 1fr; gap:0; height:510px; max-height:510px; border:2px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; }
+        .category-sidebar { background:var(--card-bg); border-right:2px solid var(--border-strong); height:100%; display:flex; flex-direction:column; overflow:hidden; }
+        .category-list { display:flex; flex-direction:column; gap:5px; padding:10px; overflow-y:auto; flex:1; }
+        .category-item { padding:8px 11px; background:var(--input-bg); border:1px solid var(--border); border-radius:var(--radius-md); cursor:pointer; transition:var(--tf); font-size:0.85rem; color:var(--text); text-align:left; }
+        .category-item:hover { border-color:var(--accent); background:rgba(102,252,241,0.08); }
+        .category-item.active { background:var(--accent); border-color:var(--accent); color:var(--primary-bg); font-weight:600; }
+        .category-content { display:flex; flex-direction:column; height:100%; overflow:hidden; }
+        .rarity-filter { display:flex; align-items:center; gap:6px; padding:9px 11px; background:var(--card-bg); border-bottom:1px solid var(--border); flex-wrap:wrap; }
+        .rarity-filter .filter-label { font-size:0.8rem; font-weight:600; color:var(--text-sub); white-space:nowrap; }
+        .filter-btn { padding:3px 9px; background:var(--card-bg); border:1px solid var(--border); border-radius:var(--radius-sm); cursor:pointer; transition:var(--tf); font-size:0.78rem; color:var(--text); white-space:nowrap; }
+        .filter-btn:hover { border-color:var(--accent); color:var(--accent); }
+        .filter-btn.active { background:var(--accent); border-color:var(--accent); color:var(--primary-bg); font-weight:600; }
+        .item-grid { flex:1; overflow-y:auto; padding:12px; display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); grid-auto-rows:max-content; gap:12px; align-content:start; min-height:0; }
+        .item-grid::-webkit-scrollbar { width:6px; }
+        .item-grid::-webkit-scrollbar-track { background:rgba(0,0,0,0.2); border-radius:3px; }
+        .item-grid::-webkit-scrollbar-thumb { background:var(--accent-dark); border-radius:3px; }
+        .empty-message { grid-column:1/-1; text-align:center; padding:40px; color:var(--text-sub); font-style:italic; }
+
+        /* 物品卡片 */
+        .item-card { background:var(--card-bg); border:2px solid var(--border); border-radius:var(--radius-lg); padding:13px; cursor:pointer; transition:var(--tn); position:relative; overflow:hidden; display:flex; flex-direction:column; height:100%; }
+        .item-card::before { content:""; position:absolute; top:0; left:0; right:0; height:3px; background:var(--rarity-color,var(--accent)); opacity:0.75; }
+        .item-card:hover:not(.is-disabled) { border-color:var(--accent); box-shadow:var(--shadow-md); transform:translateY(-2px); }
+        .item-card.is-selected { border-color:var(--accent); background:linear-gradient(to bottom,var(--card-bg),rgba(102,252,241,0.06)); box-shadow:0 0 0 2px rgba(102,252,241,0.2); }
+        .item-card.is-selected::before { height:4px; opacity:1; }
+        .item-card.is-disabled { opacity:0.45; cursor:not-allowed; filter:grayscale(0.7); }
+        .item-card.is-disabled:hover { transform:none; box-shadow:none; border-color:var(--border); }
+        .item-card .selected-corner { position:absolute; right:-2px; bottom:-2px; background:var(--accent); color:#000; font-size:0.7rem; font-weight:700; padding:3px 9px; border-top-left-radius:var(--radius-md); border-bottom-right-radius:var(--radius-lg); box-shadow:0 0 8px rgba(102,252,241,0.6); display:none; letter-spacing:0.5px; }
+        .item-card.is-selected .selected-corner { display:block; }
+        .item-card .card-header { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid var(--border-light); }
+        .item-card .item-name { font-size:0.98rem; font-weight:700; color:#fff; flex:1; line-height:1.3; min-width:0; }
+        .item-card .item-rarity { flex-shrink:0; }
+        .item-card .card-body { font-size:0.82rem; color:var(--text-sub); line-height:1.5; flex:1 0 auto; margin-bottom:10px; }
+        .item-card .item-info { display:flex; gap:6px; margin-bottom:5px; align-items:baseline; }
+        .item-card .info-label { color:var(--text-sub); font-weight:600; min-width:46px; flex-shrink:0; }
+        .item-card .info-value { color:var(--text); flex:1; min-width:0; }
+        .item-card .tag-list { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:5px; }
+        .item-card .tag-text { display:inline-block; padding:1px 7px; background:rgba(102,252,241,0.12); border:1px solid rgba(102,252,241,0.3); border-radius:var(--radius-sm); font-size:0.72rem; color:var(--accent); line-height:1.4; }
+        .item-card .tag-text.source-main { background:rgba(241,196,15,0.12); border-color:rgba(241,196,15,0.3); color:#f1c40f; }
+        .item-card .cost-row { display:flex; justify-content:space-between; align-items:center; margin-top:6px; padding-top:6px; border-top:1px dashed var(--border-light); flex-wrap:wrap; gap:4px; }
+        .item-card .cost { font-size:0.84rem; font-family:var(--font-mono); font-weight:bold; color:#f1c40f; }
+        .item-card .cost.free { color:var(--success); }
+        .item-card .cost-meta { font-size:0.74rem; color:var(--text-sub); font-family:var(--font-mono); }
+        .item-card .attrs-box { background:rgba(0,0,0,0.25); border:1px solid var(--border-light); border-radius:var(--radius-sm); padding:5px 8px; margin-bottom:5px; font-family:var(--font-mono); font-size:0.74rem; color:var(--accent); }
+
+        /* 已选面板 */
+        .selected-panel { background:var(--card-bg); border:2px solid var(--border); border-radius:var(--radius-lg); display:flex; flex-direction:column; }
+        .selected-panel .panel-header { padding:12px 15px; border-bottom:2px solid var(--border); display:flex; flex-direction:column; gap:6px; background:rgba(0,0,0,0.2); }
+        .selected-panel .header-top { display:flex; justify-content:space-between; align-items:center; }
+        .selected-panel .title { font-size:0.98rem; color:#fff; font-weight:700; }
+        .count-badge { display:flex; align-items:center; justify-content:center; min-width:28px; height:28px; padding:0 9px; background:var(--accent); color:var(--primary-bg); border-radius:28px; font-weight:700; font-size:0.9rem; }
+        .points-info { display:flex; align-items:baseline; gap:6px; font-size:0.85rem; flex-wrap:wrap; }
+        .points-info .points-label { color:var(--text-sub); }
+        .points-info .points-value { font-size:1rem; font-weight:700; color:var(--accent); font-family:var(--font-mono); }
+        .points-info .points-value.negative { color:var(--danger); }
+        .selected-panel .panel-body { padding:12px 15px; max-height:140px; overflow-y:auto; }
+        .selected-chip { display:inline-flex; align-items:center; gap:6px; padding:5px 9px; background:var(--input-bg); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:0.8rem; margin:0 6px 6px 0; }
+        .selected-chip .chip-remove { cursor:pointer; color:var(--danger); font-weight:bold; }
+
+        /* 折叠表单 */
+        .collapsible-form { background:var(--card-bg); border:2px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; transition:var(--tn); }
+        .collapsible-form:not(.expanded) .form-header { border-bottom:none; }
+        .collapsible-form .form-header { padding:13px 16px; background:linear-gradient(135deg,rgba(102,252,241,0.08) 0%,rgba(102,252,241,0.02) 100%); border-bottom:2px solid var(--border); cursor:pointer; user-select:none; display:flex; justify-content:space-between; align-items:center; transition:var(--tf); }
+        .collapsible-form .form-header:hover { background:linear-gradient(135deg,rgba(102,252,241,0.14) 0%,rgba(102,252,241,0.05) 100%); }
+        .collapsible-form .form-title { font-size:0.98rem; margin:0; color:#fff; font-weight:700; }
+        .collapsible-form .form-desc { font-size:0.78rem; color:var(--text-sub); margin-top:2px; }
+        .collapsible-form .toggle-icon { color:var(--text-sub); transition:transform var(--tf); margin-left:14px; font-size:0.82rem; }
+        .collapsible-form.expanded .toggle-icon { transform:rotate(180deg); }
+        .collapsible-form .form-body { max-height:0; overflow:hidden; transition:max-height var(--tn); padding:0 16px; }
+        .collapsible-form.expanded .form-body { max-height:1500px; padding:16px; }
+        .collapsible-form .form-row { margin-bottom:12px; }
+
+        /* 标签输入组 */
+        .tag-input-row { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+        .kv-pairs { display:flex; flex-direction:column; gap:6px; }
+        .kv-row { display:grid; grid-template-columns:1fr 1fr 28px; gap:6px; align-items:center; }
+        .kv-row .kv-del { background:transparent; border:1px solid var(--border); color:var(--danger); border-radius:var(--radius-sm); cursor:pointer; font-size:0.8rem; }
+        .add-kv-btn { padding:5px 10px; background:transparent; border:1px dashed var(--accent-dark); color:var(--accent-dark); border-radius:var(--radius-sm); cursor:pointer; font-size:0.78rem; align-self:flex-start; }
+
+        /* 伙伴/背景页 */
+        .background-page { display:flex; flex-direction:column; gap:24px; }
+        .destined-ones-content { border:2px solid var(--border); border-radius:var(--radius-lg); background:var(--input-bg); overflow-y:auto; max-height:580px; }
+        .destined-one-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:14px; padding:14px; }
+        .destined-one-card { background:var(--card-bg); border:2px solid var(--border); border-radius:var(--radius-lg); padding:13px; cursor:pointer; transition:var(--tf); display:flex; flex-direction:column; }
+        .destined-one-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-md); border-color:var(--accent); }
+        .destined-one-card.selected { border-color:var(--accent); background:rgba(102,252,241,0.1); box-shadow:var(--shadow-md); border-left-width:4px; }
+        .destined-one-card .card-header { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px; padding-bottom:8px; border-bottom:2px solid var(--border); }
+        .destined-one-card .item-name { font-size:1.05rem; color:#fff; margin:0; flex:1; line-height:1.3; min-width:0; }
+        .destined-one-card .header-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+        .destined-one-card .expand-btn { padding:2px 9px; background:var(--input-bg); border:1px solid var(--border); border-radius:var(--radius-sm); cursor:pointer; font-size:0.76rem; color:var(--text); transition:var(--tf); white-space:nowrap; }
+        .destined-one-card .expand-btn:hover { background:var(--accent); color:var(--primary-bg); border-color:var(--accent); }
+        .destined-one-card .card-summary { display:grid; grid-template-columns:repeat(2,1fr); gap:5px; margin-bottom:8px; font-size:0.8rem; }
+        .destined-one-card .summary-row { display:flex; gap:6px; }
+        .destined-one-card .summary-label { color:var(--text-sub); min-width:42px; flex-shrink:0; }
+        .destined-one-card .summary-value { color:var(--text); min-width:0; }
+        .destined-one-card .card-detail { max-height:0; overflow:hidden; transition:max-height var(--tn); font-size:0.82rem; color:var(--text-sub); line-height:1.6; }
+        .destined-one-card.expanded .card-detail { max-height:480px; overflow-y:auto; padding-top:8px; border-top:1px dashed var(--border); margin-top:6px; }
+        .destined-one-card .card-detail::-webkit-scrollbar { width:5px; }
+        .destined-one-card .card-detail::-webkit-scrollbar-track { background:rgba(0,0,0,0.2); border-radius:2px; }
+        .destined-one-card .card-detail::-webkit-scrollbar-thumb { background:var(--accent-dark); border-radius:2px; }
+        .destined-one-card .detail-row { margin-bottom:5px; }
+        .destined-one-card .detail-label { color:var(--accent-dark); font-weight:600; }
+        .destined-one-card .req-item { display:flex; gap:6px; font-size:0.8rem; margin-top:6px; padding:6px 8px; background:rgba(0,0,0,0.2); border-radius:var(--radius-sm); }
+        .destined-one-card .req-item .req-label { color:var(--text-sub); min-width:50px; }
+        .destined-one-card .req-item .req-value { color:var(--info); }
+
+        /* 阵营任务高亮 */
+        .destined-one-card .plot-goal { background:rgba(102,252,241,0.05); padding:8px 12px; border-left:3px solid var(--accent-dark); border-radius:var(--radius-sm); margin-top:6px; }
+        .destined-one-card .plot-faction-task { background:rgba(255,165,0,0.08); border-left:3px solid #ffaa33; padding:8px 12px; border-radius:var(--radius-sm); margin-top:6px; color:#ffd089; }
+        .destined-one-card .plot-faction-task .detail-label { color:#ffaa33; font-weight:700; display:block; margin-bottom:4px; }
+
+        /* ===== 多元世界结构化卡片(对齐世界书模板/正则卡片格式) ===== */
+        .destined-one-card .plot-type-tag { display:inline-block; align-self:flex-start; font-size:0.72rem; color:var(--accent-dark); border:1px solid var(--border); border-radius:var(--radius-sm); padding:1px 8px; margin:2px 0 0; }
+        .rating-badge { display:inline-block; padding:2px 10px; border-radius:var(--radius-sm); font-weight:900; font-size:0.74rem; font-family:var(--font-mono); white-space:nowrap; }
+        .rbadge-F{background:var(--t-F);color:#1a1a1a;}
+        .rbadge-E{background:var(--t-E);color:#1a1a1a;border:1px solid #94a3b8;}
+        .rbadge-D{background:var(--t-D);color:#fff;}
+        .rbadge-C{background:var(--t-C);color:#fff;}
+        .rbadge-B{background:var(--t-B);color:#fff;}
+        .rbadge-A{background:var(--t-A);color:#fff;}
+        .rbadge-S{background:var(--t-S);color:#1a1a1a;box-shadow:0 0 6px var(--t-S);}
+        .rbadge-SS{background:var(--t-SS);color:#fff;box-shadow:0 0 8px var(--t-SS);}
+        .destined-one-card .wd-row { display:flex; gap:8px; align-items:baseline; margin-bottom:6px; font-size:0.82rem; line-height:1.55; }
+        .destined-one-card .wd-label { flex:0 0 auto; min-width:64px; color:var(--accent-dark); font-weight:600; white-space:nowrap; }
+        .destined-one-card .wd-value { color:var(--text); word-break:break-word; flex:1 1 auto; }
+        .destined-one-card .wd-part-dim { color:var(--text-sub); }
+        .destined-one-card .wd-mode-solo { color:var(--accent); }
+        .destined-one-card .wd-mode-competitive { color:#ff5c5c; font-weight:600; }
+        .destined-one-card .wd-mode-neutral { color:#b07cff; }
+        .destined-one-card .wd-faction { color:#ffaa33; font-weight:700; margin-right:2px; }
+        .destined-one-card .wd-row-goal { background:rgba(255,165,0,0.08); border-left:3px solid #ffaa33; padding:6px 10px; border-radius:0 var(--radius-sm) var(--radius-sm) 0; margin-left:-4px; }
+        .destined-one-card .wd-row-goal .wd-value { color:#ffd089; }
+        .destined-one-card .wd-row-key { background:rgba(102,252,241,0.06); border-left:3px solid var(--accent); padding:6px 10px; border-radius:0 var(--radius-sm) var(--radius-sm) 0; margin-left:-4px; }
+        .destined-one-card .wd-row-key .wd-value { color:#fff; }
+
+        /* 单一世界/锁定开关 */
+        .lock-toggle-box { display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:12px 16px; margin-top:12px; background:rgba(0,0,0,0.32); border:1px solid var(--border); border-left:3px solid var(--accent-dark); border-radius:var(--radius-md); }
+        .lock-toggle { display:inline-flex; align-items:center; gap:10px; cursor:pointer; user-select:none; }
+        .lock-toggle input { display:none; }
+        .lock-track { width:46px; height:24px; background:rgba(0,0,0,0.6); border:1px solid var(--accent-dark); border-radius:12px; position:relative; transition:var(--tn); flex-shrink:0; }
+        .lock-thumb { position:absolute; top:2px; left:2px; width:18px; height:18px; background:var(--text-sub); border-radius:50%; transition:var(--tn); }
+        .lock-toggle input:checked + .lock-track { background:rgba(102,252,241,0.25); border-color:var(--accent); }
+        .lock-toggle input:checked + .lock-track .lock-thumb { left:24px; background:var(--accent); box-shadow:0 0 8px var(--accent); }
+        .lock-label { color:var(--accent); font-weight:700; font-size:0.92rem; }
+        .lock-hint { color:var(--text-sub); font-size:0.78rem; flex:1; min-width:200px; }
+
+        .single-world-banner { display:flex; align-items:center; gap:10px; padding:10px 14px; margin-bottom:12px; background:linear-gradient(90deg,rgba(102,252,241,0.14),rgba(102,252,241,0.04)); border:1px solid var(--accent); border-radius:var(--radius-md); }
+        .single-world-banner .sw-banner-icon { font-size:1.4rem; }
+        .single-world-banner .sw-banner-text { color:var(--accent); font-size:0.85rem; line-height:1.5; }
+
+        .summary-card { background:var(--card-bg); border:2px solid var(--border); border-radius:var(--radius-lg); padding:15px; position:sticky; bottom:0; }
+        .summary-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid var(--border); flex-wrap:wrap; gap:8px; }
+        .summary-title { font-size:1.05rem; color:#fff; margin:0; font-weight:700; }
+        .summary-points { display:flex; align-items:baseline; gap:6px; font-size:0.9rem; font-weight:600; }
+        .summary-points .points-value { color:var(--accent); font-size:1.1rem; font-family:var(--font-mono); }
+        .summary-points .points-value.negative { color:var(--danger); }
+        .summary-rows { font-size:0.85rem; color:var(--text); line-height:1.8; }
+        .summary-rows .row { display:flex; gap:8px; }
+        .summary-rows .row-label { color:var(--text-sub); min-width:88px; flex-shrink:0; }
+
+        /* 确认页 */
+        .summary-box { background:var(--surface-light); padding:22px; border:1px solid var(--border); border-radius:var(--radius-md); }
+        .summary-box pre { white-space:pre-wrap; font-family:var(--font-mono); color:var(--text); line-height:1.7; font-size:0.88rem; }
+        .output-actions { display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
+
+        /* 预设管理 modal */
+        .modal-overlay { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.65); display:flex; align-items:center; justify-content:center; z-index:9999; backdrop-filter:blur(3px); }
+        .modal-container { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); width:92%; max-width:560px; max-height:82vh; display:flex; flex-direction:column; overflow:hidden; }
+        .modal-header { display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-bottom:1px solid var(--border); background:rgba(0,0,0,0.3); }
+        .modal-title { margin:0; font-size:1.1rem; color:var(--accent); font-weight:700; }
+        .close-button { background:none; border:none; font-size:1.2rem; cursor:pointer; color:var(--text-sub); }
+        .close-button:hover { color:#fff; }
+        .modal-content { flex:1; overflow-y:auto; padding:18px; }
+        .preset-section { margin-bottom:18px; padding-bottom:14px; border-bottom:1px dashed var(--border); }
+        .preset-row { display:flex; gap:8px; margin-bottom:10px; }
+        .preset-input { flex:1; padding:9px 12px; background:var(--input-bg); border:1px solid var(--border); border-radius:var(--radius-md); font-size:0.9rem; color:#fff; outline:none; }
+        .preset-list { display:flex; flex-direction:column; gap:6px; }
+        .preset-item { display:flex; justify-content:space-between; align-items:center; padding:9px 12px; background:var(--input-bg); border:1px solid var(--border); border-radius:var(--radius-md); gap:8px; }
+        .preset-item .p-name { flex:1; font-size:0.88rem; color:#fff; }
+        .preset-item .p-time { font-size:0.72rem; color:var(--text-sub); }
+        .empty-preset { text-align:center; padding:20px; color:var(--text-sub); font-style:italic; font-size:0.88rem; }
+        .file-input { display:none; }
+
+        @media (max-width:768px) {
+            body { padding:0; }
+            .wizard-layout { border:none; border-radius:0; }
+            .app-header { padding:14px 18px; }
+            .step-nav { overflow-x:auto; white-space:nowrap; padding:6px 8px; }
+            .step-nav .step { padding:8px 14px; font-size:0.78rem; }
+            .content-area { padding:16px 12px; }
+            .grid-2,.grid-3 { grid-template-columns:1fr; gap:12px; }
+            .attribute-grid { grid-template-columns: 1fr; }
+            .attribute-item { flex-wrap:wrap; gap:6px 10px; }
+            .attr-controls { flex:1 1 auto; justify-content:flex-end; }
+            .category-selection-layout { grid-template-columns:1fr; height:auto; max-height:none; }
+            .category-sidebar { border-right:none; border-bottom:2px solid var(--border-strong); }
+            .category-list { flex-direction:row; overflow-x:auto; }
+            .item-grid { grid-template-columns:1fr; }
+            .destined-one-list { grid-template-columns:1fr; }
+            .app-footer { padding:12px; }
+            .points-grid { grid-template-columns: 1fr; gap: 10px; }
+            .cf-attr-grid { grid-template-columns: repeat(2, 1fr); }
+            .confirm-wrapper { padding: 16px; }
+            .cf-attr-box { padding: 8px 12px; font-size: 0.88rem; }
+            .cf-attr-box span { font-size: 1rem; }
+            .cf-section { margin-bottom: 22px; }
+            .cf-title { font-size: 1rem; }
+            .cf-item-head { gap: 8px; }
+            .cf-item-name { font-size: 0.98rem; }
+            .cf-item-props { padding: 10px 12px; font-size: 0.85rem; }
+            .point-box { padding: 12px 10px; }
+            .point-box .p-label { font-size: 0.78rem; }
+            .point-box .p-value { font-size: 1.3rem; }
+            .cf-text { font-size: 0.88rem; }
+            .cf-banner { font-size: 0.9rem; padding: 12px; }
+
+            /* ===== 预设管理弹窗移动端适配 ===== */
+            .modal-overlay { align-items:flex-start; padding:12px; overflow-y:auto; }
+            .modal-container { width:100%; max-width:100% !important; max-height:88vh; margin:0 auto; }
+            .modal-header { padding:12px 14px; flex-wrap:wrap; gap:8px; }
+            .modal-title { font-size:1rem; }
+            .modal-content { padding:14px !important; }
+            .preset-section { margin-bottom:18px; padding-bottom:14px; }
+            .preset-sec-title { font-size:0.95rem; margin-bottom:10px; }
+            .preset-row { flex-direction:column; align-items:stretch; gap:8px; }
+            .preset-input { min-width:0; width:100%; padding:10px 12px; font-size:0.9rem; }
+            .preset-hint { font-size:0.78rem; }
+            .btn-p { padding:9px 12px; font-size:0.82rem; justify-content:center; }
+            /* 列表区头部：标题与全部导出按钮堆叠 */
+            .preset-section > div[style*="space-between"] { flex-direction:column; align-items:stretch !important; gap:10px; }
+            .preset-section > div[style*="space-between"] .btn-p { align-self:stretch; }
+            /* 预设卡片：信息与操作区垂直堆叠 */
+            .preset-item { padding:12px; }
+            .p-item-header { flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+            .p-item-name { font-size:1rem; word-break:break-all; }
+            .p-item-time { font-size:0.72rem; }
+            .p-item-info { gap:10px 14px; font-size:0.82rem; }
+            .p-item-actions { flex-wrap:wrap; justify-content:flex-start; gap:6px; margin-top:12px; }
+            .p-item-actions .btn-p { flex:1 1 calc(33.333% - 6px); min-width:0; }
+            .p-item-actions .btn-p i { margin-right:2px; font-size:0.78rem; }
+
+            /* ===== 欢迎加载弹窗预设列表移动端适配 ===== */
+            #welcome-preset-list .preset-item { flex-direction: row; align-items: center; gap: 12px; padding: 10px 12px; }
+            #welcome-preset-list .preset-item input[type="radio"] { transform: scale(1.1); flex-shrink: 0; margin: 0; }
+            #welcome-preset-list .preset-item > div[style*="flex: 1"] { flex: 1; min-width: 0; }
+            #welcome-preset-list .preset-item > div[style*="flex: 1"] > div:first-child { font-size: 0.92rem; word-break: break-all; line-height: 1.3; }
+            #welcome-preset-list .preset-item > div[style*="flex: 1"] > div:last-child { font-size: 0.74rem; flex-wrap: wrap; gap: 8px; }
+        }
+
+        /* 超窄屏 (≤380px) 进一步压缩 */
+        @media (max-width:380px) {
+            .p-item-actions { flex-direction:column; }
+            .p-item-actions .btn-p { flex:1 1 100%; width:100%; }
+            .modal-content { padding:12px !important; }
+            .preset-input { font-size:0.85rem; }
+            /* 欢迎加载弹窗超窄屏进一步压缩 */
+            #welcome-preset-list .preset-item { gap: 10px; padding: 8px 10px; }
+            #welcome-preset-list .preset-item input[type="radio"] { transform: scale(1); }
+            #welcome-preset-list .preset-item > div[style*="flex: 1"] > div:first-child { font-size: 0.88rem; }
+        }
+
+        /* ===== 中型手机断点（≤480px）第4页紧凑化 ===== */
+        @media (max-width:480px) {
+            .points-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 20px; }
+            .point-box { padding: 10px 4px; }
+            .point-box .p-label { font-size: 0.72rem; margin-bottom: 2px; }
+            .point-box .p-value { font-size: 1.05rem; }
+            .cf-attr-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+            .cf-attr-box { padding: 8px 10px; font-size: 0.84rem; }
+            .cf-attr-box span { font-size: 0.95rem; }
+            .confirm-wrapper { padding: 12px 10px; }
+            .cf-section { margin-bottom: 18px; }
+            .cf-title { font-size: 0.95rem; gap: 6px; }
+            .cf-title i { font-size: 1rem; }
+            .cf-item-head { gap: 6px; }
+            .cf-item-name { font-size: 0.92rem; }
+            .cf-item-cost { font-size: 0.82rem; }
+            .cf-item-props { padding: 8px 10px; font-size: 0.82rem; }
+            .cf-text { font-size: 0.84rem; line-height: 1.5; margin-bottom: 4px; }
+            .cf-banner { font-size: 0.85rem; padding: 10px; }
+        }
+
+        /* ===== 第4页：确认页专属样式 ===== */
+        .confirm-wrapper { background: var(--surface-light); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 30px; }
+        .confirm-header { text-align: center; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px dashed var(--border-light); }
+        .confirm-header h2 { margin: 0 0 8px 0; color: var(--accent); letter-spacing: 2px; font-size: 1.4rem; }
+        .confirm-header p { margin: 0; color: var(--text-sub); font-size: 0.9rem; }
+        
+        .points-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px; }
+        .point-box { background: rgba(0,0,0,0.3); border: 1px solid var(--border-light); padding: 15px; text-align: center; border-radius: var(--radius-md); }
+        .point-box .p-label { display: block; color: var(--text-sub); font-size: 0.85rem; margin-bottom: 5px; }
+        .point-box .p-value { font-size: 1.6rem; font-weight: bold; font-family: var(--font-mono); }
+        .point-box .p-value.gold { color: #f1c40f; }
+        .point-box .p-value.green { color: var(--success); }
+        .point-box .p-value.red { color: var(--danger); }
+        
+        .cf-section { margin-bottom: 30px; }
+        .cf-title { font-size: 1.1rem; color: #fff; margin: 0 0 15px 0; padding-bottom: 8px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+        .cf-title i { color: var(--accent); font-size: 1.2rem; }
+        .cf-text { color: var(--text); font-size: 0.95rem; line-height: 1.6; margin-bottom: 6px; }
+        .cf-text strong { color: var(--text-sub); margin-right: 5px; }
+        
+        .cf-attr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 15px; }
+        .cf-attr-box { background: rgba(102,252,241,0.05); padding: 10px 15px; border-radius: var(--radius-sm); font-size: 0.95rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px 8px; border-left: 2px solid var(--accent-dark); word-break: break-word; min-width: 0; }
+        .cf-attr-box strong { color: var(--text-sub); }
+        .cf-attr-box span { color: var(--accent); font-weight: bold; font-family: var(--font-mono); font-size: 1.1rem; }
+        
+        .cf-item { margin-bottom: 15px; padding-bottom: 15px; border-bottom: 1px dashed var(--border-light); }
+        .cf-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .cf-item-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+        .cf-item-name { font-size: 1.05rem; font-weight: bold; color: #fff; word-break: break-word; }
+        .cf-item-cost { color: #f1c40f; font-family: var(--font-mono); font-size: 0.95rem; margin-left: auto; }
+        .cf-item-props { background: rgba(0,0,0,0.2); padding: 10px 15px; border-left: 2px solid var(--accent-dark); border-radius: var(--radius-sm); font-size: 0.9rem; color: var(--text); margin-bottom: 8px; }
+        .cf-item-props p { margin: 0 0 6px 0; line-height: 1.5; word-break: break-word; overflow-wrap: anywhere; }
+        .cf-item-props p:last-child { margin: 0; }
+        .cf-item-desc { font-size: 0.85rem; color: var(--text-sub); font-style: italic; }
+        
+        .cf-banner { margin-top: 20px; padding: 15px; text-align: center; border-radius: var(--radius-md); font-weight: bold; font-size: 1rem; }
+        .cf-banner.info { background: rgba(102, 252, 241, 0.1); border: 1px solid var(--accent); color: var(--accent); }
+        .cf-banner.warning { background: rgba(231, 76, 60, 0.1); border: 1px solid var(--danger); color: var(--danger); }
+        .cf-banner.success { background: rgba(76, 175, 80, 0.1); border: 1px solid var(--success); color: var(--success); }
+        
+        /* ===== 🌟 终极预设管理面板样式 ===== */
+        @keyframes toastFadeIn { from{opacity:0; transform:translate(-50%, -15px);} to{opacity:1; transform:translate(-50%, 0);} }
+        @keyframes toastFadeOut { from{opacity:1; transform:translate(-50%, 0);} to{opacity:0; transform:translate(-50%, -15px);} }
+        
+        .preset-section { margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px dashed var(--border-strong); }
+        .preset-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .preset-sec-title { font-size: 1.05rem; color: var(--accent); margin-bottom: 12px; font-weight: bold; display: flex; align-items: center; gap: 8px; }
+        .preset-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+        .preset-input { flex: 1; min-width: 200px; padding: 12px 14px; background: rgba(0,0,0,0.5); border: 1px solid var(--border); border-radius: 4px; color: #fff; font-size: 0.95rem; outline: none; transition: 0.3s; }
+        .preset-input:focus { border-color: var(--accent); box-shadow: 0 0 8px rgba(102,252,241,0.2); }
+        .preset-hint { font-size: 0.85rem; color: var(--text-sub); font-style: italic; }
+        
+        /* 预设面板专属按钮 */
+        .btn-p { padding: 10px 16px; font-size: 0.9rem; font-weight: bold; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: 0.2s; border: none; font-family: inherit; white-space: nowrap; }
+        .btn-p.save { background: #b8941f; color: #fff; } .btn-p.save:hover { background: #d4af37; transform: translateY(-1px); }
+        .btn-p.import { background: #00897b; color: #fff; } .btn-p.import:hover { background: #26a69a; transform: translateY(-1px); }
+        .btn-p.export-all { background: #3949ab; color: #fff; } .btn-p.export-all:hover { background: #5c6bc0; transform: translateY(-1px); }
+        .btn-p.load { background: #2e7d32; color: #fff; } .btn-p.load:hover { background: #4caf50; }
+        .btn-p.export { background: #5c6bc0; color: #fff; } .btn-p.export:hover { background: #7986cb; }
+        .btn-p.del { background: transparent; color: var(--danger); border: 1px solid var(--danger); padding: 9px 15px; } .btn-p.del:hover { background: rgba(231,76,60,0.1); }
+        .btn-p.confirm-del { background: var(--danger); color: #fff; } .btn-p.confirm-del:hover { background: #c0392b; }
+        .btn-p.cancel { background: var(--surface-light); color: var(--text); border: 1px solid var(--border); padding: 9px 15px; } .btn-p.cancel:hover { background: var(--border); color: #fff; }
+        
+        /* 预设卡片 */
+        .preset-item { background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 6px; padding: 15px; margin-bottom: 12px; transition: 0.3s; }
+        .preset-item:hover { border-color: var(--accent-dark); }
+        .preset-item.del-pending { border-color: var(--danger); background: rgba(231,76,60,0.05); }
+        .p-item-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+        .p-item-name { font-size: 1.15rem; font-weight: bold; color: #fff; }
+        .p-item-time { font-size: 0.8rem; color: var(--text-sub); font-family: monospace; }
+        .p-item-info { font-size: 0.9rem; color: var(--text-sub); display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
+        .p-item-info i { color: var(--accent-dark); margin-right: 4px; }
+        .p-item-info .val { color: var(--text); font-weight: 500; }
+        .p-item-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="wizard-layout">
+        <header class="app-header">
+            <h1>轮回战场 · 建档协议</h1>
+            <div class="header-actions">
+                <div class="wallet">可用空间币：<span class="coins" id="val-coins">1000</span></div>
+                <button class="icon-btn" onclick="openPresetModal()">💾 预设管理</button>
+            </div>
+        </header>
+
+        <div class="step-nav" id="step-nav">
+            <div class="step active" id="nav-1" onclick="jumpStep(1)"><span class="title">信息 / 属性</span></div>
+            <div class="step" id="nav-2" onclick="jumpStep(2)"><span class="title">装备 / 技能</span></div>
+            <div class="step" id="nav-3" onclick="jumpStep(3)"><span class="title">伙伴 / 背景</span></div>
+            <div class="step" id="nav-4" onclick="jumpStep(4)"><span class="title">确认 / 导出</span></div>
+        </div>
+
+        <div class="content-area">
+            <div class="step-pane active" id="pane-1">
+      <section class="variable-api-mode" id="variable-api-mode-section">
+          <div class="variable-api-mode-head">
+              <h2 class="variable-api-mode-title">配 · 变量更新方式</h2>
+          </div>
+          <p class="variable-api-mode-intro">决定面板变量由谁更新。选择后会自动开关角色世界书与当前预设里的对应条目；额外 API 的地址、Key 与模型仍需在 MVU 扩展中配置。</p>
+          <div class="variable-api-mode-grid">
+              <button type="button" class="variable-api-mode-card" data-variable-api-mode="额外API" onclick="chooseVariableApiMode('额外API')">
+                  <div class="variable-api-mode-card-title">额外API输出 <span class="variable-api-mode-badge">推荐</span></div>
+                  <div class="variable-api-mode-desc">由独立的额外模型在变量更新轮单独处理变量，正文模型只负责故事。长文本下更稳定，也更不容易让正文被更新指令污染。</div>
+                  <div class="variable-api-mode-tags"><span class="variable-api-mode-tag">正文更干净</span><span class="variable-api-mode-tag">需配置额外模型</span></div>
+              </button>
+              <button type="button" class="variable-api-mode-card" data-variable-api-mode="随主API" onclick="chooseVariableApiMode('随主API')">
+                  <div class="variable-api-mode-card-title">随主AI输出 <span class="variable-api-mode-badge">开箱即用</span></div>
+                  <div class="variable-api-mode-desc">主模型在讲故事的同一轮里顺带输出变量更新，无需额外模型配置；代价是正文与更新指令挤在同一轮，长篇幅时更容易出现格式错误。</div>
+                  <div class="variable-api-mode-tags"><span class="variable-api-mode-tag">无需额外设置</span><span class="variable-api-mode-tag">长文易出错</span></div>
+              </button>
+          </div>
+          <div class="variable-api-mode-status" id="variable-api-mode-status"></div>
+      </section>
+
+      <h2 class="section-title">基础信息录入</h2>
+                <div class="grid-2">
+                    <div class="form-group"><label>代号 / 姓名</label><input type="text" class="form-control" id="f-name" placeholder="输入角色姓名..."></div>
+                    <div class="form-group"><label>性别</label><select class="form-control" id="f-gender"><option>男</option><option>女</option><option>扶她</option><option>男娘</option><option>药娘</option><option>太监</option><option>无性别</option></select></div>
+                    <div class="form-group"><label>年龄</label><input type="number" class="form-control" id="f-age" value="20"></div>
+                    <div class="form-group"><label>种族</label><input type="text" class="form-control" id="f-race" value="人类" placeholder="如：人类、精灵..."></div>
+                </div>
+                <div class="form-group"><label>阵营身份 (限定五类)</label><select class="form-control" id="f-identity" onchange="updateFactionDesc()"><option>守护者</option><option>篡夺者</option><option>织梦者</option><option>残魂</option><option>穿越者</option></select></div>
+                <div class="faction-desc" id="faction-desc"></div>
+
+                <div class="attributes-panel">
+                    <div class="panel-header">
+                        <h3>血统属性分配（此处只针对血统，并不代表最终属性）</h3>
+                        <div class="points-summary">
+                            <div class="points-badge">可分配点数：<strong id="attr-remaining">8</strong> / <span id="attr-total-base">8</span></div>
+                        </div>
+                    </div>
+                    <div class="attribute-editor">
+                        <div class="attribute-grid" id="attr-grid"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-pane" id="pane-2">
+                <div class="selections-container">
+                    <div class="category-tabs" id="item-tabs"></div>
+                    <div class="category-selection-layout">
+                        <div class="category-sidebar"><div class="category-list" id="sub-category-list"></div></div>
+                        <div class="category-content">
+                            <div class="rarity-filter" id="rarity-filter"></div>
+                            <div class="item-grid" id="item-grid"></div>
+                        </div>
+                    </div>
+                    <div class="selected-panel">
+                        <div class="panel-header">
+                            <div class="header-top"><span class="title">已选授权清单</span><span class="count-badge" id="selected-count">0</span></div>
+                            <div class="points-info"><span class="points-label">剩余空间币：</span><span class="points-value" id="selected-coins">1000</span></div>
+                        </div>
+                        <div class="panel-body" id="selected-body"></div>
+                    </div>
+                    <div class="collapsible-form" id="custom-item-form" style="display:none;" data-hidden="1">
+                        <div class="form-header" onclick="toggleCustomItem()">
+                            <div><div class="form-title">+ 录入自定义物资</div><div class="form-desc">预设无法满足时自定义装备/道具/技能，字段遵循实体生成规则</div></div>
+                            <span class="toggle-icon">▼</span>
+                        </div>
+                        <div class="form-body" id="custom-item-body"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-pane" id="pane-3">
+                <div class="background-page">
+                    <div style="display:none;" data-hidden="1">
+                        <h2 class="section-title">协同实体 (伙伴)</h2>
+                        <div class="destined-ones-content"><div class="destined-one-list" id="grid-partner"></div></div>
+                    </div>
+                    <div class="collapsible-form" id="custom-partner-form">
+                        <div class="form-header" onclick="toggleCustomPartner()">
+                            <div><div class="form-title">+ 招募自定义伙伴</div><div class="form-desc">无预设匹配时自定义一位协同实体</div></div>
+                            <span class="toggle-icon">▼</span>
+                        </div>
+                        <div class="form-body" id="custom-partner-body"></div>
+                    </div>
+
+                    <div>
+                        <h2 class="section-title">初始剧情切入点 (二选一)</h2>
+                        <div class="category-tabs" id="plot-tabs"></div>
+                        <div class="destined-ones-content" style="margin-top:12px;"><div class="destined-one-list" id="grid-plot"></div></div>
+                    </div>
+
+                    <div class="collapsible-form" id="single-world-form" style="display:none;" data-hidden="1">
+                        <div class="form-header" onclick="toggleSingleWorld()">
+                            <div><div class="form-title">🌐 单一世界模式 (自定义想去的世界)</div><div class="form-desc">切换到「单一世界」选项卡后此处展开填写，系统将直接投放至你指定的世界</div></div>
+                            <span class="toggle-icon">▼</span>
+                        </div>
+                        <div class="form-body" id="single-world-body"></div>
+                    </div>
+
+                    <div class="lock-toggle-box" id="world-stability-lock">
+                        <label class="lock-toggle">
+                            <input type="checkbox" id="ws-lock" onchange="updateBgSummary()">
+                            <span class="lock-track"><span class="lock-thumb"></span></span>
+                            <span class="lock-label">🔒 锁死世界稳定度</span>
+                        </label>
+                        <span class="lock-hint" id="ws-lock-hint">关闭：稳定度由世界自然浮动；开启：稳定度锁定为 100（不会因剧情波动崩毁）</span>
+                    </div>
+
+                    <div class="summary-card">
+                        <div class="summary-header"><span class="summary-title">因果羁绊预览</span><div class="summary-points"><span>剩余空间币：</span><span class="points-value" id="bg-coins">1000</span></div></div>
+                        <div class="summary-rows" id="bg-summary"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANE 4 -->
+            <div class="step-pane" id="pane-4">
+                <!-- 视觉呈现面板 -->
+                <div id="visual-summary"></div>
+                <!-- 移除了原本的 JSON 显示框与两颗旧按钮 -->
+            </div>
+        </div>
+
+        <footer class="app-footer">
+            <button class="btn" id="btn-prev" onclick="goStep(-1)" style="visibility:hidden;">返回上一步</button>
+            <!-- 下一步按钮将被 JS 动态接管 -->
+            <button class="btn primary" id="btn-next" onclick="goStep(1)">前往下一步</button>
+        </footer>
+    </div>
+
+    <!-- 🌟 新增：保存预设询问弹窗 -->
+    <div class="modal-overlay" id="save-confirm-modal" style="display:none; z-index: 10000;">
+        <div class="modal-container" style="max-width: 420px; text-align: center;">
+            <div class="modal-header" style="justify-content: center; background: rgba(102, 252, 241, 0.08); border-bottom: 1px solid var(--accent-dark);">
+                <h3 class="modal-title" style="color: var(--accent);"><i class="fa-solid fa-link"></i> 确认链接协议</h3>
+            </div>
+            <div class="modal-content" style="padding: 30px 20px;">
+                <p style="font-size: 1.05rem; color: #fff; margin: 0 0 10px 0; font-weight: bold;">即将把档案数据注入世界，是否保存为预设？</p>
+                <p style="font-size: 0.85rem; color: var(--text-sub); font-style: italic; margin: 0 0 25px 0;">保存后，下次轮回可一键快速加载相同配置</p>
+                <div style="display: flex; gap: 12px; justify-content: center;">
+                    <button class="btn" style="background: var(--accent); color: #000; border: none; font-weight: bold;" onclick="goToSavePreset()"><i class="fa-solid fa-save"></i> 保存配置</button>
+                    <button class="btn" style="background: var(--surface-light); color: var(--text); border: 1px solid var(--border);" onclick="skipAndStart()"><i class="fa-solid fa-paper-plane"></i> 不保存，直接开始</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🌟 预设管理 Modal (三段式精装修版) -->
+    <div class="modal-overlay" id="preset-modal" style="display:none; z-index: 10001;">
+        <div class="modal-container" style="max-width: 680px;">
+            <div class="modal-header" style="background: rgba(0,0,0,0.5);">
+                <h3 class="modal-title" style="color: var(--text);"><i class="fa-solid fa-folder-open"></i> 预设管理</h3>
+                <button class="close-button" onclick="closePresetModal()">✕</button>
+            </div>
+            <div class="modal-content" style="padding: 25px;">
+                
+                <!-- 1. 保存区 -->
+                <div class="preset-section">
+                    <div class="preset-sec-title"><i class="fa-solid fa-save" style="color: #b8941f;"></i> 保存当前配置</div>
+                    <div class="preset-row">
+                        <input type="text" class="preset-input" id="preset-name-input" placeholder="输入预设名称 (如：剑士·废土开局)...">
+                        <button class="btn-p save" onclick="saveNewPreset()"><i class="fa-solid fa-save"></i> 保存预设</button>
+                    </div>
+                </div>
+
+                <!-- 2. 导入区 -->
+                <div class="preset-section">
+                    <div class="preset-sec-title"><i class="fa-solid fa-file-import" style="color: #00897b;"></i> 导入预设</div>
+                    <div class="preset-row">
+                        <button class="btn-p import" onclick="document.getElementById('import-file').click()"><i class="fa-solid fa-upload"></i> 导入预设文件</button>
+                        <span class="preset-hint">支持 .json 格式的预设文件</span>
+                        <input type="file" id="import-file" style="display:none;" accept=".json" onchange="importPreset(event)">
+                    </div>
+                </div>
+
+                <!-- 3. 列表区 -->
+                <div class="preset-section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <div class="preset-sec-title" style="margin-bottom: 0; color: #5c6bc0;"><i class="fa-solid fa-list-ul"></i> 已保存的预设 (<span id="preset-count">0</span>)</div>
+                        <button class="btn-p export-all" onclick="exportAllPresets()"><i class="fa-solid fa-file-export"></i> 全部导出</button>
+                    </div>
+                    <div class="preset-list" id="preset-list">
+                        <!-- 动态列表生成区 -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="welcome-load-modal" style="display:none; z-index: 10002;">
+        <div class="modal-container" style="max-width: 500px;">
+            <div class="modal-header" style="background: rgba(46, 125, 50, 0.15); border-bottom: 1px solid #4caf50;">
+                <h3 class="modal-title" style="color: #4caf50;"><i class="fa-solid fa-clock-rotate-left"></i> 检测到历史预设</h3>
+                <button class="close-button" onclick="closeWelcomeLoadModal()">✕</button>
+            </div>
+            <div class="modal-content" style="padding: 25px;">
+                <p style="font-size: 0.95rem; color: var(--text); margin: 0 0 15px 0;">发现本地保存的轮回建档预设，是否需要直接加载？<br><span style="color:var(--text-sub);font-size:0.85rem;">（不加载则直接关闭此窗口进行全新建档）</span></p>
+                
+                <div class="preset-section" style="margin-bottom: 20px; border: none; padding: 0;">
+                    <div class="preset-list" id="welcome-preset-list" style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
+                        </div>
+                </div>
+
+                <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; padding-top: 15px; border-top: 1px dashed var(--border);">
+                    <button class="btn cancel" style="border: 1px solid var(--text-sub);" onclick="closeWelcomeLoadModal()">✕ 取消，全新建档</button>
+                    <button class="btn primary" id="btn-welcome-load" onclick="confirmWelcomeLoad()"><i class="fa-solid fa-download"></i> 确认加载</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    /** * ==========================================
+     * 👑 超级新手数据库 (DATABASE) —— 字段遵循实体生成规则 & 品质效果数值规则
+     * ========================================== */
+    const DB = {
+        initSpaceCoins: 1000,       // 初始空间币
+        attrBasePoints: 8,         // 五维总分上限（基础点）
+        attrSingleMax: 8,           // 单项上限 0~8 对应品质 F~SSS
+        attrMin: 0,                 // 每项最低值（0 = F 品质）
+        attributes: ['力量','敏捷','体质','精神','魅力'],
+
+        // 装备类型 0-8
+        equipTypes: [
+            {v:0,label:'刀剑类'},{v:1,label:'枪矛类'},{v:2,label:'棍棒类'},{v:3,label:'机械类'},{v:4,label:'弓弩类'},{v:5,label:'盾牌类'},{v:6,label:'匕首短刃'},{v:7,label:'法杖魔导书'},{v:8,label:'圣典权杖'},{v:9,label:'特殊武器'},
+            {v:10,label:'手部'},{v:11,label:'头部'},{v:12,label:'胸部'},{v:13,label:'腿部'},{v:14,label:'鞋子'},{v:15,label:'披风'},{v:16,label:'饰品'},{v:17,label:'世界遗物'}
+        ],
+        sourceTags: ['主神空间','手工造物','系统产出'],
+        skillTypes: [{v:0,label:'主动'},{v:1,label:'被动'},{v:2,label:'特殊'}],
+        itemTypes: ['消耗','材料','特殊'],
+
+        itemCategories: [
+            { key:'equipment', label:'装备', source:'equipments', subTypes:[{v:0,label:'刀剑类'},{v:1,label:'枪矛类'},{v:2,label:'棍棒类'},{v:3,label:'机械类'},{v:4,label:'弓弩类'},{v:5,label:'盾牌类'},{v:6,label:'匕首短刃'},{v:7,label:'法杖魔导书'},{v:8,label:'圣典权杖'},{v:9,label:'特殊武器'},{v:10,label:'手部'},{v:11,label:'头部'},{v:12,label:'胸部'},{v:13,label:'腿部'},{v:14,label:'鞋子'},{v:15,label:'披风'},{v:16,label:'饰品'},{v:17,label:'世界遗物'}] },
+            { key:'item',      label:'道具', source:'items',      subTypes:[{v:'消耗',label:'消耗'},{v:'材料',label:'材料'},{v:'特殊',label:'特殊'}] },
+            { key:'skill',     label:'技能', source:'skills',     subTypes:[{v:0,label:'主动'},{v:1,label:'被动'},{v:2,label:'特殊'}] }
+        ],
+        rarityList: ['F','E','D','C','B','A','S','SS','SSS'],
+
+        // ==========================================
+        // ⚔️ 开局装备库：数值明确、机制有效；品质控制强度，不生成废词条
+        // ==========================================
+        equipments: [
+            // 0: 刀剑类
+            { id:'e0_1', name:'高频切割刃', tier:'D', cost:750, type:0, source:'主神空间', tags:["刀剑","重型","物理","力量","伤害"], attrs:{"ATK":"A"}, effects:{"高频破甲":"命中时忽略目标15%的物理减伤率。"}, desc:'刃口高频震动，对常规装甲有极强切割力。', consume:"无" },
+            { id:'e0_2', name:'百炼精钢剑', tier:'E', cost:200, type:0, source:'主神空间', tags:["刀剑","中型","物理","力量","伤害"], attrs:{"ATK":"B"}, effects:{"百炼锋刃":"对无甲或轻甲目标造成的物理伤害提高8%。"}, desc:'反复锻打的钢制长剑，刃口经过耐磨处理。', consume:"无" },
+            { id:'e0_3', name:'生锈的铁剑', tier:'F', cost:50,  type:0, source:'主神空间', tags:["刀剑","物理","力量","伤害"], attrs:{"ATK":"C"}, effects:{"缺口狠劈":"对HP低于上限50%的目标造成的物理伤害提高5%。"}, desc:'从废墟里捡来的铁片，勉强能砍人。', consume:"无" },
+            
+            // 1: 枪矛类
+            { id:'e1_1', name:'等离子战矛', tier:'D', cost:800, type:1, source:'主神空间', tags:["枪矛","重型","能量","力量","伤害"], attrs:{"ATK":"B","MATK":"D"}, effects:{"等离子灼烧":"命中造成HP损失后，附加灼烧2回合，每回合受到25点能量火焰伤害；体质对抗成功可避免灼烧。"}, desc:'枪尖带有高热等离子场的战矛。', consume:"无" },
+            { id:'e1_2', name:'精钢透甲枪', tier:'E', cost:250, type:1, source:'主神空间', tags:["枪矛","重型","物理","力量","伤害"], attrs:{"ATK":"A"}, effects:{"冲锋突刺":"本回合直线移动至少3米后突刺，命中伤害提高10%。"}, desc:'古代正规军配备的长枪。', consume:"无" },
+            { id:'e1_3', name:'削尖的木棍', tier:'F', cost:30,  type:1, source:'主神空间', tags:["枪矛","物理","力量","伤害"], attrs:{"ATK":"D"}, effects:{"长柄突刺":"普通近战攻击距离提升至2米。"}, desc:'村头王大爷削的木棍。', consume:"无" },
+
+            // 2: 棍棒类
+            { id:'e2_1', name:'哭丧镇魂棒', tier:'D', cost:800, type:2, source:'主神空间', tags:["棍棒","重型","物理","力量","伤害"], attrs:{"ATK":"C","MATK":"B"}, effects:{"镇魂":"可直接攻击非实体灵体；对灵体造成的伤害转为精神伤害并提高10%。"}, desc:'由槐木与白纸糊成，直击灵魂。', consume:"无" },
+            { id:'e2_2', name:'高碳钢棒球棍', tier:'E', cost:220, type:2, source:'主神空间', tags:["棍棒","重型","物理","力量","伤害"], attrs:{"ATK":"A"}, effects:{"重击震退":"命中后可进行力量对抗，胜出将目标击退2米。"}, desc:'街头斗殴的神器。', consume:"无" },
+            { id:'e2_3', name:'包铁长板砖', tier:'F', cost:60,  type:2, source:'主神空间', tags:["棍棒","物理","力量","伤害"], attrs:{"ATK":"B"}, effects:{"飞砖":"可投掷攻击8米内目标，命中伤害提高10%；投出后需回收。"}, desc:'一块绑着铁皮的红砖，简单粗暴。', consume:"无" },
+
+            // 3: 机械类 
+            { id:'e3_1', name:'高斯电磁手枪', tier:'D', cost:850, type:3, source:'主神空间', tags:["机械","远程","物理","敏捷","伤害"], attrs:{"ATK":"A"}, effects:{"电磁贯穿":"射程80米；可穿透累计5毫米普通钢板，穿透后的攻击保留80%伤害。"}, desc:'一把泛用型的高科技防身手枪。', consume:"每次攻击消耗标准电磁弹1发" },
+            { id:'e3_2', name:'Glock-19警用手枪', tier:'E', cost:280, type:3, source:'主神空间', tags:["机械","远程","物理","敏捷","伤害"], attrs:{"ATK":"B"}, effects:{"快速拔枪":"射程40米；每场战斗首次从枪套拔出时可立即衔接一次原有攻击，不额外消耗动作。"}, desc:'经典的9mm手枪，后坐力小。', consume:"每次攻击消耗9mm手枪子弹1发" },
+            { id:'e3_3', name:'自制双管土铳', tier:'F', cost:80,  type:3, source:'主神空间', tags:["机械","远程","物理","敏捷","伤害"], attrs:{"ATK":"A"}, effects:{"双管齐射":"射程10米；消耗2份铁砂装药齐射，命中伤害提高25%。"}, desc:'塞满铁砂和劣质火药的土制喷子。', consume:"单管消耗铁砂装药1份；齐射2份" },
+            { id:'e3_4', name:'脉冲突击步枪', tier:'D', cost:900, type:3, source:'主神空间', tags:["机械","远程","能量","精神","伤害"], attrs:{"MATK":"A"}, effects:{"三脉冲模式":"射程100米；消耗3发脉冲能量进行三脉冲攻击，命中伤害提高20%。"}, desc:'中远距离的主力突击武器。', consume:"每次攻击消耗脉冲能量3发" },
+
+            // 4: 弓弩类
+            { id:'e4_1', name:'追风连弩', tier:'D', cost:700, type:4, source:'主神空间', tags:["弓弩","远程","物理","敏捷","伤害"], attrs:{"ATK":"B"}, effects:{"双矢齐发":"射程50米；一次攻击消耗2支精钢弩箭，命中伤害提高20%。"}, desc:'带有简易阵法的连弩，机动性极强。', consume:"每次齐发消耗精钢弩箭2支" },
+            { id:'e4_2', name:'寻灵复合弓', tier:'E', cost:300, type:4, source:'主神空间', tags:["弓弩","远程","物理","敏捷","伤害"], attrs:{"ATK":"B"}, effects:{"寻灵箭":"可消耗12EP凝聚灵矢代替箭矢；灵矢可命中灵体，并将该次伤害转为能量伤害。"}, desc:'铭刻了微型聚灵阵的单兵弓。', consume:"每次攻击EP 12" },
+            { id:'e4_3', name:'粗糙的猎弓', tier:'F', cost:60,  type:4, source:'主神空间', tags:["弓弩","远程","物理","敏捷","伤害"], attrs:{"ATK":"C"}, effects:{"稳弓":"若本回合未移动，本次射击的敏捷检定修正+5。"}, desc:'用兽筋和普通木材做成的打猎工具。', consume:"每次攻击消耗粗糙木箭1支" },
+
+            // 5: 盾牌类
+            { id:'e5_1', name:'能量偏导防暴盾', tier:'D', cost:850, type:5, source:'主神空间', tags:["盾牌","防御","力量"], attrs:{"DEF":"C","MDEF":"A"}, effects:{"能量偏导":"举盾时，来自正面的能量伤害减少20%。"}, desc:'不仅能挡子弹，还能折射部分激光。', consume:"无" },
+            { id:'e5_2', name:'警用防爆盾', tier:'E', cost:200, type:5, source:'主神空间', tags:["盾牌","防御","力量"], attrs:{"DEF":"A"}, effects:{"防暴架势":"举盾时，来自正面的物理伤害减少12%。"}, desc:'厚实的PC材质盾牌，防流弹。', consume:"无" },
+            { id:'e5_3', name:'铁皮垃圾桶盖', tier:'F', cost:40,  type:5, source:'主神空间', tags:["盾牌","防御","力量"], attrs:{"DEF":"C"}, effects:{"临时格挡":"每场战斗首次受到正面物理攻击时，该次伤害减少8%。"}, desc:'不知道从哪个垃圾堆捡来的盖子。', consume:"无" },
+
+            // 6: 匕首短刃
+            { id:'e6_1', name:'嗜血影刃', tier:'D', cost:750, type:6, source:'主神空间', tags:["匕首","轻型","物理","敏捷","伤害"], attrs:{"ATK":"A"}, effects:{"嗜血":"造成近战物理伤害时，将伤害值的10%转化为自身THP。"}, desc:'刀刃暗红，仿佛有生命般渴望鲜血。', consume:"无" },
+            { id:'e6_2', name:'怨毒剔骨刀', tier:'E', cost:250, type:6, source:'主神空间', tags:["匕首","轻型","物理","敏捷","伤害"], attrs:{"ATK":"B"}, effects:{"剔骨流血":"命中造成HP损失后，附加流血2回合，每回合受到10点物理伤害。"}, desc:'屠夫用过的凶器，煞气很重。', consume:"无" },
+            { id:'e6_3', name:'战术折叠刀', tier:'F', cost:50,  type:6, source:'主神空间', tags:["匕首","轻型","物理","敏捷","伤害"], attrs:{"ATK":"C"}, effects:{"暗藏利刃":"从收纳或隐藏状态首次拔刀攻击时，本次敏捷检定修正+5。"}, desc:'常见的多功能战术小刀。', consume:"无" },
+
+            // 7: 法杖魔导书
+            { id:'e7_1', name:'百年雷击木杖', tier:'D', cost:900, type:7, source:'主神空间', tags:["法杖","能量","精神","伤害"], attrs:{"MATK":"A","AP":"D"}, effects:{"引雷":"雷电类技能造成的伤害提高15%。"}, desc:'蕴含着天雷之威的法杖。', consume:"无" },
+            { id:'e7_2', name:'学徒导能杖', tier:'E', cost:300, type:7, source:'主神空间', tags:["法杖","能量","精神","伤害"], attrs:{"MATK":"B","AP":"F"}, effects:{"导魔":"施放E级及以下、具有固定EP消耗的法术时，EP消耗减少2点。"}, desc:'魔法学院发放的新手施法教具。', consume:"无" },
+            { id:'e7_3', name:'残破的咒术书', tier:'F', cost:80,  type:7, source:'主神空间', tags:["魔导书","精神","伤害"], attrs:{"MATK":"A"}, effects:{"残卷咒力":"诅咒与精神类技能造成的伤害提高5%。"}, desc:'缺页严重的黑魔法入门笔记。', consume:"无" },
+
+            // 8: 圣典权杖
+            { id:'e8_1', name:'异端启示录', tier:'D', cost:800, type:8, source:'主神空间', tags:["圣物","精神","增益","辅助"], attrs:{"MATK":"C","MDEF":"A","魅力":"B"}, effects:{"蛊惑启示":"进行魅惑、威慑或精神控制相关检定时，精神或魅力检定修正+15。"}, desc:'记载着不可名状知识的残本。', consume:"无" },
+            { id:'e8_2', name:'清心铜铃', tier:'E', cost:250, type:8, source:'主神空间', tags:["圣物","辅助","精神"], attrs:{"MDEF":"B"}, effects:{"清音":"抵抗幻觉、催眠与精神干扰时，精神检定修正+10。"}, desc:'道士常用的安神法器。', consume:"无" },
+            { id:'e8_3', name:'劣质十字架', tier:'F', cost:50,  type:8, source:'主神空间', tags:["圣物","辅助","精神"], attrs:{"MDEF":"C"}, effects:{"简易祝祷":"抵抗恐惧时，精神检定修正+5。"}, desc:'木头削的，卖给游客的工艺品。', consume:"无" },
+
+            // 9: 特殊武器
+            { id:'e9_1', name:'单兵电磁网枪', tier:'D', cost:850, type:9, source:'主神空间', tags:["特殊武器","控制","敏捷"], attrs:{}, effects:{"电磁拘束":"射程15米；命中后以敏捷对抗目标力量，胜出使目标定身1回合。"}, desc:'非致命武器，能限制高机动目标。', consume:"带电拘束网1张" },
+            { id:'e9_2', name:'缚魂锁链', tier:'E', cost:350, type:9, source:'主神空间', tags:["特殊武器","物理","敏捷","伤害"], attrs:{"ATK":"C","MATK":"A"}, effects:{"缚魂":"可直接攻击非实体灵体；对灵体造成的伤害转为精神伤害。"}, desc:'地府差役常用的制式锁链。', consume:"无" },
+            { id:'e9_3', name:'带刺的捕兽夹', tier:'F', cost:60,  type:9, source:'主神空间', tags:["陷阱","物理","敏捷","控制"], attrs:{}, effects:{"捕兽夹":"布置后触发者进行DC30敏捷检定，失败受到15点物理伤害并定身1回合。"}, desc:'猎人用来抓野猪的危险陷阱。', consume:"无；每次触发后需1次动作复位" },
+
+            // 10: 手部
+            { id:'e10_1', name:'动力重击拳套', tier:'D', cost:800, type:10, source:'主神空间', tags:["手部","物理","防御"], attrs:{"ATK":"A","DEF":"D"}, effects:{"动力重击":"徒手攻击视为重型武器打击，造成的物理伤害提高15%。"}, desc:'蒸汽朋克风格的液压助力拳套。', consume:"无" },
+            { id:'e10_2', name:'暗影编织手套', tier:'E', cost:200, type:10, source:'主神空间', tags:["手部","辅助","防御"], attrs:{"敏捷":"A","DEF":"F"}, effects:{"灵巧编织":"进行开锁、拆装、偷取等精细手部操作时，敏捷检定修正+10。"}, desc:'极大提升手部精细度。', consume:"无" },
+            { id:'e10_3', name:'粗布缠手带', tier:'F', cost:30,  type:10, source:'主神空间', tags:["手部","防御"], attrs:{"DEF":"B"}, effects:{"缠手":"徒手攻击造成的物理伤害提高5%。"}, desc:'拳击手训练用的破布条。', consume:"无" },
+
+            // 11: 头部
+            { id:'e11_1', name:'战术全息目镜', tier:'D', cost:600, type:11, source:'主神空间', tags:["头部","感知","防御"], attrs:{"DEF":"D","精神":"C"}, effects:{"热成像":"开启后消耗1EP/分钟，可看见30米内热源轮廓；在黑暗或烟雾中寻找热源时，感知检定修正+15。"}, desc:'集成红外与热成像。', consume:"EP 1/分钟" },
+            { id:'e11_2', name:'清明发带', tier:'E', cost:200, type:11, source:'主神空间', tags:["头部","辅助","防御"], attrs:{"精神":"A","MDEF":"D"}, effects:{"清明":"抵抗恐惧、幻觉与催眠时，精神检定修正+10。"}, desc:'绣有清心诀的丝质发带。', consume:"无" },
+            { id:'e11_3', name:'摩托车安全帽', tier:'F', cost:40,  type:11, source:'主神空间', tags:["头部","防御"], attrs:{"DEF":"A"}, effects:{"头部缓冲":"受到直接命中头部的钝击时，该次物理伤害减少8%。"}, desc:'普通的头盔，带点汗臭味。', consume:"无" },
+
+            // 12: 胸部
+            { id:'e12_1', name:'赤铜护心甲', tier:'D', cost:750, type:12, source:'主神空间', tags:["胸部","防御"], attrs:{"DEF":"A","MDEF":"C"}, effects:{"护心":"每场战斗首次受到躯干物理伤害时，该次伤害减少25%。"}, desc:'刻有保命阵法的修仙界外甲。', consume:"无" },
+            { id:'e12_2', name:'凯夫拉防弹衣', tier:'E', cost:280, type:12, source:'主神空间', tags:["胸部","防御"], attrs:{"DEF":"A"}, effects:{"防弹":"受到枪弹类物理伤害时，伤害减少12%。"}, desc:'轻型战术防弹衣。', consume:"无" },
+            { id:'e12_3', name:'厚实的皮夹克', tier:'F', cost:80,  type:12, source:'主神空间', tags:["胸部","防御"], attrs:{"DEF":"B"}, effects:{"厚皮保暖":"抵抗寒冷、风雪造成的不利状态时，体质检定修正+5。"}, desc:'机车族最爱的老式皮夹克。', consume:"无" },
+
+            // 13: 腿部
+            { id:'e13_1', name:'暗夜行者护腿', tier:'D', cost:700, type:13, source:'主神空间', tags:["腿部","防御"], attrs:{"DEF":"C","敏捷":"A"}, effects:{"消音步行":"常规移动时脚步与衣料噪音降低75%；进行潜行检定时修正+15。"}, desc:'由特殊吸音材质构成的战术护腿。', consume:"无" },
+            { id:'e13_2', name:'液压辅助腿甲', tier:'E', cost:300, type:13, source:'主神空间', tags:["腿部","防御"], attrs:{"力量":"C","DEF":"D","敏捷":"B"}, effects:{"液压助力":"水平跳跃距离增加3米，垂直跳跃高度增加1米。"}, desc:'提供液压助力的轻型腿甲。', consume:"无" },
+            { id:'e13_3', name:'牛仔裤加护膝', tier:'F', cost:50,  type:13, source:'主神空间', tags:["腿部","防御"], attrs:{"DEF":"B"}, effects:{"护膝":"抵抗跌倒、绊倒或腿部冲击时，敏捷检定修正+5。"}, desc:'劳动人民的智慧结晶。', consume:"无" },
+
+            // 14: 鞋子
+            { id:'e14_1', name:'御风青云靴', tier:'D', cost:650, type:14, source:'主神空间', tags:["鞋子","机动","防御"], attrs:{"敏捷":"A","DEF":"E"}, effects:{"踏风步":"消耗25EP，额外移动8米，并可直接越过常规沟壑与低矮障碍。"}, desc:'灌注了风系灵力的长靴。', consume:"每次踏风EP 25" },
+            { id:'e14_2', name:'静音战术军靴', tier:'E', cost:220, type:14, source:'主神空间', tags:["鞋子","机动","防御"], attrs:{"敏捷":"B","DEF":"D"}, effects:{"稳步":"在湿滑、碎石或倾斜地形移动时，敏捷检定修正+10。"}, desc:'特种部队标配。', consume:"无" },
+            { id:'e14_3', name:'防滑草鞋', tier:'F', cost:30,  type:14, source:'主神空间', tags:["鞋子","机动","防御"], attrs:{"敏捷":"C"}, effects:{"草履抓地":"在泥地、湿地或碎石地面移动时，敏捷检定修正+5。"}, desc:'编织得还算结实的草履。', consume:"无" },
+
+            // 15: 披风
+            { id:'e15_1', name:'引魂隐匿斗篷', tier:'D', cost:800, type:15, source:'主神空间', tags:["披风","潜行","防御"], attrs:{"敏捷":"B","MDEF":"C"}, effects:{"隐匿":"低光环境下进行潜行检定时修正+15；保持静止时自身轮廓更难被肉眼辨认。"}, desc:'穿上它，你就成了活着的影子。', consume:"无" },
+            { id:'e15_2', name:'避尘披风', tier:'E', cost:250, type:15, source:'主神空间', tags:["披风","防御"], attrs:{"MDEF":"B","DEF":"D"}, effects:{"避尘":"抵抗粉尘、烟尘、毒雾等吸入性环境影响时，体质检定修正+10。"}, desc:'修真者赶路常备的实用披风。', consume:"无" },
+            { id:'e15_3', name:'灰暗的雨衣', tier:'F', cost:60,  type:15, source:'主神空间', tags:["披风","防御"], attrs:{"DEF":"C"}, effects:{"防雨":"在雨雪环境中抵抗寒冷与潮湿影响时，体质检定修正+5。"}, desc:'一件宽大的旧雨衣，能挡点风雨。', consume:"无" },
+
+            // 16: 饰品
+            { id:'e16_1', name:'心率维生检测仪', tier:'D', cost:680, type:16, source:'主神空间', tags:["饰品","辅助","防御"], attrs:{"体质":"B","DEF":"F"}, effects:{"生命反馈":"HP首次降至30%以下时自动激活，获得80THP；每场战斗触发1次。"}, desc:'高科技项圈，实时监控身体机能。', consume:"无" },
+            { id:'e16_2', name:'聚灵玉佩', tier:'D', cost:700, type:16, source:'主神空间', tags:["饰品","辅助","魔法"], attrs:{"精神":"A","MDEF":"C"}, effects:{"聚灵":"施放D级及以下、具有固定EP消耗的法术时，EP消耗减少5点。"}, desc:'用于减少施法能量损耗的玉质导流饰品。', consume:"无" },
+            { id:'e16_3', name:'狂化狼牙坠', tier:'E', cost:280, type:16, source:'主神空间', tags:["饰品","辅助","防御"], attrs:{"力量":"A","MDEF":"F"}, effects:{"狂化":"HP低于50%时，近战物理伤害提高10%。"}, desc:'散发着野兽气息的吊坠。', consume:"无" },
+            { id:'e16_4', name:'幸运铜板', tier:'F', cost:50,  type:16, source:'主神空间', tags:["饰品","辅助","防御"], attrs:{"魅力":"C"}, effects:{"幸运":"每场战斗1次，可在一次D100检定结算前获得+5修正。"}, desc:'一枚被盘得发亮的旧铜板。', consume:"无" },
+
+            // 17: 世界遗物
+            { id:'e17_1', name:'微型力场发生器·β型', tier:'D', cost:900, type:17, source:'主神空间', tags:["世界遗物","防御","科技"], attrs:{}, effects:{"应急力场":"消耗30EP，为自身获得120THP，持续3回合。"}, desc:"佩戴在腰带上的短时防护发生器，护盾有明确容量。", consume:"每次激活EP 30" },
+            { id:'e17_2', name:'初级乾坤袋·残次品', tier:'E', cost:400, type:17, source:'主神空间', tags:["世界遗物","辅助","空间"], attrs:{}, effects:{"乾坤收纳":"可收纳总体积0.5立方米、总质量50千克的非生命物体；收纳物不计入随身负重。"}, desc:"容量与载重均受限制的入门储物袋，内部时间正常流逝。", consume:"无" },
+            { id:'e17_3', name:'老旧盖革计数器·纪念版', tier:'F', cost:80,  type:17, source:'主神空间', tags:["世界遗物","辅助","科技"], attrs:{}, effects:{"辐射预警":"开启后可探测30米内显著电离辐射，并显示大致方向与强度。"}, desc:"用于测量所在位置电离辐射剂量率的手持仪表。", consume:"无" }
+        ],
+
+        // ==========================================
+        // 🎒 战术道具库：保留必要量化，删除协议判例式冗余限制
+        // ==========================================
+        items: [
+            // 💥 消耗类 - 爆炸物/战术投掷
+            { id:'i1_1', name:'高爆破片手雷', tier:'D', cost:300, type:'消耗', source:'主神空间', tags:['伤害','爆炸','消耗'], effects:{"破片爆炸":"投掷距离20米；本回合结束时爆炸，对半径5米内目标造成180点物理伤害，完整实体掩体可阻挡。"}, desc:'拔掉引信，扔出去，然后捂住耳朵。', consume:"手雷1枚", cd:'0' },
+            { id:'i1_2', name:'M84闪光震眩弹', tier:'E', cost:150, type:'消耗', source:'主神空间', tags:['控制','消耗'], effects:{"强光致盲":"投掷距离15米；半径5米内可见强光的目标进行DC45体质抵抗，失败致盲1回合。"}, desc:'室内突入的战术神器。', consume:"震眩弹1枚", cd:'0' },
+            { id:'i1_3', name:'土制燃烧瓶', tier:'F', cost:50,  type:'消耗', source:'主神空间', tags:['伤害','消耗'], effects:{"附着燃烧":"投掷距离10米；命中后进行敏捷对抗，胜出点燃目标3回合，每回合受到6点能量火焰伤害；扑灭或浸水可解除。"}, desc:'装满劣质酒精的玻璃瓶，塞着一块破布。', consume:"燃烧瓶1个", cd:'0' },
+            
+            // 💊 消耗类 - 恢复与增益药剂
+            { id:'i2_1', name:'百草清厄丹', tier:'D', cost:400, type:'消耗', source:'主神空间', tags:['治疗','消耗'], effects:{"草丹疗伤":"服用后立即恢复300HP。","清厄":"同次服用可移除1个D级及以下的中毒或流血状态。"}, desc:'修仙门派的疗伤圣药。', consume:"丹药1枚", cd:'0' },
+            { id:'i2_2', name:'便携式医疗针剂', tier:'E', cost:150, type:'消耗', source:'主神空间', tags:['治疗','消耗'], effects:{"针剂急救":"注射后立即恢复120HP。"}, desc:'扎入大腿，瞬间提神醒脑。', consume:"针剂1支", cd:'0' },
+            { id:'i2_3', name:'止血粗绷带', tier:'F', cost:30,  type:'消耗', source:'主神空间', tags:['治疗','消耗'], effects:{"压迫包扎":"包扎后持续3回合，每回合恢复10HP；再次受到HP伤害时恢复中止。"}, desc:'虽然有点脏，但总比流血流死强。', consume:"绷带1卷", cd:'0' },
+            { id:'i2_4', name:'理智镇定剂', tier:'D', cost:350, type:'消耗', source:'主神空间', tags:['精神','治疗','消耗'], effects:{"理智镇静":"注射后移除1个D级及以下的恐惧或混乱状态。"}, desc:'把你的理智从深渊边缘拉回来。', consume:"镇定剂1支", cd:'0' },
+            { id:'i2_5', name:'狂血散', tier:'D', cost:380, type:'消耗', source:'主神空间', tags:['增益','消耗'], effects:{"狂血强化":"服用时消耗30HP，获得「狂血」3回合：原始属性为{ATK:50}。"}, desc:'魔修爱用的拼命丹药。', consume:"狂血散1份及HP 30", cd:'0' },
+            
+            // 🎒 消耗类 - 枪械弹药与弓弩箭矢 (补充)
+            { id:'i3_1', name:'标准电磁弹匣', tier:'D', cost:120, type:'消耗', source:'主神空间', tags:['弹药','辅助','消耗'], effects:{"电磁供弹":"拆包获得50发标准电磁弹。"}, desc:'高斯电磁手枪的标准供弹具。', consume:"拆包消耗弹匣包1个", cd:'0' },
+            { id:'i3_2', name:'高能脉冲充能匣', tier:'D', cost:150, type:'消耗', source:'主神空间', tags:['弹药','辅助','消耗'], effects:{"脉冲供能":"拆包获得30发脉冲能量。"}, desc:'脉冲突击步枪的专用充能匣。', consume:"拆包消耗充能匣1个", cd:'0' },
+            { id:'i3_3', name:'9mm手枪弹匣', tier:'E', cost:40,  type:'消耗', source:'主神空间', tags:['弹药','辅助','消耗'], effects:{"9mm供弹":"拆包获得15发9mm手枪子弹。"}, desc:'Glock等现代手枪的通用弹匣。', consume:"拆包消耗弹匣包1个", cd:'0' },
+            { id:'i3_4', name:'精钢破甲弩箭', tier:'D', cost:80,  type:'消耗', source:'主神空间', tags:['弹药','辅助','消耗'], effects:{"破甲弩箭":"拆盒获得20支精钢破甲弩箭；使用该弩箭攻击时额外忽略目标5%的物理减伤率。"}, desc:'专为连弩设计的制式精钢弩箭。', consume:"拆包消耗弩箭盒1盒", cd:'0' },
+            { id:'i3_5', name:'粗糙的木箭束', tier:'F', cost:15,  type:'消耗', source:'主神空间', tags:['弹药','辅助','消耗'], effects:{"木箭补给":"拆束获得30支粗糙木箭。"}, desc:'削尖的木棍加上劣质羽毛尾翼。', consume:"拆包消耗木箭束1束", cd:'0' },
+            { id:'i3_6', name:'网枪电池囊', tier:'E', cost:90,  type:'消耗', source:'主神空间', tags:['弹药','辅助','消耗'], effects:{"网枪补给":"拆包获得5张带电拘束网。"}, desc:'提供瞬间高压电击的特种电池。', consume:"拆包消耗电池囊1个", cd:'0' },
+
+            // 💎 材料类 - 打造与合成
+            { id:'i4_1', name:'百年玄铁锭', tier:'D', cost:250, type:'材料', source:'主神空间', tags:['锻造','辅助','材料'], effects:{"锻造辅材":"用于D级及以下金属装备生产时消耗1锭，本次锻造检定修正+15。"}, desc:'极佳的武器重铸底材，沉重且坚固。', consume:"每次生产消耗玄铁锭1块", cd:'0' },
+            { id:'i4_2', name:'高密度能量电池', tier:'E', cost:100, type:'材料', source:'主神空间', tags:['能量','辅助','材料'], effects:{"器具供能":"为兼容的科技照明、探测或工具类设备补充10小时额定运行能源。"}, desc:'通用的备用电源。', consume:"电池1块", cd:'0' },
+            { id:'i4_3', name:'劣质黑火药包', tier:'F', cost:25,  type:'材料', source:'主神空间', tags:['材料','辅助','火药'], effects:{"铁砂装药":"拆包获得10份铁砂装药。"}, desc:'火药容易受潮，里面混杂着大小不一的铁砂。', consume:"拆包消耗火药包1包", cd:'0' },
+            
+            // 🔮 特殊类 - 因果与空间法则
+            { id:'i5_1', name:"替伤诅咒草人", tier:'D', cost:900, type:'特殊', source:'主神空间', tags:["防御","魔法"], effects:{"替伤":"受到伤害时可主动触发，由草人代为承担最多180点伤害，超出部分由本人承受；触发后消耗1个。"}, desc:"把一次性的护身咒编入草结，提供有限护盾而非替死。", consume:"草人1个", cd:'0' },
+            { id:'i5_2', name:"战术锚点信标", tier:'D', cost:850, type:'特殊', source:'主神空间', tags:["辅助","科技"], effects:{"定点信标":"放置后持续24小时；持有兼容接收器者可在5千米内读取信标方向与距离。"}, desc:"用于标记集合点的限时导航信标。", consume:"信标1枚", cd:'0' },
+            { id:'i5_3', name:'空间折叠胶囊', tier:'D', cost:600, type:'特殊', source:'主神空间', tags:['空间','辅助'], effects:{"折叠收纳":"可反复存取总体积1立方米、总质量100千克的非生命物体；收纳物不计入随身负重。"}, desc:'无法存放活物，但极大地解决了负重危机。', consume:"无", cd:'0' }
+        ],
+
+        // ==========================================
+        // 🔮 技能库：核心公式与机制量化，品质由字段承载
+        // ==========================================
+        skills: [
+            // 主动技能 (type: 0)
+            { id:'s1_1', name:'念动力冲击', tier:'D', cost:800, type:0, source:'主神空间', tags:["精神","伤害","控制","单体"], 
+              effects:{"念力冲击":"攻击15米内目标，命中造成(150+MATK)点精神伤害。","念力推离":"命中后以精神对抗目标体质，胜出将目标推离3米。"}, desc:'将精神力化为实质的空气墙狠狠砸向对手。', consume:"EP 35" },
+            { id:'s1_2', name:'【武道】居合·拔刀斩', tier:'D', cost:750, type:0, source:'主神空间', tags:["力量","武道","伤害","单体","物理"], 
+              effects:{"拔刀一闪":"持鞘中刀剑攻击2米内目标，命中造成(180+ATK)点物理伤害；再次使用前需先收刀。"}, desc:'极致纯粹的杀人剑术。', consume:"EP 36" },
+            { id:'s1_3', name:'过载电磁脉冲', tier:'D', cost:750, type:0, source:'主神空间', tags:["精神","伤害","控制","范围:5米","能量","科技"], 
+              effects:{"电磁冲击":"以自身为中心半径5米，对范围内目标造成(120+MATK)点能量雷电伤害。","机械干扰":"被命中的机械目标以体质对抗施法者精神，失败则停机1回合。"}, desc:'把施法者的能量转化为短程电磁冲击。', consume:"EP 90（固有范围）" },
+            { id:'s1_4', name:'咒印怨杀', tier:'D', cost:900, type:0, source:'主神空间', tags:["精神","伤害","单体","魔法"], 
+              effects:{"怨杀咒印":"消耗目标毛发或血液1份，攻击10米内目标，命中造成(160+MATK)点精神伤害。"}, desc:'极其恶毒的诅咒，代价是释放后自身轻微反噬。', consume:"EP 40及目标毛发或血液1份" },
+            { id:'s1_5', name:'御剑术·初篇', tier:'E', cost:300, type:0, source:'主神空间', tags:["精神","伤害","单体","物理","修真"], 
+              effects:{"御剑刺击":"操纵一把刀剑攻击15米内目标，命中造成(80+MATK)点物理伤害，攻击后飞剑返回。"}, desc:'以气御剑，百步之外取人首级。', consume:"EP 16" },
+            { id:'s1_6', name:'治愈术·微', tier:'E', cost:350, type:0, source:'主神空间', tags:["精神","治疗","单体","魔法"], 
+              effects:{"微光治疗":"选择5米内1名目标，恢复150HP。"}, desc:'神职人员入门必备。', consume:"EP 18" },
+            { id:'s1_7', name:'烈焰火球', tier:'E', cost:320, type:0, source:'主神空间', tags:["精神","伤害","单体","能量","魔法"], 
+              effects:{"烈焰爆破":"攻击20米内落点，对半径2米内目标造成(90+MATK)点能量火焰伤害。"}, desc:'法师最经典的轰炸法术。', consume:"EP 20" },
+            { id:'s1_8', name:'【武道】奋力一击', tier:'F', cost:80,  type:0, source:'主神空间', tags:["力量","伤害","单体","物理","武道"], 
+              effects:{"奋力打击":"以近战武器或徒手攻击目标，命中造成(30+ATK)点物理伤害。"}, desc:'毫无技巧的全力砸下。', consume:"EP 6" },
+
+            // 被动技能 (type: 1)
+            { id:'s2_1', name:'基础枪械精通', tier:'D', cost:600, type:1, source:'主神空间', tags:["敏捷","辅助","自身","科技"], 
+              effects:{"枪械专精":"使用动能枪械进行攻击检定时，敏捷检定修正+15。"}, desc:'将枪械的使用技巧刻入肌肉记忆。', consume:"无" },
+            { id:'s2_2', name:'【武道】基础近战精通', tier:'D', cost:600, type:1, source:'主神空间', tags:["力量","辅助","自身","武道"], 
+              effects:{"近战专精":"使用刀剑、枪矛或棍棒进行近战攻击检定时，力量检定修正+15。"}, desc:'让你拿刀的时候不再像个外行。', consume:"无" },
+            { id:'s2_3', name:"呼吸控制专精", tier:'D', cost:850, type:1, source:'主神空间', tags:["体质","辅助","自身"], 
+              effects:{"呼吸耐受":"进行闭气、长跑、烟尘呛咳等体质检定时修正+15。"}, desc:"用于运动与闭气的呼吸节奏技巧，不属于功法或修炼境界。", consume:"无" },
+            { id:'s2_4', name:'弱点分析算法', tier:'E', cost:400, type:1, source:'主神空间', tags:["敏捷","辅助","自身","科技"], 
+              effects:{"弱点观测":"观察30米内目标1次后，对该目标的下一次远程攻击检定修正+10。"}, desc:'大脑被植入辅助芯片，标红脆弱部位。', consume:"无" },
+            { id:'s2_5', name:'钢铁意志', tier:'E', cost:350, type:1, source:'主神空间', tags:["精神","防御","自身"], 
+              effects:{"精神抗压":"抵抗恐惧或魅惑时，精神检定修正+10。"}, desc:'生死间磨砺出的意志，绝不轻易屈服。', consume:"无" },
+            { id:'s2_6', name:'灵动步伐', tier:'E', cost:300, type:1, source:'主神空间', tags:["敏捷","防御","自身","武道"], 
+              effects:{"闪避步法":"针对可见攻击进行敏捷闪避检定时修正+10。"}, desc:'让你跑得比别人快一点点。', consume:"无" },
+            { id:'s2_7', name:"生存耐受训练", tier:'F', cost:90,  type:1, source:'主神空间', tags:["体质","辅助","自身"], 
+              effects:{"生存耐受":"抵抗疲劳、脱水或疾病侵袭时，体质检定修正+5。"}, desc:"通过训练掌握的生存应对技巧，不改变种族或血统。", consume:"无" },
+            
+            // 特殊技能 (type: 2)
+            { id:'s3_1', name:'阴阳灵视', tier:'D', cost:650, type:2, source:'主神空间', tags:["精神","辅助","自身","魔法"], 
+              effects:{"灵性观察":"感知灵体或幻象时，精神检定修正+15。","开启灵视":"消耗30EP开启灵视3回合，可直接感知10米内灵体与魔法隐形目标。"}, desc:'抹牛眼泪的升级版，能看到常人看不见的东西。', consume:"主动EP 30；被动无消耗" },
+            { id:'s3_2', name:'战地急救专精', tier:'D', cost:500, type:2, source:'主神空间', tags:["精神","辅助","治疗","单体"], 
+              effects:{"急救知识":"使用医疗器具处理创伤时，专业检定修正+15。","战地处置":"消耗24EP与止血粗绷带1卷，为接触目标恢复120HP。"}, desc:'你的包扎手法比大部分实习医生都要专业。', consume:"主动EP 24及止血粗绷带1卷；被动无消耗" },
+            { id:'s3_3', name:'黑客潜入专精', tier:'D', cost:550, type:1, source:'主神空间', tags:["精神","辅助","自身","科技"], 
+              effects:{"电子破解":"使用实际接入的计算机破解电子锁或安保系统时，专业检定修正+15。"}, desc:"针对电子安保的操作专精，需要实际工具与接入条件。", consume:"无" },
+            { id:'s3_4', name:'危险感知', tier:'E', cost:350, type:1, source:'主神空间', tags:["精神","辅助","自身"], 
+              effects:{"伏击警觉":"对10米内具有声音或运动线索的伏击进行感知检定时修正+10。"}, desc:"对近距离异常声响和运动线索保持警觉的训练。", consume:"无" }
+        ],
+
+        // 阵营说明
+        factionInfo: {
+            '守护者': { title:'守护者 · 秩序与守卫', rows:[ {label:'行事准则', val:'守护秩序，清除残魂与畸变源头，阻止世界崩坏。'}, {label:'主神形态', val:'纯白光球。'} ], ability:'专属能力 · 维和行动：零伤亡/世界高稳定度将获得极高加成。' },
+            '篡夺者': { title:'篡夺者 · 混沌与掠夺', rows:[ {label:'行事准则', val:'颠覆秩序基石，掠夺核心气运。'}, {label:'主神形态', val:'暗红核心。'} ], ability:'专属能力 · 斩首掠夺：高风险高回报，不计世界崩坏代价进行掠夺。' },
+            '织梦者': { title:'织梦者 · 认知与灵魂', rows:[ {label:'行事准则', val:'扭转关键因果，收割极端情绪与信仰。'}, {label:'主神形态', val:'温和暖色。'} ], ability:'专属能力 · 幕后黑手：认知操控，偏好双重间谍身份。' },
+            '残魂': { title:'残魂 · 失败者的阴影', rows:[ {label:'行事准则', val:'夺舍原住民，诱杀现役轮回者以换取赦免。'}, {label:'生存状态', val:'无稳定实体，极度危险。'} ], ability:'专属能力 · 绝对伪装：任务强制变为破坏该世界内某轮回者小队的主线或致其全灭。' },
+            '穿越者': { title:'穿越者 · 自由意志', rows:[ {label:'行事准则', val:'无视阵营束缚，自由探索。'} ], ability:'无专属规则加成，但拥有极高因果自由度。' }
+        },
+
+        // ==========================================
+        // 核心重构：8 个严格符合协议的多元世界
+        // ==========================================
+        plotCategories: [
+            { key:'multi',  label:'🌐 多元世界抽取' },
+            { key:'single', label:'🎯 单一世界填写' }
+        ],
+        plots: [
+            // 1. 经典幻想 (高1级)
+             {
+                id:'w1', cat:'multi', rank:'Ⅰ', tier:'F~E', eco:'chaos', aliens:3,
+                type:'末日生化与福利',
+                name:'【学园默示录】',
+                time:'锁定于【藤美学园死体爆发初始】。',
+                deviation:'剧情刚刚开启。死体病毒在校园内迅速蔓延，主角团正在集结，日常秩序彻底崩塌。',
+                law:'物理法则主导，科技枪械与近战冷兵器受强化；死体病毒具有绝对感染性，被咬必异变；超自然魔法体系受世界排异压制。',
+                risk:'被死体咬伤将触发强制感染检定，常规解毒剂无效。',
+                ecology:'在秩序崩塌的末日校园中，多方轮回者不仅在争夺有限的生存物资，更在疯狂掠夺优质的“繁衍资源”。你将卷入一场充斥着占有欲、背叛与肉体交易的混沌博弈，既要利用死体群作为天然陷阱坑杀竞争对手，又要防止己方女角色被其他异端掳走沦为末日玩物。',
+                identity:'剑道部转校生 / 幸存的校医 / 隐藏的军火走私商',
+            },
+            // 2. 哥布林与绝境 (惊险/涩涩)
+            {
+                id:'w2', cat:'multi', rank:'Ⅲ', tier:'F~D', eco:'death', aliens:2,
+                type:'暗黑奇幻与绝境',
+                name:'【哥布林杀手】',
+                time:'锁定于【女神官首次接取哥布林讨伐任务】。',
+                deviation:'剧情正常推行。新手冒险者小队即将踏入哥布林巢穴，面临团灭与受辱的极度高危节点。',
+                law:'低魔奇幻法则；神明信仰与奇迹法术受强化；哥布林在巢穴环境中获得全属性暗影加成；高阶魔法需要极长咏唱时间。',
+                risk:'女性角色战败将触发强制「恶堕/繁衍」剧情杀，男性角色战败直接抹杀。',
+                ecology:'敌对轮回者已暗中与哥布林萨满结盟，企图利用巢穴的繁衍本能将所有女性冒险者化为无尽的苗床。你必须在幽闭潮湿的洞穴中，一边抵御哥布林大军的疯狂扑击，一边与隐藏在暗处的异端展开不死不休的血腥狙击，绝不能让同伴落入受辱的深渊。',
+                identity:'银级冒险者 / 哥布林部落的异变萨满 / 边境公会接待员',
+            },
+            // 3. 灵异惊险与精神污染 (惊险/涩涩)
+            {
+                id:'w3', cat:'multi', rank:'Ⅱ', tier:'F~E', eco:'chaos', aliens:4,
+                type:'日式怪谈与魅惑',
+                name:'【午夜凶铃】',
+                time:'锁定于【诅咒录像带在都市高中生间大规模扩散之时】。',
+                deviation:'处于世界线异变期。贞子的怨念与某种高维魅魔基因融合，诅咒不再只是致死，而是会在七天内不断榨取受害者的理智与体液，最终将其转化为传播诅咒的欲奴。',
+                law:'灵异法则与精神污染受极度强化；常规物理攻击对怨灵完全无效；意志力薄弱者极易在幻觉中沦陷并主动献身。',
+                risk:'七天倒计时结束或理智归零，将触发强制「灵体附身」与「榨干恶堕」。',
+                ecology:'多方异端潜伏在都市中，围绕“变异录像带”的母带展开争夺。有人试图破解诅咒将其作为精神控制武器，有人则在暗中猎捕那些处于发情诅咒期的女高中生。你必须在惊悚的灵异追杀与无处不在的肉体诱惑中寻找生机。',
+                identity:'灵异事件调查员 / 意外看过录像带的不良少年 / 掌握除灵术的地下法师',
+            },
+            // 4. 战争绝境与凌辱 (刺激/压迫)
+            {
+                id:'w4', cat:'multi', rank:'Ⅰ', tier:'F~D', eco:'death', aliens:3,
+                type:'真实战争与战俘调教',
+                name:'【二战风云：苏德绞肉机】',
+                time:'锁定于【斯大林格勒战役最惨烈的巷战阶段】。',
+                deviation:'历史线发生扭曲。双方高层暗中引入了某种能激发肉体潜能但也放大原始欲望的生化药剂，战俘营沦为了残酷的调教与发泄地狱。',
+                law:'热兵器物理法则受强化；道德与社会秩序完全崩坏；战败俘虏将失去一切人权，强制触发服从判定。',
+                risk:'在战场上重伤或被俘，将被送入敌方战俘营，面临严酷的拷问、洗脑与肉体凌辱。',
+                ecology:'纯粹的绞肉机与死斗局。敌对轮回者可能潜伏在敌军高层，利用权力对战俘进行非人的生化改造与欲望剥削。你必须在炮火连天的废墟中求生，既要躲避致命的狙击与轰炸，又要防备在绝境中失去理智的友军。这是一场关于生存、背叛与肉体支配的残酷博弈。',
+                identity:'被打散的苏军狙击手 / 德军战地医院的军医 / 游走在废墟中的黑市商人',
+            },
+            // 5. 著名IP与魔术契约 (涩涩/博弈)
+            {
+                id:'w5', cat:'multi', rank:'Ⅳ', tier:'F~D', eco:'chaos', aliens:5,
+                type:'圣杯战争与魔术补魔',
+                name:'【Fate/stay night】',
+                time:'锁定于【第五次圣杯战争开幕前夜】。',
+                deviation:'圣杯系统遭到异端篡改，魔力供给规则发生异变。御主与从者之间必须通过高频的“体液交换”与“肉体补魔”才能维持存在，战败的从者将被强行剥夺令咒并沦为胜者的魔力苗床。',
+                law:'型月魔术法则受强化；令咒具有绝对的因果律强制力；“补魔”行为带来的快感被无限放大，极易导致御主沉沦。',
+                risk:'失去从者或令咒被夺，将面临被其他魔术师捕获、改造成专用补魔器具的悲惨下场。',
+                ecology:'多方轮回者作为编外御主或暗杀者介入了这场变异的圣杯战争。有人企图利用令咒强制命令高傲的英灵（如Saber、Rider）做出屈辱的行为，有人则在暗中猎杀其他御主以夺取魔力源。你必须在魔术师的残酷暗杀与英灵的毁天灭地中周旋，利用补魔机制建立羁绊或实施支配。',
+                identity:'落魄的野生魔术师 / 穗群原学园的普通学生 / 圣堂教会的底层代行者',
+            },
+            // 6. 赛博朋克与悲剧 (刺激/适合过渡)
+            {
+                id:'w6', cat:'multi', rank:'Ⅲ', tier:'E~D', eco:'chaos', aliens:2,
+                type:'赛博朋克与悲剧',
+                name:'【赛博朋克：边缘行者】',
+                time:'锁定于【大卫首次安装斯安威斯坦】。',
+                deviation:'剧情初期。夜之城的残酷齿轮开始转动，大卫刚踏入赛博精神病的深渊，曼恩小队正处于活跃期。',
+                law:'极致的科技与义体改造法则；任何神秘学与魔法体系强制失效；过度安装义体必然导致赛博精神病，理智值与人性持续受到侵蚀。',
+                risk:'频繁使用高阶义体将触发「赛博精神病」检定，失败则彻底失控沦为NPC。',
+                ecology:'异端们分别受雇于荒坂与军用科技，正试图榨干曼恩小队最后的价值。在这个充斥着义体排异与精神崩溃风险的夜之城，你需要利用黑客骇入、超梦诱导与街头火力，与其他轮回者在霓虹阴影下进行残酷的资源绞杀，甚至故意诱导对手陷入赛博精神病以借刀杀人。',
+                identity:'曼恩小队的新人黑客 / 荒坂学院的精英特工 / 漩涡帮的底层混混',
+            },
+            // 7. 高武杀戮与美人 (刺激/高危)
+            {
+                id:'w7', cat:'multi', rank:'Ⅲ', tier:'D~B', eco:'death', aliens:4,
+                type:'高武帝国与杀戮',
+                name:'【斩！赤红之瞳】',
+                time:'锁定于【夜袭首次迎战狩人部队】。',
+                deviation:'处于局部冲突全面升级阶段。帝国最强将军艾斯德斯组建狩人部队，帝都暗流涌动，帝具使之间的惨烈厮杀正式拉开帷幕。',
+                law:'帝具法则具有唯一性与排他性；武道与暗杀术受世界强化；科技火器对高阶帝具使几乎无效；帝具使交战必有一死。',
+                risk:'强行同时使用两件帝具将直接爆体而亡，遭遇艾斯德斯生还率极低。',
+                ecology:'一场针对帝具使的极致血腥猎杀游戏。敌对轮回者已渗透进狩人与夜袭双方，利用原著角色的信任设下连环杀局。你必须在帝都的血雨腥风中，与这4名异端展开不死不休的帝具死斗。每一次交锋都伴随着残肢断臂，失败者不仅会被剥夺帝具，更可能沦为艾斯德斯地下室里的拷问玩物。',
+                identity:'帝都警备队新人 / 夜袭外围情报员 / 操控危险种的异族',
+            },
+            // 8. 现代怪异与支配 (惊险/刺激)
+            {
+                id:'w8', cat:'multi', rank:'Ⅲ', tier:'E~D', eco:'chaos', aliens:3,
+                type:'大正斩鬼与异变',
+                name:'【鬼灭之刃】',
+                time:'锁定于【游郭篇前夕】。',
+                deviation:'剧情出现香艳与致命的偏离。部分女剑士与女鬼受到未知血鬼术污染，陷入强制发情与理智崩溃的边缘，轮回者的介入让局势更加混乱。',
+                law:'日轮刀与波纹法则；只有蕴含太阳能量的攻击才能彻底杀死鬼；极度渴望鲜血与体液的异变血鬼术正在蔓延，意志不坚者将沦为欲望的奴隶。',
+                risk:'若被异变的女鬼或陷入疯狂的剑士捕获，将被榨干生命力与精气直至死亡。',
+                ecology:'异变血鬼术导致花街沦为情欲与杀戮的温床，轮回者在理智边缘猎杀或收服目标。',
+                identity:'鬼杀队的新晋剑士 / 潜伏在花街的神秘浪人 / 刚转化为鬼的异变者',
+            }
+        ]
+    };
+
+    /** * ==========================================
+     * ⚙️ 核心引擎
+     * ========================================== */
+    let currentStep = 1;
+    let currentCoins = DB.initSpaceCoins;
+    let selectedItems = new Set();
+    let selectedPlot = null;
+    let selectedPartner = null;
+    let customItems = [];
+    let activeItemTab = 'equipment';
+    let activeSubCategory = null; 
+    let activeRarity = 'all';
+    let activePlotCat = 'multi';
+    let expandedCards = new Set();
+    let useCustomPartnerFlag = false;
+    let partnerCostPaid = 0;        // 已为自定义伙伴建档扣除的空间币(改层级重算/删除退回)
+    let singleWorldEnabled = false;
+    // 单一世界身份覆盖：进入单一世界时强制身份为「穿越者」，离开则还原角色第一页原始选择
+    let originalIdentity = null;                  // 角色在第一页手动选定的原始身份
+    let singleWorldIdentityOverridden = false;    // 当前是否处于「单一世界身份覆盖」状态
+    // 单一世界模式下 f-identity 下拉的禁用锁定标记
+    let singleWorldIdentityLocked = false;
+
+    const tierColor = t => getComputedStyle(document.documentElement).getPropertyValue('--t-' + t).trim() || '#66fcf1';
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&','<':'<','>':'>','"':'"'}[c]));
+
+    function getCurrentSource() {
+        const cat = DB.itemCategories.find(c => c.key === activeItemTab);
+        return { cat, list: DB[cat.source].concat(customItems.filter(i => i._cat === activeItemTab)) };
+    }
+
+    // 位格→配色类 (Ⅰ~Ⅸ): 直接复用 .t-Ⅰ~.t-Ⅸ 已有 CSS 类, 与装备/技能层级徽章同源
+    // badge 仅显示罗马数字, 通过 .t-* 背景色区分位格高低
+    function rankCls(r) {
+        return 't-' + (r || 'Ⅰ');
+    }
+    // 位格→hex色 (用于确认弹窗 inline style, 必须与 --t-Ⅰ~--t-Ⅸ CSS 变量保持一致)
+    function rankColor(r) {
+        return getComputedStyle(document.documentElement).getPropertyValue('--t-' + (r || 'Ⅰ')).trim() || '#66fcf1';
+    }
+
+    // ===== 变量更新方式（额外API / 随主AI） =====
+    const VARIABLE_API_MODE_KEY = 'samsara_variable_api_mode';
+    const VARIABLE_API_WORLD_BOOK_RULES = {
+        'output_format (随AI输出开，主API)': { '随主API': true, '额外API': false },
+        '[mvu_update]output_format (使用额外模型更新变量开)': { '随主API': false, '额外API': true }
+    };
+
+    function normalizeVariableApiMode(mode) {
+        return mode === '随主API' ? '随主API' : '额外API';
+    }
+    function variableApiStorage() {
+        const roots = [window, (() => { try { return window.parent; } catch(e) { return null; } })(), (() => { try { return window.top; } catch(e) { return null; } })()];
+        for (const root of roots) {
+  try { if (root && root.localStorage) return root.localStorage; } catch(e) {}
+        }
+        return null;
+    }
+    function getVariableApiMode() {
+        try {
+  const storage = variableApiStorage();
+  return normalizeVariableApiMode(storage ? storage.getItem(VARIABLE_API_MODE_KEY) : '额外API');
+        } catch(e) { return '额外API'; }
+    }
+    function saveVariableApiMode(mode) {
+        try {
+  const storage = variableApiStorage();
+  if (storage) storage.setItem(VARIABLE_API_MODE_KEY, normalizeVariableApiMode(mode));
+        } catch(e) {}
+    }
+    function resolveVariableApiHostFunction(name) {
+        const roots = [window, (() => { try { return window.parent; } catch(e) { return null; } })(), (() => { try { return window.top; } catch(e) { return null; } })()];
+        for (const root of roots) {
+  try {
+      if (root && typeof root[name] === 'function') return root[name].bind(root);
+      if (root && root.TavernHelper && typeof root.TavernHelper[name] === 'function') return root.TavernHelper[name].bind(root.TavernHelper);
+  } catch(e) {}
+        }
+        return null;
+    }
+    function normalizeVariableApiEntryName(name) {
+        return String(name || '').trim().replace(/\.(txt|ya?ml)$/i, '');
+    }
+    function variableApiRuleForEntry(name) {
+        return VARIABLE_API_WORLD_BOOK_RULES[normalizeVariableApiEntryName(name)] || null;
+    }
+    function normalizeVariableApiWorldbookEntries(wb) {
+        if (Array.isArray(wb)) return wb;
+        if (wb && Array.isArray(wb.entries)) return wb.entries;
+        return [];
+    }
+    function variableApiPresetDesired(name, mode) {
+        const text = String(name || '');
+        if (text.indexOf('变量额外API') >= 0) return mode === '额外API';
+        if (text.indexOf('变量主API') >= 0) return mode === '随主API';
+        return null;
+    }
+    async function applyVariableApiMode(mode) {
+        mode = normalizeVariableApiMode(mode);
+        const getNames = resolveVariableApiHostFunction('getCharWorldbookNames');
+        const getWorldbookFn = resolveVariableApiHostFunction('getWorldbook');
+        const updateWorldbookFn = resolveVariableApiHostFunction('updateWorldbookWith');
+        if (!getNames || !getWorldbookFn || !updateWorldbookFn) {
+  return { ok:false, error:'未检测到世界书切换接口，请确认酒馆助手脚本已启用。' };
+        }
+
+        let namesInfo;
+        try { namesInfo = await Promise.resolve(getNames('current')); }
+        catch(e) { return { ok:false, error:'读取当前角色世界书失败：' + (e && e.message ? e.message : e) }; }
+        namesInfo = namesInfo || {};
+        const worldbookNames = [];
+        [namesInfo.primary].concat(Array.isArray(namesInfo.additional) ? namesInfo.additional : []).forEach(name => {
+  if (name && worldbookNames.indexOf(name) < 0) worldbookNames.push(name);
+        });
+        if (!worldbookNames.length) return { ok:false, error:'当前角色没有可切换的世界书。' };
+
+        let worldbookMatched = 0, worldbookChanged = 0, presetMatched = 0, presetChanged = 0;
+        try {
+  for (const wbName of worldbookNames) {
+      let wb;
+      try { wb = await Promise.resolve(getWorldbookFn(wbName)); } catch(e) { continue; }
+      const entries = normalizeVariableApiWorldbookEntries(wb);
+      let localMatched = 0, localChanged = 0;
+      entries.forEach(entry => {
+          const rule = entry && variableApiRuleForEntry(entry.name);
+          if (!rule) return;
+          localMatched++;
+          if (entry.enabled !== rule[mode]) localChanged++;
+      });
+      if (!localMatched) continue;
+      worldbookMatched += localMatched;
+      if (localChanged) {
+          await Promise.resolve(updateWorldbookFn(wbName, function(nextWb) {
+              normalizeVariableApiWorldbookEntries(nextWb).forEach(entry => {
+                  const rule = entry && variableApiRuleForEntry(entry.name);
+                  if (rule) entry.enabled = rule[mode];
+              });
+              return nextWb;
+          }));
+          worldbookChanged += localChanged;
+      }
+  }
+
+  const getPresetFn = resolveVariableApiHostFunction('getPreset');
+  const updatePresetFn = resolveVariableApiHostFunction('updatePresetWith');
+  if (getPresetFn && updatePresetFn) {
+      let preset = null;
+      try { preset = await Promise.resolve(getPresetFn('in_use')); } catch(e) {}
+      const prompts = preset && Array.isArray(preset.prompts) ? preset.prompts : [];
+      prompts.forEach(prompt => {
+          const desired = variableApiPresetDesired(prompt && (prompt.name || prompt.id), mode);
+          if (desired === null) return;
+          presetMatched++;
+          if (prompt.enabled !== desired) presetChanged++;
+      });
+      if (presetChanged) {
+          await Promise.resolve(updatePresetFn('in_use', function(nextPreset) {
+              const list = nextPreset && Array.isArray(nextPreset.prompts) ? nextPreset.prompts : [];
+              list.forEach(prompt => {
+                  const desired = variableApiPresetDesired(prompt && (prompt.name || prompt.id), mode);
+                  if (desired !== null) prompt.enabled = desired;
+              });
+              return nextPreset;
+          }));
+      }
+  }
+        } catch(e) {
+  return { ok:false, error:'切换变量更新方式失败：' + (e && e.message ? e.message : e), worldbookMatched, worldbookChanged, presetMatched, presetChanged };
+        }
+
+        if (!worldbookMatched) {
+  return { ok:false, error:'未在当前角色世界书中找到变量更新模式条目，请检查条目名称。', worldbookMatched, worldbookChanged, presetMatched, presetChanged };
+        }
+        saveVariableApiMode(mode);
+        return { ok:true, mode, worldbookMatched, worldbookChanged, presetMatched, presetChanged };
+    }
+    function renderVariableApiMode(message, state) {
+        const mode = getVariableApiMode();
+        document.querySelectorAll('[data-variable-api-mode]').forEach(card => {
+  card.classList.toggle('active', card.getAttribute('data-variable-api-mode') === mode);
+        });
+        const el = $('variable-api-mode-status');
+        if (!el) return;
+        el.className = 'variable-api-mode-status' + (state ? ' ' + state : '');
+        el.textContent = message || (mode === '额外API'
+  ? '当前：额外API输出。正文与变量更新分轮执行。'
+  : '当前：随主AI输出。正文模型同轮输出变量更新。');
+    }
+    async function chooseVariableApiMode(mode, options) {
+        mode = normalizeVariableApiMode(mode);
+        const buttons = Array.from(document.querySelectorAll('[data-variable-api-mode]'));
+        buttons.forEach(btn => btn.disabled = true);
+        renderVariableApiMode('正在切换世界书与预设条目…', '');
+        const result = await applyVariableApiMode(mode);
+        buttons.forEach(btn => btn.disabled = false);
+        if (result.ok) {
+  renderVariableApiMode('已切换为' + (mode === '额外API' ? '额外API输出' : '随主AI输出') + ' · 世界书变更 ' + result.worldbookChanged + ' 项 · 预设变更 ' + result.presetChanged + ' 项', 'ok');
+  if (!(options && options.silent)) showToast('变量更新方式已切换');
+        } else {
+  renderVariableApiMode(result.error || '切换失败', 'err');
+  if (!(options && options.silent)) showToast(result.error || '变量更新方式切换失败', 'error');
+        }
+        return result;
+    }
+
+    // ===== 初始化 =====
+    function init() {
+        $('val-coins').innerText = currentCoins;
+        $('attr-total-base').innerText = DB.attrBasePoints;
+        renderAttributes();
+        updateFactionDesc();
+        renderItemTabs();
+        renderSubCategories();
+        renderRarityFilter();
+        renderItems();
+        renderSelectedPanel();
+        renderPlotTabs();
+        renderPlots();
+        renderPartners();
+        renderCustomForms();
+        updateBgSummary();
+        renderVariableApiMode();
+
+        // 🌟 新增：页面加载完毕后，检测并弹出预设引导框
+        openWelcomeLoadModal();
+    }
+
+    // ==========================================
+    // 🚀 开局引导加载预设弹窗逻辑
+    // ==========================================
+    let welcomeSelectedPreset = null;
+
+    function openWelcomeLoadModal() {
+        const p = getPresets();
+        const keys = Object.keys(p).sort((a, b) => (p[b].ts || 0) - (p[a].ts || 0));
+        
+        // 如果没有预设，直接不弹窗
+        if (keys.length === 0) return;
+
+        // 默认选中最新保存的那一个
+        welcomeSelectedPreset = keys[0];
+
+        // 渲染单选列表
+        $('welcome-preset-list').innerHTML = keys.map(k => {
+            const pre = p[k].state;
+            const dateStr = new Date(p[k].ts||0).toLocaleString('zh-CN', {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'});
+            const isSelected = welcomeSelectedPreset === k;
+            
+            return `
+            <div class="preset-item" style="padding: 10px 15px; display: flex; align-items: center; gap: 15px; cursor: pointer; border-color: ${isSelected ? 'var(--accent)' : 'var(--border)'}; background: ${isSelected ? 'rgba(102,252,241,0.05)' : 'rgba(0,0,0,0.3)'}; margin-bottom: 8px;" onclick="selectWelcomePreset('${escape(k)}')">
+                <input type="radio" name="welcome-preset-radio" style="accent-color: var(--accent); transform: scale(1.2);" ${isSelected ? 'checked' : ''}>
+                <div style="flex: 1;">
+                    <div style="font-weight: bold; color: #fff; font-size: 1rem; margin-bottom: 4px;">${esc(k)}</div>
+                    <div style="font-size: 0.8rem; color: var(--text-sub); display: flex; gap: 10px;">
+                        <span><i class="fa-solid fa-user"></i> ${esc(pre.name || '未命名')}</span>
+                        <span><i class="fa-solid fa-clock"></i> ${dateStr}</span>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+
+        $('welcome-load-modal').style.display = 'flex';
+    }
+
+    function selectWelcomePreset(escapedKey) {
+        welcomeSelectedPreset = unescape(escapedKey);
+        // 重新渲染列表以更新选中状态
+        openWelcomeLoadModal(); 
+    }
+
+    function closeWelcomeLoadModal() {
+        $('welcome-load-modal').style.display = 'none';
+        welcomeSelectedPreset = null;
+    }
+
+    function confirmWelcomeLoad() {
+        if (!welcomeSelectedPreset) {
+            showToast('请先选择一个预设', 'warning');
+            return;
+        }
+        const p = getPresets();
+        if (p[welcomeSelectedPreset]) {
+            applyState(p[welcomeSelectedPreset].state || {});
+            showToast(`已成功加载 [${welcomeSelectedPreset}]`);
+        }
+        closeWelcomeLoadModal();
+    }
+
+    // ===== 阵营身份说明 =====
+    function updateFactionDesc() {
+        const id = $('f-identity').value;
+        const info = DB.factionInfo[id];
+        const el = $('faction-desc');
+        if (!info || !el) { if (el) el.innerHTML = ''; return; }
+        const rowsHtml = info.rows.map(r => `<div class="fac-row"><span class="fac-label">${esc(r.label)}：</span>${esc(r.val)}</div>`).join('');
+        el.innerHTML = `
+            <div class="fac-title">◈ ${esc(info.title)}</div>
+            ${rowsHtml}
+            <div class="fac-ability">${esc(info.ability)}</div>`;
+        renderPlots(); // 刷新背景页的任务分配
+    }
+
+    // ===== 重构的属性分配逻辑 ======
+    function renderAttributes() {
+        // 新机制：单维默认 F (0 点)，每 +1 升一级品质 (F→E→D→C→B→A→S→SS→SSS)
+        // 组件结构：[−] [品质字母] [+] —— 不再显示数字点数，仅展示品质字母
+        const html = DB.attributes.map((attr, idx) => `
+            <div class="attribute-item">
+                <span class="attr-label">${attr}</span>
+                <div class="attr-controls">
+                    <button class="attr-step btn-minus" type="button" onclick="stepAttr(${idx},-1)" id="btn-minus-${idx}">−</button>
+                    <input type="hidden" value="${DB.attrMin}" class="attr-input" data-idx="${idx}" id="attr-input-${idx}">
+                    <span class="tier-badge t-F attr-tier" id="attr-tier-${idx}" style="min-width:42px; padding:3px 12px; border-radius:var(--radius-sm); font-weight:700; font-size:0.92rem;">F</span>
+                    <button class="attr-step btn-plus" type="button" onclick="stepAttr(${idx},1)" id="btn-plus-${idx}">+</button>
+                </div>
+            </div>`).join('');
+        $('attr-grid').innerHTML = html;
+        calcTier();
+    }
+    
+    function stepAttr(idx, dir) {
+        const input = document.querySelector(`.attr-input[data-idx="${idx}"]`);
+        if (!input) return;
+        let v = parseInt(input.value || 0);
+        v += dir;
+        input.value = v;
+        calcTier();
+    }
+
+    // 新机制：单维点数 0..8 直接对应品质字母 F..SSS
+    function calcSingleTier(v) {
+        const idx = parseInt(v) || 0;
+        if (idx < 0) return 'F';
+        return DB.rarityList[idx] || 'SSS';
+    }
+
+    function calcTier() {
+        let total = 0, maxV = 0;
+
+        // 第一遍：约束单项极值并累计
+        document.querySelectorAll('.attr-input').forEach((input) => {
+            let v = parseInt(input.value || 0);
+            if (isNaN(v)) v = 0;
+            if (v < DB.attrMin) v = DB.attrMin;
+            if (v > DB.attrSingleMax) v = DB.attrSingleMax;
+            input.value = v;
+            total += v;
+            if (v > maxV) maxV = v;
+        });
+
+        // 剩余点数（仍由 panel-header 的剩余点数badge显示，用于约束加点上限）
+        const remaining = DB.attrBasePoints - total;
+        const remEl = $('attr-remaining');
+        if (remEl) {
+            remEl.innerText = remaining;
+            remEl.classList.toggle('error', remaining < 0);
+        }
+
+        // 第二遍：按钮禁用 + 单维字母展示
+        document.querySelectorAll('.attr-input').forEach((input, idx) => {
+            const v = parseInt(input.value || 0);
+            const btnMinus = $('btn-minus-' + idx);
+            const btnPlus = $('btn-plus-' + idx);
+            if (btnMinus) btnMinus.disabled = (v <= DB.attrMin);
+            if (btnPlus) btnPlus.disabled = (v >= DB.attrSingleMax || remaining <= 0);
+
+            const tier = calcSingleTier(v);
+            const tierBadge = $('attr-tier-' + idx);
+            if (tierBadge) {
+                tierBadge.innerText = tier;
+                tierBadge.className = 'tier-badge t-' + tier + ' attr-tier';
+            }
+        });
+
+    }
+
+    /** 综合层级 = 五维中最高单维品质（替代已删除的 attr-tier 元素） */
+    function overallTier() {
+        let maxV = 0;
+        document.querySelectorAll('.attr-input').forEach((input) => {
+            const v = parseInt(input.value || 0);
+            if (v > maxV) maxV = v;
+        });
+        return calcSingleTier(maxV);
+    }
+
+    // ===== 装备/技能 tab =====
+    function renderItemTabs() {
+        $('item-tabs').innerHTML = DB.itemCategories.map(c => `
+            <button class="tab-button ${c.key===activeItemTab?'active':''}" onclick="switchItemTab('${c.key}')">${c.label}</button>`).join('');
+    }
+    function switchItemTab(key) { activeItemTab=key; activeSubCategory=null; activeRarity='all'; renderItemTabs(); renderSubCategories(); renderRarityFilter(); renderItems(); }
+
+    function renderSubCategories() {
+        const { cat } = getCurrentSource();
+        const types = cat.subTypes;
+        if (!types.some(t => String(t.v) === String(activeSubCategory))) activeSubCategory = String(types[0].v);
+        $('sub-category-list').innerHTML = types.map(t => `
+            <button class="category-item ${String(t.v)===String(activeSubCategory)?'active':''}" onclick="switchSubCategory('${t.v}')">${t.label}</button>`).join('');
+    }
+    function switchSubCategory(v) { activeSubCategory=v; renderSubCategories(); renderItems(); }
+
+    function renderRarityFilter() {
+        let html = `<span class="filter-label">层级：</span><button class="filter-btn ${activeRarity==='all'?'active':''}" onclick="switchRarity('all')">全部</button>`;
+        html += DB.rarityList.map(r => `<button class="filter-btn ${activeRarity===r?'active':''}" onclick="switchRarity('${r}')">${r}</button>`).join('');
+        $('rarity-filter').innerHTML = html;
+    }
+    function switchRarity(r) { activeRarity=r; renderRarityFilter(); renderItems(); }
+
+    function matchType(item) {
+        return String(item.type) === String(activeSubCategory);
+    }
+
+    function renderItems() {
+        const { list } = getCurrentSource();
+        let filtered = list.filter(matchType);
+        if (activeRarity !== 'all') filtered = filtered.filter(i => i.tier === activeRarity);
+        if (filtered.length === 0) { $('item-grid').innerHTML = `<div class="empty-message">该分类下暂无物资</div>`; return; }
+        $('item-grid').innerHTML = filtered.map(item => renderItemCard(item)).join('');
+    }
+
+    function renderItemCard(item) {
+        const isSelected = selectedItems.has(item.id);
+        const sel = isSelected ? 'is-selected' : '';
+        const disabled = (!isSelected && currentCoins < item.cost) ? 'is-disabled' : '';
+        const srcClass = item.source === '主神空间' ? 'source-main' : (item.source && item.source !== '手工造物' ? 'source-world' : '');
+        const tagHtml = (item.tags||[]).map(t => `<span class="tag-text">${esc(t)}</span>`).join('');
+        const srcTag = item.source ? `<span class="tag-text ${srcClass}">[${esc(item.source)}]</span>` : '';
+        const attrsStr = item.attrs ? Object.entries(item.attrs).map(([k,v]) => `${k} ${v}${typeof v==='number'&&k==='AP'?'%':''}`).join(' · ') : '';
+        const attrsHtml = attrsStr ? `<div class="attrs-box">${esc(attrsStr)}</div>` : '';
+        const effectHtml = item.effects ? Object.entries(item.effects).map(([k,v]) => `<div class="item-info"><span class="info-label">${esc(k)}</span><span class="info-value">${esc(v)}</span></div>`).join('') : '';
+        const typeLabel = item._cat ? item.type : (DB.itemCategories.find(c=>c.key===activeItemTab).subTypes.find(t=>String(t.v)===String(item.type))||{}).label || item.type;
+        const consumeHtml = item.consume ? `<span class="cost-meta">消耗:${esc(item.consume)}</span>` : '';
+        const cdHtml = (item.cd && item.cd !== '0/0' && item.cd !== '0') ? `<span class="cost-meta">CD:${esc(item.cd)}</span>` : '';
+        return `
+        <div class="item-card ${sel} ${disabled}" style="--rarity-color:${tierColor(item.tier)}" onclick="toggleSelect('${item.id}', ${item.cost}, event)">
+            <div class="card-header">
+                <span class="item-name">${esc(item.name)}</span>
+                <span class="item-rarity tier-badge t-${item.tier}">${item.tier}</span>
+            </div>
+            <div class="card-body">
+                ${srcTag||tagHtml ? `<div class="tag-list">${srcTag}${tagHtml}</div>` : ''}
+                ${attrsHtml}
+                <div class="item-info"><span class="info-label">分类</span><span class="info-value">${esc(typeLabel)}</span></div>
+                ${effectHtml}
+                <div class="item-info"><span class="info-label">描述</span><span class="info-value">${esc(item.desc)}</span></div>
+            </div>
+            <div class="cost-row">
+                <span class="cost ${item.cost===0?'free':''}">${item.cost>0?'-'+item.cost+' 空间币':'免费接入'}</span>
+                ${consumeHtml}${cdHtml}
+            </div>
+            <span class="selected-corner">✔ 已选择</span>
+        </div>`;
+    }
+
+    function toggleSelect(id, cost, ev) {
+        const card = ev.currentTarget;
+        if (selectedItems.has(id)) { selectedItems.delete(id); currentCoins += cost; card.classList.remove('is-selected'); }
+        else {
+            if (currentCoins < cost) { return; } 
+            selectedItems.add(id); currentCoins -= cost; card.classList.add('is-selected');
+        }
+        $('val-coins').innerText = currentCoins;
+        renderSelectedPanel();
+        renderItems(); 
+        updateBgSummary();
+    }
+
+    function renderSelectedPanel() {
+        const all = getAllItems();
+        const chosen = all.filter(i => selectedItems.has(i.id));
+        $('selected-count').innerText = chosen.length;
+        const coinEl = $('selected-coins');
+        coinEl.innerText = currentCoins;
+        coinEl.classList.toggle('negative', currentCoins < 0);
+        if (chosen.length === 0) { $('selected-body').innerHTML = `<span class="empty-message" style="display:block;text-align:center;padding:8px;color:var(--text-sub);font-style:italic;">尚未授权任何物资</span>`; return; }
+        $('selected-body').innerHTML = chosen.map(i => `
+            <span class="selected-chip"><span class="tier-badge t-${i.tier}">${i.tier}</span>${esc(i.name)}<span class="chip-remove" onclick="event.stopPropagation();removeSelected('${i.id}', ${i.cost})">✕</span></span>`).join('');
+    }
+    function removeSelected(id, cost) { selectedItems.delete(id); currentCoins += cost; $('val-coins').innerText = currentCoins; renderItems(); renderSelectedPanel(); updateBgSummary(); }
+
+    function getAllItems() { return DB.equipments.concat(DB.items).concat(DB.skills).concat(customItems); }
+
+    // ===== 自定义表单 =====
+    function toggleCustomItem() { $('custom-item-form').classList.toggle('expanded'); }
+    function renderCustomForms() {
+        $('custom-item-body').innerHTML = `
+            <div class="grid-2">
+                <div class="form-group"><label>名称</label><input type="text" id="ci-name" class="form-control" placeholder="物资名称"></div>
+                <div class="form-group"><label>品质层级</label><select id="ci-tier" class="form-control">${DB.rarityList.map(r=>`<option>${r}</option>`).join('')}</select></div>
+                <div class="form-group"><label>子分类</label><select id="ci-type" class="form-control"></select></div>
+                <div class="form-group"><label>来源标签</label><select id="ci-source" class="form-control"><option value="">无</option>${DB.sourceTags.map(s=>`<option>${s}</option>`).join('')}</select></div>
+                <div class="form-group"><label>消耗空间币</label><input type="number" id="ci-cost" class="form-control" value="100" min="0"></div>
+                <div class="form-group"><label>消耗 (EP/HP/特殊资源)</label><input type="text" id="ci-consume" class="form-control" placeholder="如：EP 15 / HP 30" ></div>
+            </div>
+            <div class="form-group"><label>标签 (逗号分隔)</label><input type="text" id="ci-tags" class="form-control" placeholder="如：武器,伤害,物理"></div>
+            <div class="form-group"><label>属性数值 (键值对，如 ATK 28)</label><div class="kv-pairs" id="ci-attrs"></div><button class="add-kv-btn" onclick="addKV('ci-attrs','属性名','数值')">+ 添加属性</button></div>
+            <div class="form-group"><label>效果 (键值对，如 破甲 / 眩晕)</label><div class="kv-pairs" id="ci-effects"></div><button class="add-kv-btn" onclick="addKV('ci-effects','效果名','效果描述')">+ 添加效果</button></div>
+            <div class="form-group"><label>描述</label><textarea id="ci-desc" class="form-control" rows="2" placeholder="简短描述..."></textarea></div>
+            <button class="btn primary" onclick="addCustomItem()">提交录入</button>
+        `;
+        $('custom-partner-body').innerHTML = `
+            <div class="grid-2">
+                <div class="form-group"><label>伙伴姓名</label><input type="text" id="cp-name" class="form-control" placeholder="伙伴名字"></div>
+                <div class="form-group"><label>生命层级</label><select id="cp-tier" class="form-control" onchange="updatePartnerBuildBtnState()">${['Ⅰ','Ⅱ','Ⅲ'].map(r=>`<option>${r}</option>`).join('')}</select></div>
+                <div class="form-group"><label>种族</label><input type="text" id="cp-race" class="form-control" placeholder="如：精灵"></div>
+                <div class="form-group"><label>性别</label><select id="cp-gender" class="form-control"><option>男</option><option>女</option><option>扶她</option><option>男娘</option><option>药娘</option><option>太监</option><option>无性别</option></select></div>
+            </div>
+            <div class="form-group"><label>外貌特征</label><input type="text" id="cp-app" class="form-control" placeholder="简短描写外貌..."></div>
+            <div class="form-group"><label>喜爱</label><input type="text" id="cp-like" class="form-control" placeholder="例如：喜欢与角色贴贴，喜欢甜食..."></div>
+            <div class="form-group"><label>背景故事</label><textarea id="cp-bg" class="form-control" rows="3" placeholder="一段简短的背景来历..."></textarea></div>
+            <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                <button class="btn primary" id="cp-build-btn" onclick="useCustomPartner()">确认建档</button>
+                <button class="btn danger" id="cp-clear-btn" onclick="clearCustomPartner()" style="display:none;">✕ 删除档案</button>
+                <span id="cp-cost-tip" class="cp-cost-tip"></span>
+            </div>
+        `;
+        $('single-world-body').innerHTML = `
+            <div class="single-world-banner">
+                <span class="sw-banner-icon">🎯</span>
+                <span class="sw-banner-text"><strong>单一世界模式已启用</strong> —— 点击此选项卡即自动开启。系统将把你直接投放至下方指定的世界，跳过多元世界抽取。</span>
+            </div>
+            <div class="grid-2">
+                <div class="form-group"><label>世界名称 (穿越作品名)</label><input type="text" id="sw-name" class="form-control" placeholder="如：斩赤瞳世界"></div>
+                <div class="form-group"><label>时间锚点</label><input type="text" id="sw-time" class="form-control" placeholder="如：第四次圣杯战争中期"></div>
+            </div>
+            <div class="form-group"><label>切入身份</label><input type="text" id="sw-identity" class="form-control" placeholder="系统为你安排的合法切入身份"></div>
+            <div class="form-group"><label>主线状态</label><textarea id="sw-mainstate" class="form-control" rows="3" placeholder="描述当前剧情时间锚点的主线状态，如：剧情正常推行，局部冲突爆发；中层/精英威胁大量登场"></textarea></div>
+            <div class="form-group"><label>主神任务</label><textarea id="sw-goal" class="form-control" rows="3" placeholder="根据阵营与时间锚点生成 2-4 个平等层级关键任务"></textarea></div>
+        `;
+        refreshCustomTypeOptions();
+    }
+    function refreshCustomTypeOptions() {
+        const cat = DB.itemCategories.find(c => c.key === activeItemTab);
+        const sel = $('ci-type');
+        if (sel) sel.innerHTML = cat.subTypes.map(t => `<option value="${t.v}">${t.label}</option>`).join('');
+    }
+    function addKV(containerId, ph1, ph2) {
+        const c = $(containerId);
+        const row = document.createElement('div');
+        row.className = 'kv-row';
+        row.innerHTML = `<input type="text" class="form-control kv-key" placeholder="${ph1}"><input type="text" class="form-control kv-val" placeholder="${ph2}"><button class="kv-del" onclick="this.parentElement.remove()">✕</button>`;
+        c.appendChild(row);
+    }
+    function collectKV(containerId) {
+        const obj = {};
+        $(containerId).querySelectorAll('.kv-row').forEach(r => {
+            const k = r.querySelector('.kv-key').value.trim();
+            const v = r.querySelector('.kv-val').value.trim();
+            if (k) obj[k] = v;
+        });
+        return obj;
+    }
+    function addCustomItem() {
+        const name = $('ci-name').value.trim();
+        if (!name) { alert('请填写物资名称'); return; }
+        const cat = activeItemTab;
+        const attrsRaw = collectKV('ci-attrs');
+        const attrs = {};
+        Object.entries(attrsRaw).forEach(([k,v]) => { const n = parseFloat(v); attrs[k] = isNaN(n) ? v : n; });
+        const typeVal = cat === 'item' ? $('ci-type').value : parseInt($('ci-type').value);
+        const item = {
+            id: 'custom-' + Date.now(),
+            name: '【自定】' + name,
+            tier: $('ci-tier').value,
+            cost: parseInt($('ci-cost').value || 0),
+            type: typeVal,
+            source: $('ci-source').value || '',
+            tags: $('ci-tags').value.split(/[,，]/).map(s=>s.trim()).filter(Boolean),
+            attrs: attrs,
+            effects: collectKV('ci-effects'),
+            desc: $('ci-desc').value.trim() || '自定义物资。',
+            consume: $('ci-consume').value.trim(),
+            _cat: cat
+        };
+        customItems.push(item);
+        activeSubCategory = null; activeRarity = 'all'; 
+        renderSubCategories(); renderRarityFilter(); renderItems();
+        $('custom-item-form').classList.remove('expanded');
+        ['ci-name','ci-tags','ci-desc','ci-consume','ci-cd'].forEach(id => $(id).value = '');
+        $('ci-cost').value = '100';
+        $('ci-attrs').innerHTML = ''; $('ci-effects').innerHTML = '';
+        alert('已录入自定义物资：' + item.name);
+    }
+
+    // ===== 伙伴 =====
+    function renderPartners() {
+        $('grid-partner').innerHTML = `<div class="empty-message" style="grid-column:1/-1;text-align:center;padding:48px 20px;color:var(--text-sub);font-size:1rem;font-style:normal;">暂无可选对象</div>`;
+    }
+    function selectPartner(id) {
+        selectedPartner = (selectedPartner === id) ? null : id;
+        if (selectedPartner) useCustomPartnerFlag = false;
+        renderPartners(); updateBgSummary();
+    }
+    function toggleCustomPartner() { $('custom-partner-form').classList.toggle('expanded'); updatePartnerBuildBtnState(); }
+    // 伙伴建档按钮状态: 按所选层级费用与可用余额(含已扣可退回)判定, 不足时灰度禁用
+    //   ★ 下方常驻费用提示 #cp-cost-tip：充足时显示消耗与余额，不足时变红加⚠️并改按钮文案
+    const PARTNER_COST = { Ⅰ: 70, Ⅱ: 350, Ⅲ: 1000 };
+    // 伙伴建档表单字段锁：已建档后禁用全部录入项，仅「删除档案」可点；删除后恢复可编辑
+    const PARTNER_FIELD_IDS = ['cp-name','cp-tier','cp-race','cp-gender','cp-app','cp-like','cp-bg'];
+    function setPartnerFieldsLocked(locked) {
+        PARTNER_FIELD_IDS.forEach(id => {
+            const el = $(id);
+            if (el) el.disabled = locked;
+        });
+    }
+    function updatePartnerBuildBtnState() {
+        const tierEl = $('cp-tier');
+        if (!tierEl) return;
+        const tier = tierEl.value;
+        const cost = PARTNER_COST[tier] || 0;
+        const available = currentCoins + partnerCostPaid;
+        const btn = $('cp-build-btn');
+        const tip = $('cp-cost-tip');
+        const built = useCustomPartnerFlag && partnerCostPaid > 0; // 已建档：只留删除档案
+        const insufficient = available < cost;
+        if (btn) {
+            // 已建档后隐藏确认建档按钮与费用提示
+            btn.style.display = built ? 'none' : '';
+            if (built) { btn.disabled = false; btn.style.opacity = ''; btn.style.cursor = ''; btn.title = ''; }
+            else {
+                btn.disabled = insufficient;
+                btn.style.opacity = insufficient ? '0.45' : '';
+                btn.style.cursor = insufficient ? 'not-allowed' : '';
+                btn.title = insufficient ? ('空间币不足，创建'+tier+'级伙伴需 '+cost+'（当前可用 '+available+'）') : '';
+                btn.textContent = insufficient ? '空间币不足' : '确认建档';
+            }
+        }
+        // 已建档锁定全部字段，未建档解锁（提前执行，避免下方 built 分支 return 跳过）
+        setPartnerFieldsLocked(built);
+        if (tip) {
+            if (built) {
+                // 已建档：改为只读锁定提示，不再显示费用
+                tip.className = 'cp-cost-tip';
+                tip.style.display = '';
+                tip.textContent = '🔒 档案已锁定（层级/资料不可再改）。如需调整，先「✕ 删除档案」再重建。';
+                return;
+            }
+            tip.style.display = '';
+            if (insufficient) {
+                tip.className = 'cp-cost-tip insufficient';
+                tip.textContent = '⚠️ 需 ' + cost + '，仅剩 ' + available + '（空间币不足）';
+            } else {
+                tip.className = 'cp-cost-tip';
+                tip.textContent = '消耗 -' + cost + '　余额 ' + available + '　（Ⅰ=70 / Ⅱ=350 / Ⅲ=1000）';
+            }
+        }
+    }
+    function useCustomPartner() {
+        const name = $('cp-name').value.trim();
+        if (!name) { showToast('请填写伙伴姓名', 'warning'); return; }
+        const tier = $('cp-tier').value;
+        const cost = PARTNER_COST[tier] || 0;
+        // 先退回上次扣的, 再按新层级扣(支持改层级重新建档)
+        const available = currentCoins + partnerCostPaid;
+        if (available < cost) { showToast('空间币不足，创建'+tier+'级伙伴需 '+cost+'（当前可用 '+available+'）', 'error'); return; }
+        currentCoins = available - cost;
+        partnerCostPaid = cost;
+        $('val-coins').innerText = currentCoins;
+        renderSelectedPanel();
+        useCustomPartnerFlag = true; selectedPartner = 'custom';
+        renderPartners(); updateBgSummary();
+        const clearBtn = $('cp-clear-btn');
+        if (clearBtn) clearBtn.style.display = '';
+        updatePartnerBuildBtnState();
+    }
+    function clearCustomPartner() {
+        const refund = partnerCostPaid;
+        if (refund > 0) {
+            currentCoins += refund;
+            partnerCostPaid = 0;
+            $('val-coins').innerText = currentCoins;
+            renderSelectedPanel();
+        }
+        useCustomPartnerFlag = false; selectedPartner = null;
+        ['cp-name','cp-race','cp-app','cp-like','cp-bg'].forEach(id => { const el=$(id); if(el) el.value=''; });
+        const tierEl = $('cp-tier'); if (tierEl) tierEl.selectedIndex = 0;
+        const gEl = $('cp-gender'); if (gEl) gEl.selectedIndex = 0;
+        const clearBtn = $('cp-clear-btn');
+        if (clearBtn) clearBtn.style.display = 'none';
+        renderPartners(); updateBgSummary();
+        updatePartnerBuildBtnState();
+    }
+
+    // ===== 剧情 =====
+    function renderPlotTabs() {
+        $('plot-tabs').innerHTML = DB.plotCategories.map(c => `
+            <button class="tab-button ${c.key===activePlotCat?'active':''}" onclick="switchPlotCat('${c.key}')">${c.label}</button>`).join('');
+    }
+    // 单一世界身份覆盖：进入单一世界把身份强切为「穿越者」并锁住下拉；离开则还原角色原始选择并解锁
+    const IDENTITY_SINGLE_WORLD = '穿越者';
+    function applySingleWorldIdentityOverride() {
+        const idEl = $('f-identity');
+        if (!idEl) return;
+        // 记录原始身份（仅在尚未覆盖时记录，避免重复覆盖丢失原始值）
+        if (!singleWorldIdentityOverridden) {
+            originalIdentity = idEl.value;
+        }
+        idEl.value = IDENTITY_SINGLE_WORLD;
+        idEl.disabled = true;
+        singleWorldIdentityLocked = true;
+        singleWorldIdentityOverridden = true;
+        updateFactionDesc();
+    }
+    function restoreOriginalIdentity() {
+        const idEl = $('f-identity');
+        if (!idEl) return;
+        idEl.disabled = false;
+        singleWorldIdentityLocked = false;
+        if (originalIdentity !== null) {
+            idEl.value = originalIdentity;
+        }
+        singleWorldIdentityOverridden = false;
+        updateFactionDesc();
+    }
+    function switchPlotCat(key) {
+        activePlotCat = key;
+        const swForm = $('single-world-form');
+        if (key === 'single') {
+            singleWorldEnabled = true;
+            selectedPlot = null;
+            if (swForm) { swForm.style.display = ''; swForm.classList.add('expanded'); }
+            applySingleWorldIdentityOverride();
+        } else {
+            singleWorldEnabled = false;
+            if (swForm) { swForm.classList.remove('expanded'); }
+            restoreOriginalIdentity();
+        }
+        renderPlotTabs(); renderPlots(); updateBgSummary();
+    }
+    function renderPlots() {
+        if (activePlotCat === 'single') {
+            $('grid-plot').innerHTML = `<div class="empty-message" style="grid-column:1/-1;text-align:center;padding:32px 18px;">已切换至「单一世界」模式，请在下方「🌐 单一世界模式」表单中填写你想去的世界。提交后系统将跳过多元世界抽取并直接投放。</div>`;
+            return;
+        }
+        let list = DB.plots.filter(p => p.cat === activePlotCat);
+        if (list.length === 0) { $('grid-plot').innerHTML = `<div class="empty-message" style="grid-column:1/-1;">该分类下暂无世界</div>`; return; }
+        
+        // 生态着色: solo(无异端/青) death(死斗局/红) chaos(混沌局/紫)
+        const ecoCls = e => e==='solo'?'wd-mode-solo':(e==='death'?'wd-mode-competitive':(e==='chaos'?'wd-mode-neutral':'wd-mode-solo'));
+        
+        $('grid-plot').innerHTML = list.map(p => {
+            const sel = selectedPlot === p.id ? 'selected' : '';
+            const exp = expandedCards.has('plot-'+p.id) ? 'expanded' : '';
+            const cleanName = (p.name.match(/【(.*?)】/)||[])[1] || p.name;
+            const rank = p.rank || 'Ⅰ';
+            // 综合难度评级(字母范围如 F~E), 规范化为 F-E 用于 badge 配色与显示
+            const tierRaw = (p.tier || 'F~E').replace(/\s+/g,'').replace('~','-');
+            const tierHigh = tierRaw.split('-').pop().trim().toUpperCase();
+            const aliens = (p.aliens!=null) ? p.aliens : 0;
+            
+            return `
+            <div class="destined-one-card ${sel} ${exp}" onclick="selectPlot('${p.id}')">
+                <div class="card-header">
+                    <h3 class="item-name">【${esc(cleanName)}】</h3>
+                    <div class="header-actions">
+                        <span class="rating-badge ${rankCls(rank)}" title="世界位格">${esc(rank)}</span>
+                        <span class="rating-badge rbadge-${tierHigh}" title="综合难度">${esc(tierRaw)}级</span>
+                        <button class="expand-btn" onclick="event.stopPropagation();toggleCardExpand('plot-${p.id}')">${exp?'收起':'详情'}</button>
+                    </div>
+                </div>
+                <span class="plot-type-tag">${esc(p.type)}</span>
+                <div class="card-detail">
+                    <div class="wd-row"><span class="wd-label">时间锚点</span><span class="wd-value">${esc(p.time)}</span></div>
+                    <div class="wd-row"><span class="wd-label">干涉模式</span><span class="wd-value">${esc(p.ecology)} <span class="wd-part-dim ${ecoCls(p.eco)}">(预计异端: ${aliens}人)</span></span></div>
+                    <div class="wd-row"><span class="wd-label">主线状态</span><span class="wd-value">${esc(p.deviation)}</span></div>
+                    <div class="wd-row"><span class="wd-label">世界法则</span><span class="wd-value">${esc(p.law)}<span class="wd-part-dim"> ${esc(p.risk)}</span></span></div>
+                    <div class="wd-row"><span class="wd-label">切入身份</span><span class="wd-value">${esc(p.identity)}</span></div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+    function selectPlot(id) {
+        selectedPlot = (selectedPlot === id) ? null : id;
+        if (selectedPlot) singleWorldEnabled = false;
+        renderPlots(); updateBgSummary();
+    }
+    function toggleSingleWorld() { $('single-world-form').classList.toggle('expanded'); }
+    function toggleCardExpand(key) { if (expandedCards.has(key)) expandedCards.delete(key); else expandedCards.add(key); if (key.startsWith('plot')) renderPlots(); else renderPartners(); }
+
+    // ===== 背景预览 =====
+    function updateBgSummary() {
+        const coinEl = $('bg-coins');
+        coinEl.innerText = currentCoins;
+        coinEl.classList.toggle('negative', currentCoins < 0);
+        let partnerText = '未选定';
+        if (selectedPartner === 'custom' && useCustomPartnerFlag) {
+            const n = $('cp-name').value.trim() || '自定义伙伴';
+            partnerText = `${n} (${$('cp-tier').value}级 / ${$('cp-gender').value})`;
+        }
+        let plotText = '未选定';
+        if (singleWorldEnabled) {
+            plotText = '单一世界模式：' + ($('sw-name').value.trim() || '未填写');
+        } else if (selectedPlot) {
+            const p = DB.plots.find(x => x.id === selectedPlot);
+            if (p) plotText = p.name;
+        }
+        const chosen = getAllItems().filter(i => selectedItems.has(i.id));
+        const eq = chosen.filter(i => i._cat==='equipment' || DB.equipments.some(e=>e.id===i.id)).length;
+        const it = chosen.filter(i => i._cat==='item' || DB.items.some(e=>e.id===i.id)).length;
+        const sk = chosen.filter(i => i._cat==='skill' || DB.skills.some(e=>e.id===i.id)).length;
+        $('bg-summary').innerHTML = `
+            <div class="row"><span class="row-label">协同实体：</span><span>${esc(partnerText)}</span></div>
+            <div class="row"><span class="row-label">初始剧情：</span><span>${esc(plotText)}</span></div>
+            <div class="row"><span class="row-label">物资结算：</span><span>装备 ${eq}件 / 道具 ${it}件 / 技能 ${sk}个</span></div>`;
+        // ★ 余额变化(增删物品/选退/删档等)同步刷新伙伴建档费用提示与按钮状态
+        updatePartnerBuildBtnState();
+    }
+
+    // ===== 步骤 =====
+    async function ensureVariableApiModeBeforeStepChange(targetStep) {
+        if (currentStep !== 1 || targetStep <= 1) return true;
+        const result = await chooseVariableApiMode(getVariableApiMode(), { silent:true });
+        if (result.ok) return true;
+        showToast(result.error || '变量更新方式尚未成功应用，请检查酒馆助手与世界书配置。', 'error');
+        return false;
+    }
+    async function jumpStep(n) {
+        if (!(await ensureVariableApiModeBeforeStepChange(n))) return;
+        currentStep = n;
+        applyStepUI();
+    }
+    
+    async function goStep(dir) {
+        let targetStep = currentStep;
+        if (dir === 1 && currentStep < 4) targetStep = currentStep + 1;
+        else if (dir === -1 && currentStep > 1) targetStep = currentStep - 1;
+        if (!(await ensureVariableApiModeBeforeStepChange(targetStep))) return;
+        currentStep = targetStep;
+        applyStepUI();
+    }
+    
+    // 核心 UI 刷新函数 (统一接管所有按钮与面板)
+    function applyStepUI() {
+        for (let i = 1; i <= 4; i++) {
+            const nav = $('nav-' + i);
+            nav.classList.toggle('active', i === currentStep);
+            nav.classList.toggle('pass', i < currentStep); // 走过的步骤变深色
+            $('pane-' + i).classList.toggle('active', i === currentStep);
+        }
+        
+        $('btn-prev').style.visibility = currentStep === 1 ? 'hidden' : 'visible';
+        
+        const btnNext = $('btn-next');
+        if (currentStep === 4) {
+            btnNext.innerText = '确认链接';
+            btnNext.onclick = showSaveConfirm; // 彻底统一为弹出询问框
+            updateSummary(); // 渲染可视化面板
+        } else {
+            btnNext.innerText = '前往下一步';
+            btnNext.onclick = () => goStep(1);
+        }
+        
+        if (currentStep === 3) updateBgSummary();
+    }
+
+    function updateSummary() {
+        // --- 1. 获取基础数据 ---
+        const name = $('f-name').value.trim() || '';
+        const identity = $('f-identity').value;
+        const race = $('f-race').value.trim() || '人类';
+        const gender = $('f-gender').value;
+        const age = $('f-age').value;
+        const tier = 'Ⅰ 级'; // 初始生命层级固定为 Ⅰ，不随加点走
+        const bloodTier = 'F 级'; // 初始血统品质固定为 F，不随加点走
+        
+        let attrHtml = '';
+        document.querySelectorAll('.attr-input').forEach((input, idx) => {
+            const tier = calcSingleTier(input.value);
+            attrHtml += `<div class="cf-attr-box"><strong>${DB.attributes[idx]}:</strong> <span>${tier}级</span></div>`;
+        });
+
+        const consumed = DB.initSpaceCoins - currentCoins;
+        
+        // --- 2. 获取分类物资 ---
+        const chosen = getAllItems().filter(i => selectedItems.has(i.id));
+        const equips = chosen.filter(i => i._cat==='equipment' || DB.equipments.some(e=>e.id===i.id));
+        const items = chosen.filter(i => i._cat==='item' || DB.items.some(e=>e.id===i.id));
+        const skills = chosen.filter(i => i._cat==='skill' || DB.skills.some(e=>e.id===i.id));
+
+        const renderList = (title, icon, list) => {
+            if(!list || list.length === 0) return `
+                <div class="cf-section">
+                    <h3 class="cf-title"><i class="${icon}"></i> ${title} (0)</h3>
+                    <div class="cf-text" style="color:var(--text-sub); font-style:italic;">未选择${title}</div>
+                </div>`;
+            const html = list.map((item, idx) => {
+                const attrs = item.attrs ? Object.entries(item.attrs).map(([k,v])=>`${k}:${v}`).join(' | ') : '';
+                const effects = item.effects ? Object.entries(item.effects).map(([k,v])=>`<strong style="color:var(--accent)">${k}:</strong> ${v}`).join('<br>') : '';
+                
+                // 智能获取子类型标签
+                let typeLabel = item.type;
+                if(item._cat === 'equipment' || (!item._cat && DB.equipments.some(e=>e.id===item.id))) {
+                    typeLabel = DB.equipTypes.find(t=>String(t.v)===String(item.type))?.label || item.type;
+                }
+                
+                return `
+                <div class="cf-item">
+                    <div class="cf-item-head">
+                        <span style="color:var(--text-sub)">${idx+1}.</span>
+                        <span class="cf-item-name" style="color:${tierColor(item.tier)}">${item.name}</span>
+                        <span class="tier-badge t-${item.tier}">${item.tier}</span>
+                        <span class="cf-item-cost">[${item.cost} 币]</span>
+                    </div>
+                    <div class="cf-item-props">
+                        <p><strong>类型:</strong> ${typeLabel} ${item.tags ? `| <strong>标签:</strong> ${item.tags.join('、')}` : ''} ${item.consume ? `| <strong>消耗:</strong> ${item.consume}` : ''}</p>
+                        ${attrs ? `<p><strong>加成:</strong> ${attrs}</p>` : ''}
+                        ${effects ? `<p>${effects}</p>` : ''}
+                    </div>
+                    <div class="cf-item-desc">${item.desc || ''}</div>
+                </div>`;
+            }).join('');
+            return `<div class="cf-section"><h3 class="cf-title"><i class="${icon}"></i> ${title} (${list.length})</h3>${html}</div>`;
+        };
+
+        // --- 3. 获取伙伴与剧情 ---
+        let partnerHtml = `<div class="cf-text" style="color:var(--text-sub); font-style:italic;">未选择协同实体</div>`;
+        let partnerCount = 0;
+        if (selectedPartner === 'custom' && useCustomPartnerFlag) {
+            partnerCount = 1;
+            partnerHtml = `
+                <div class="cf-item">
+                    <div class="cf-item-head"><span style="color:var(--text-sub)">1.</span><span class="cf-item-name" style="color:#fff">${$('cp-name').value.trim()||'自定义伙伴'}</span><span class="tier-badge t-${$('cp-tier').value}">${$('cp-tier').value}</span></div>
+                    <div class="cf-text"><strong>种族:</strong> ${$('cp-race').value.trim()||'未知'} | <strong>性别:</strong> ${$('cp-gender').value}</div>
+                    <div class="cf-text"><strong>外貌:</strong> ${$('cp-app').value.trim() || '无'}</div>
+                    <div class="cf-text"><strong>喜爱:</strong> ${$('cp-like').value.trim() || '无'}</div>
+                    <div class="cf-item-props"><p>${$('cp-bg').value.trim()||'暂无背景故事...'}</p></div>
+                </div>`;
+        } 
+
+        let plotHtml = `<div class="cf-text" style="color:var(--text-sub); font-style:italic;">未选择初始开局剧情</div>`;
+        if (singleWorldEnabled) {
+            plotHtml = `
+                <div class="cf-item">
+                    <div class="cf-item-head"><span class="cf-item-name" style="color:#fff">【单一世界】${$('sw-name').value.trim()||'未命名'}</span></div>
+                    <div class="cf-text"><strong>时间锚点:</strong> ${$('sw-time').value.trim() || '未填写'}</div>
+                    <div class="cf-text"><strong>切入身份:</strong> ${$('sw-identity').value.trim() || '未填写'}</div>
+                    <div class="cf-item-props"><p><strong>主线状态:</strong><br>${$('sw-mainstate').value.trim().replace(/\n/g, '<br>') || '未填写'}</p></div>
+                    <div class="cf-item-props"><p><strong>主神任务:</strong><br>${$('sw-goal').value.trim().replace(/\n/g, '<br>') || '未填写'}</p></div>
+                </div>`;
+        } else if (selectedPlot) {
+            const p = DB.plots.find(x => x.id === selectedPlot);
+            if (p) {
+                plotHtml = `
+                <div class="cf-item">
+                    <div class="cf-item-head"><span class="cf-item-name" style="color:${rankColor(p.rank||'Ⅰ')}">${p.name}</span></div>
+                    <div class="cf-text"><strong>类型:</strong> ${p.type}</div>
+                    <div class="cf-text"><strong>时间锚点:</strong> ${p.time}</div>
+                    <div class="cf-text"><strong>切入身份:</strong> ${p.identity}</div>
+                </div>`;
+            }
+        }
+
+        // --- 4. 底部动态横幅 ---
+        let bannerHtml = '';
+        if (currentCoins < 0) {
+            bannerHtml = `<div class="cf-banner warning"><i class="fa-solid fa-triangle-exclamation"></i> 警告：空间币已透支 ${Math.abs(currentCoins)} 点，无法完成建档，请返回调整！</div>`;
+        } else if (currentCoins > 0) {
+            bannerHtml = `<div class="cf-banner info"><i class="fa-solid fa-circle-info"></i> 提示：还有 ${currentCoins} 点空间币未使用。</div>`;
+        } else {
+            bannerHtml = `<div class="cf-banner success"><i class="fa-solid fa-check"></i> 完美：空间币已精准分配完毕。</div>`;
+        }
+
+        // --- 5. 渲染可视化面板 ---
+        $('visual-summary').innerHTML = `
+            <div class="confirm-wrapper">
+                <div class="confirm-header">
+                    <h2>档案确认</h2>
+                    <p>预设参数将直接写入系统核心变量，精准重构底层逻辑</p>
+                </div>
+                
+                <div class="points-grid">
+                    <div class="point-box"><span class="p-label">初始空间币</span><span class="p-value gold">${DB.initSpaceCoins}</span></div>
+                    <div class="point-box"><span class="p-label">已消耗</span><span class="p-value">${consumed}</span></div>
+                    <div class="point-box"><span class="p-label">剩余</span><span class="p-value ${currentCoins<0?'red':'green'}">${currentCoins}</span></div>
+                </div>
+
+                <div class="cf-section">
+                    <h3 class="cf-title"><i class="fa-solid fa-id-card"></i> 基本信息</h3>
+                    <div class="grid-2">
+                        <div class="cf-text"><strong>姓名:</strong> ${name}</div>
+                        <div class="cf-text"><strong>性别:</strong> ${gender}</div>
+                        <div class="cf-text"><strong>年龄:</strong> ${age} 岁</div>
+                        <div class="cf-text"><strong>种族:</strong> ${race}</div>
+                        <div class="cf-text" style="grid-column: 1 / -1;"><strong>身份:</strong> ${identity}</div>
+                        <div class="cf-text" style="grid-column: 1 / -1;"><strong>综合层级:</strong> <span class="tier-badge t-Ⅰ">${tier}</span></div>
+                    </div>
+                </div>
+
+                <div class="cf-section">
+                    <h3 class="cf-title"><i class="fa-solid fa-dna"></i> 初始血统：${race}血统</h3>
+                    <div class="cf-item-props">
+                        <p><strong>品质层级:</strong> <span class="tier-badge t-${bloodTier.replace(' 级','')}">${bloodTier}</span> | <strong>体系标签:</strong> 初始血统、${race}</p>
+                        <p><strong>底层描述:</strong> 最初的基础，却有无限可能</p>
+                        <p style="color:var(--accent); margin-top:6px; font-weight:bold;">
+                            <i class="fa-solid fa-bolt"></i> 核心天赋效果暂缺，降临后将由主神 (AI) 根据种族特性当场演算并赋予。
+                        </p>
+                    </div>
+                    <div class="cf-attr-grid">${attrHtml}</div>
+                </div>
+
+                ${renderList('装备', 'fa-solid fa-shield-halved', equips)}
+                ${renderList('道具', 'fa-solid fa-box-open', items)}
+                ${renderList('技能', 'fa-solid fa-wand-magic-sparkles', skills)}
+
+                <div class="cf-section">
+                    <h3 class="cf-title"><i class="fa-solid fa-user-group"></i> 协同实体 (${partnerCount})</h3>
+                    ${partnerHtml}
+                </div>
+
+                <div class="cf-section">
+                    <h3 class="cf-title"><i class="fa-solid fa-earth-asia"></i> 初始开局剧情</h3>
+                    ${plotHtml}
+                </div>
+
+                ${bannerHtml}
+            </div>
+        `;
+    }
+
+    // ==========================================
+    // 🚀 吐司提示条系统 (完美模拟酒馆外观)
+    // ==========================================
+    function showToast(msg, type='success') {
+        // 优先尝试调用酒馆自带的 toastr
+        try {
+            if (window.parent && window.parent.toastr) {
+                if(type === 'success') window.parent.toastr.success(msg);
+                else if(type === 'warning') window.parent.toastr.warning(msg);
+                else window.parent.toastr.error(msg);
+                return;
+            }
+        } catch(e) {}
+        
+        // 自带回退吐司提示框
+        let c = document.getElementById('sys-toast-container');
+        if(!c) {
+            c = document.createElement('div');
+            c.id = 'sys-toast-container';
+            c.style.cssText = 'position:fixed; top:30px; left:50%; z-index:99999; display:flex; flex-direction:column; gap:10px; pointer-events:none;';
+            document.body.appendChild(c);
+        }
+        const t = document.createElement('div');
+        const color = type==='success' ? '#51a351' : (type==='warning' ? '#f89406' : '#bd362f');
+        const icon = type==='success' ? '✔' : '⚠';
+        t.style.cssText = `background-color:${color}; color:#fff; padding:12px 24px; border-radius:4px; box-shadow:0 4px 15px rgba(0,0,0,0.5); font-size:0.95rem; font-weight:bold; letter-spacing:1px; animation:toastFadeIn 0.3s ease forwards; text-align:center;`;
+        t.innerHTML = `<span>${icon}</span>&nbsp;&nbsp;${msg}`;
+        c.appendChild(t);
+        setTimeout(() => {
+            t.style.animation = 'toastFadeOut 0.3s ease forwards';
+            setTimeout(() => t.remove(), 300);
+        }, 2500);
+    }
+
+    // ==========================================
+    // 🚀 流程与预设联动
+    // ==========================================
+    let isJourneyContext = false; 
+    
+    function showSaveConfirm() { $('save-confirm-modal').style.display = 'flex'; }
+    function hideSaveConfirm() { $('save-confirm-modal').style.display = 'none'; }
+    
+    function skipAndStart() { hideSaveConfirm(); executeJourney(); }
+    function goToSavePreset() { hideSaveConfirm(); isJourneyContext = true; openPresetModal(); }
+
+    const PRESET_KEY = 'lunhui_presets_v1';
+    function getPresets() { try { return JSON.parse(localStorage.getItem(PRESET_KEY) || '{}'); } catch(e) { return {}; } }
+    function setPresets(p) { localStorage.setItem(PRESET_KEY, JSON.stringify(p)); }
+
+    function collectState() {
+        const attrs = {}; document.querySelectorAll('.attr-input').forEach((input, idx) => { attrs[DB.attributes[idx]] = parseInt(input.value||0); });
+        return { name:$('f-name').value, gender:$('f-gender').value, age:$('f-age').value, race:$('f-race').value, identity:$('f-identity').value, attrs:attrs, coins:currentCoins, selectedItems:[...selectedItems], selectedPlot, selectedPartner, useCustomPartnerFlag, singleWorldEnabled, customItems, customPartner:{name:$('cp-name').value,tier:$('cp-tier').value,race:$('cp-race').value,gender:$('cp-gender').value,app:$('cp-app').value,like:$('cp-like').value,bg:$('cp-bg').value}, singleWorld:{name:$('sw-name').value,time:$('sw-time').value,identity:$('sw-identity').value,mainstate:$('sw-mainstate').value,goal:$('sw-goal').value}, stabilityLocked: $('ws-lock') ? $('ws-lock').checked : false, partnerCostPaid, activePlotCat, originalIdentity, singleWorldIdentityOverridden };
+    }
+    
+    function applyState(st) {
+        $('f-name').value = st.name||''; $('f-gender').value = st.gender||'男'; $('f-age').value = st.age||20; $('f-race').value = st.race||'人类'; $('f-identity').value = st.identity||'守护者'; currentCoins = st.coins ?? DB.initSpaceCoins; partnerCostPaid = st.partnerCostPaid || 0; $('val-coins').innerText = currentCoins; selectedItems = new Set(st.selectedItems||[]); selectedPlot = st.selectedPlot||null; selectedPartner = st.selectedPartner||null; useCustomPartnerFlag = !!st.useCustomPartnerFlag; singleWorldEnabled = !!st.singleWorldEnabled; customItems = st.customItems||[]; if (st.activePlotCat) activePlotCat = st.activePlotCat; else activePlotCat = 'multi'; originalIdentity = (st.originalIdentity !== undefined ? st.originalIdentity : null); singleWorldIdentityOverridden = !!st.singleWorldIdentityOverridden; document.querySelectorAll('.attr-input').forEach((input, idx) => { input.value = (st.attrs && st.attrs[DB.attributes[idx]]) ?? DB.attrMin; }); updateFactionDesc(); if (st.customPartner) { $('cp-name').value=st.customPartner.name||''; $('cp-tier').value=st.customPartner.tier||'F'; $('cp-race').value=st.customPartner.race||''; $('cp-gender').value=st.customPartner.gender||'男'; $('cp-app').value=st.customPartner.app||''; $('cp-like').value=st.customPartner.like||''; $('cp-bg').value=st.customPartner.bg||''; } if (st.singleWorld) { ['name','time','identity','mainstate','goal'].forEach(k => { const el=$('sw-'+k); if(el) el.value = st.singleWorld[k]||''; }); } const lockEl = $('ws-lock'); if (lockEl) lockEl.checked = !!st.stabilityLocked; const swForm = $('single-world-form'); if (swForm) { if (activePlotCat === 'single') { swForm.style.display=''; swForm.classList.add('expanded'); } else { swForm.classList.remove('expanded'); } } const idEl = $('f-identity'); if (idEl) { if (activePlotCat === 'single' || singleWorldIdentityOverridden) { if (!singleWorldIdentityOverridden) { originalIdentity = idEl.value; singleWorldIdentityOverridden = true; } idEl.value = IDENTITY_SINGLE_WORLD; idEl.disabled = true; singleWorldIdentityLocked = true; updateFactionDesc(); } else { idEl.disabled = false; singleWorldIdentityLocked = false; } } calcTier(); renderItems(); renderSelectedPanel(); renderPlotTabs(); renderPlots(); renderPartners(); updateBgSummary(); const cpClearBtn = $('cp-clear-btn'); if (cpClearBtn) cpClearBtn.style.display = (useCustomPartnerFlag && selectedPartner === 'custom') ? '' : 'none';
+    }
+    
+    function openPresetModal() { renderPresetList(); $('preset-modal').style.display = 'flex'; }
+    function closePresetModal() { $('preset-modal').style.display = 'none'; isJourneyContext = false; }
+    
+    // 渲染无弹窗的高级列表UI
+    let pendingDeletePreset = null; // 用于追踪当前正在确认删除的预设
+
+    // 渲染极度还原的卡片列表
+    function renderPresetList() {
+        const p = getPresets(); 
+        // 按时间倒序排列（最新的在最上面）
+        const keys = Object.keys(p).sort((a, b) => (p[b].ts || 0) - (p[a].ts || 0)); 
+        $('preset-count').innerText = keys.length;
+        
+        if (keys.length === 0) { 
+            $('preset-list').innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-sub); border: 1px dashed var(--border); border-radius: 6px;">暂无保存的预设</div>`; 
+            return; 
+        }
+        
+        $('preset-list').innerHTML = keys.map(k => {
+            const b64 = btoa(unescape(encodeURIComponent(k)));
+            const pre = p[k].state;
+            const isDel = pendingDeletePreset === k;
+            const dateStr = new Date(p[k].ts||0).toLocaleString('zh-CN', {year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'});
+            
+            // 操作按钮状态判定
+            let actionsHtml = '';
+            if (isDel) {
+                actionsHtml = `
+                    <button class="btn-p confirm-del" onclick="confirmDeleteB64('${b64}')"><i class="fa-solid fa-check"></i> 确认删除</button>
+                    <button class="btn-p cancel" onclick="cancelDelete()"><i class="fa-solid fa-xmark"></i> 取消</button>
+                `;
+            } else {
+                actionsHtml = `
+                    <button class="btn-p load" onclick="loadPresetB64('${b64}')"><i class="fa-solid fa-download"></i> 加载</button>
+                    <button class="btn-p export" onclick="exportSingleB64('${b64}')"><i class="fa-solid fa-file-export"></i> 导出</button>
+                    <button class="btn-p del" onclick="reqDeleteB64('${b64}')"><i class="fa-solid fa-trash-can"></i> 删除</button>
+                `;
+            }
+
+            return `
+            <div class="preset-item ${isDel ? 'del-pending' : ''}">
+                <div class="p-item-header">
+                    <span class="p-item-name">${esc(k)}</span>
+                    <span class="p-item-time">${dateStr}</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:10px;">
+                    <div class="p-item-info">
+                        <span><i class="fa-solid fa-user"></i> <span class="val">${esc(pre.name || '未命名')}</span></span>
+                        <span><i class="fa-solid fa-layer-group"></i> <span class="val">${esc(pre.identity || '无')}</span></span>
+                        <span><i class="fa-solid fa-coins"></i> <span class="val">${pre.coins || 0}</span></span>
+                    </div>
+                    <div class="p-item-actions">
+                        ${actionsHtml}
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function decodeB64(b64) { try { return decodeURIComponent(escape(atob(b64))); } catch(e) { return ''; } }
+
+    function saveNewPreset() {
+        const name = $('preset-name-input').value.trim();
+        if (!name) { showToast('请输入配置名称', 'warning'); return; }
+        const p = getPresets(); 
+        
+        // 覆盖判定：如果名字已存在，直接覆盖，无需再写覆盖按钮
+        const isOverwrite = !!p[name];
+        
+        p[name] = { ts:Date.now(), state:collectState() }; 
+        setPresets(p);
+        $('preset-name-input').value = ''; 
+        pendingDeletePreset = null;
+        renderPresetList(); 
+        
+        showToast(isOverwrite ? `配置 [${name}] 已更新覆盖` : `保存配置 [${name}] 成功`);
+        if(isJourneyContext) { setTimeout(() => { closePresetModal(); executeJourney(); }, 800); }
+    }
+
+    // ==== 内联删除流程 ====
+    function reqDeleteB64(b64) {
+        pendingDeletePreset = decodeB64(b64);
+        renderPresetList();
+    }
+    function cancelDelete() {
+        pendingDeletePreset = null;
+        renderPresetList();
+    }
+    function confirmDeleteB64(b64) {
+        const name = decodeB64(b64);
+        const p = getPresets(); 
+        delete p[name]; 
+        setPresets(p);
+        pendingDeletePreset = null;
+        renderPresetList();
+        showToast(`已删除配置 [${name}]`);
+    }
+
+    function loadPresetB64(b64) {
+        const name = decodeB64(b64);
+        const p = getPresets(); if (!p[name]) return;
+        applyState(p[name].state || {});
+        pendingDeletePreset = null;
+        renderPresetList();
+        showToast(`加载配置 [${name}] 成功`);
+    }
+
+    // 单个导出
+    function exportSingleB64(b64) {
+        const name = decodeB64(b64);
+        const p = getPresets();
+        if(!p[name]) return;
+        const exportData = { [name]: p[name] };
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], {type:'application/json'}); 
+        const a = document.createElement('a'); 
+        a.href = URL.createObjectURL(blob); 
+        a.download = `建档预设_${name}.json`; 
+        a.click(); 
+        showToast(`导出 [${name}] 成功`);
+    }
+
+    // 全部导出
+    function exportAllPresets() { 
+        const p = getPresets(); 
+        if(Object.keys(p).length === 0) { showToast('没有可导出的预设', 'warning'); return; }
+        const blob = new Blob([JSON.stringify(p,null,2)], {type:'application/json'}); 
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); 
+        a.download = '轮回建档_全部预设_'+Date.now()+'.json'; a.click(); 
+        showToast('全部预设导出成功');
+    }
+
+    function importPreset(ev) { 
+        const file = ev.target.files[0]; if (!file) return; 
+        const reader = new FileReader(); 
+        reader.onload = e => { 
+            try { 
+                const obj = JSON.parse(e.target.result); 
+                const cur = getPresets(); 
+                Object.assign(cur, obj); 
+                setPresets(cur); 
+                pendingDeletePreset = null;
+                renderPresetList(); 
+                showToast('导入成功'); 
+            } catch(err) { showToast('导入失败：文件格式错误', 'error'); } 
+        }; 
+        reader.readAsText(file); ev.target.value = ''; 
+    }
+
+    // ==========================================
+    // 🚀 终极执行：精准写入 MVU 与酒馆 AI 对接
+    // ==========================================
+    function parseOpeningWorldLaws(value) {
+        return String(value || '')
+            .split(/\s*[；;]\s*/)
+            .map(s => s.trim())
+            .filter(Boolean)
+            .slice(0, 10);
+    }
+
+    async function executeJourney() {
+        const name = $('f-name').value.trim() || '';
+        const gender = $('f-gender').value;
+        const age = $('f-age').value;
+        const race = $('f-race').value.trim() || '人类';
+        const identity = $('f-identity').value;
+        const tier = 'F'; // 初始血统品质固定为 F，不随加点走
+        const bloodlineName = race + '血统';
+
+        // 收集面板数据
+        // 内部仍存 0..8 点数
+        const attrs = {};
+        document.querySelectorAll('.attr-input').forEach((input, idx) => { attrs[DB.attributes[idx]] = parseInt(input.value||0); });
+        // 对外展示给 AI 时用品质字母
+        const attrStr = Object.entries(attrs).map(([k,v])=>`${k}: ${calcSingleTier(v)}级`).join(', ');
+        // 写入 MVU 血统的"原始属性"应为字母品质字典(下游 resolveRealAttr 据此读 tier)
+        const attrTierObj = {};
+        Object.entries(attrs).forEach(([k,v]) => { attrTierObj[k] = calcSingleTier(v); });
+
+        const chosen = getAllItems().filter(i => selectedItems.has(i.id));
+        const equipObj = {}, itemObj = {}, skillObj = {};
+        chosen.forEach(i => {
+            if (i._cat==='equipment' || DB.equipments.some(e=>e.id===i.id)) {
+                
+                // 🌟 魔术映射：将 UI的 0~17 转换为 数据库的 0~8
+                let exportType = i.type;
+                if (exportType >= 0 && exportType <= 9) exportType = 0; // 0~9 (所有武器和盾牌) 映射为 0 (手持类)
+                else if (exportType >= 10 && exportType <= 17) exportType = exportType - 9; // 10变成1(手部), 11变成2(头部)... 以此类推
+                
+                // 装备：加入 限制{}，且纯净发包
+                equipObj[i.name] = {
+                    品质: i.tier, 类型: exportType, 标签: [...(i.tags||[]), ...(i.source?[i.source]:[])],
+                    原始属性: i.attrs||{}, 效果: i.effects||{},
+                    描述: i.desc||'', 消耗: i.consume||'', 状态: 0
+                };
+            }
+            else if (i._cat==='item' || DB.items.some(e=>e.id===i.id)) {
+                itemObj[i.name] = { 
+                    品质: i.tier, 类型: i.type, 数量: 1, 标签: [...(i.tags||[]), ...(i.source?[i.source]:[])], 
+                    效果: i.effects||{}, 描述: i.desc||'' 
+                };
+            }
+            else if (i._cat==='skill' || DB.skills.some(e=>e.id===i.id)) {
+                // 技能：移除了伤害节点、冷却节点，Type是强类型的数字
+                skillObj[i.name] = { 
+                    品质: i.tier, 类型: i.type, 标签: [...(i.tags||[]), ...(i.source?[i.source]:[])], 
+                    效果: i.effects||{}, 描述: i.desc||'', 消耗: i.consume||'' 
+                };
+            }
+        });
+
+        let partnerNode = null;
+        if (selectedPartner === 'custom' && useCustomPartnerFlag) {
+            partnerNode = { 姓名:$('cp-name').value.trim(), 层级:$('cp-tier').value, 种族:$('cp-race').value.trim(), 身份:[$('f-identity').value, $('cp-gender').value], 在场:true, 是否队友:true, 喜爱:$('cp-like').value.trim(), 外貌:$('cp-app').value.trim(), 背景故事:$('cp-bg').value.trim() };
+        }
+
+        const wsLocked = (() => { const el=$('ws-lock'); return el ? el.checked : false; })();
+
+        // -----------------------------------------------------
+        // 1. 尝试将数据精准写入后台 MVU (使用 Lodash _.set 不覆盖原有骨架)
+        // -----------------------------------------------------
+        try {
+            const win = window.parent || window;
+            if (win.Mvu && win._) {
+                if (typeof win.waitGlobalInitialized === 'function') await win.waitGlobalInitialized('Mvu');
+                const c = win.Mvu.getMvuData({type:'message', message_id:'latest'});
+                const _set = win._.set;
+
+                // 设置
+                _set(c, 'stat_data.设置.世界超稳', wsLocked);
+                _set(c, 'stat_data.设置.单一世界', singleWorldEnabled);
+
+                // 角色资产与血统 (完美避开覆盖 HP/EP 等其他属性)
+                _set(c, 'stat_data.角色.种族', race);
+                _set(c, 'stat_data.角色.身份', [identity, gender, age+'岁']);
+                _set(c, 'stat_data.角色.空间币', currentCoins);
+                
+                _set(c, 'stat_data.角色.道具', itemObj);
+                _set(c, 'stat_data.角色.装备', equipObj);
+                _set(c, 'stat_data.角色.技能', skillObj);
+                
+                // 血统精准写入
+                _set(c, `stat_data.角色.血统.${bloodlineName}`, {
+                    品质: tier,
+                    标签: ['初始血统', race],
+                    原始属性: attrTierObj,
+                    效果: {},
+                    描述: '最初的基础，却有无限可能'
+                });
+
+                // 伙伴注入(阵营以最终确认时角色阵营为准, 防止建档后改阵营导致不一致)
+                if (partnerNode && Array.isArray(partnerNode.身份)) partnerNode.身份[0] = $('f-identity').value;
+                if (partnerNode) _set(c, `stat_data.关系列表.${partnerNode.姓名}`, partnerNode);
+
+                // 世界信息精准注入
+                if (singleWorldEnabled) {
+                    _set(c, 'stat_data.系统状态.是否在主神空间', false);
+                    _set(c, 'stat_data.世界.时间', $('sw-time').value.trim());
+                    _set(c, 'stat_data.世界.名称', $('sw-name').value.trim());
+                    _set(c, 'stat_data.世界.因果轨道', { 当前阶段: $('sw-mainstate').value.trim() || '未设定', 故事线: '', 下一节点: '', 偏移记录: {} });
+                } else if (selectedPlot) {
+                    _set(c, 'stat_data.系统状态.是否在主神空间', false);
+                    const p = DB.plots.find(x => x.id === selectedPlot);
+                    if (p) {
+                        // .match(/【(.*?)】/) 会提取出【】里面的内容
+                        const cleanName = p.name.match(/【(.*?)】/)?.[1] || p.name;
+                        _set(c, 'stat_data.世界.名称', cleanName);
+                        // 世界位格(罗马数字 Ⅰ~Ⅸ), 与[InitVar]世界初始设定.yaml 字段对齐, 与【选择世界】正则保持同步
+                        if (p.rank) _set(c, 'stat_data.世界.位格', p.rank);
+                        // 综合难度(保留 tier 原始范围 F~E 原样入库, 不截断为单个字母), 与【选择世界】正则保持同步
+                        if (p.tier) {
+                            const tierRaw = String(p.tier).replace(/\s+/g,'').replace(/[-–—]/g,'~').toUpperCase();
+                            if (tierRaw) _set(c, 'stat_data.世界.难度', tierRaw);
+                        }
+                        // 预设世界法则已经固化在 DB.plots.p.law 中，开局时直接程序写入。
+                        // p.risk 是风险/后果提示，不属于世界法则数组。
+                        _set(c, 'stat_data.世界.法则', parseOpeningWorldLaws(p.law));
+                        // 干涉模式 + 空名单；异端身份由随后的主神任务初始化
+                        _set(c, 'stat_data.世界.异端雷达.当前模式', p.ecology || p.eco || '');
+                        _set(c, 'stat_data.世界.异端雷达.名单', {});
+                    }
+                }
+
+                await win.Mvu.replaceMvuData(c, {type:'message', message_id:'latest'});
+                console.log('✅ MVU 后台数据已隐蔽精准同步 (_.set 局部写入)');
+            }
+        } catch(e) { console.warn('非 SillyTavern 环境，跳过 MVU 写入'); }
+
+        // -----------------------------------------------------
+        // 2. 拼接发送给 AI 看的指令与文本
+        // -----------------------------------------------------
+        let isWorldAnchored = false;
+        let worldText = "当前处于主神空间待机状态，未锚定具体世界。";
+        if (singleWorldEnabled) {
+            isWorldAnchored = true; // 状态更新：已进入单一世界
+            worldText = `【${$('sw-name').value.trim() || '未知世界'}】
+时间锚点: ${$('sw-time').value.trim() || '未设定'}
+主线状态: ${$('sw-mainstate').value.trim() || '未设定'}
+切入身份: ${$('sw-identity').value.trim() || '角色'}
+主神任务: ${$('sw-goal').value.trim() || '无'}`;
+        } else if (selectedPlot) {
+            const p = DB.plots.find(x => x.id === selectedPlot);
+            if (p) {
+                isWorldAnchored = true; // 状态更新：已选择多元世界
+                
+                // 提取出干净的名字, 评级改用世界位格(罗马数字)
+                const cleanName = p.name.match(/【(.*?)】/)?.[1] || p.name;
+                const rank = p.rank || 'Ⅰ';
+                const tier = (p.tier || 'F~E').replace(/\s+/g,'').replace('~','-') + '级';
+
+                worldText = `【${cleanName}】 (世界位格: ${rank})
+副本难度: ${tier}
+时间锚点: ${p.time}
+干涉模式: ${p.ecology} (预计异端: ${p.aliens!=null?p.aliens:0}人)
+主线状态: ${p.deviation}
+世界法则: ${p.law}
+风险提示: ${p.risk}
+切入身份: ${p.identity}`;
+            }
+        }
+
+        let partnerText = "无协同实体";
+        if (partnerNode) {
+            const pName = partnerNode.姓名 || '未命名';
+            const pTier = partnerNode.层级 || 'Ⅰ';
+            const pRace = partnerNode.种族 || '未知';
+            const pId = (partnerNode.身份 && partnerNode.身份[0]) || '未设定';
+            const pApp = partnerNode.外貌 || '无';
+            const pLike = partnerNode.喜爱 || '无';
+            const pBg = partnerNode.背景故事 || '无';
+            partnerText = `姓名: ${pName}
+种族: ${pRace}
+身份: ${pId}
+层级: ${pTier}级
+外貌特征: ${pApp}
+喜爱: ${pLike}
+背景故事: ${pBg}`;
+        }
+        // 2. 动态生成环境与传闻指令（核心修改）
+        const envInstruction = isWorldAnchored
+            ? "在叙事中，根据当前【时间锚点】与世界背景，更新货币、因果轨道、势力等地点变量，并全量刷新传闻，必须完整且符合世界当前局势。最后生成【主神任务】。"
+            : "在叙事中，请重点描绘「主神空间」或私人休整区的宏大/静谧环境、光影变幻或系统光球的微光。聚焦于角色刚到此处的状态。";
+        const promptText = `进行开局初始化，请根据以下配置展开叙事：
+（注：系统已将角色的初始装备、道具、血统与羁绊对象直接写入底层数据库。人物与羁绊基本属性已存在，禁止在初始化时替换它们，请直接提取使用。）
+
+【角色信息】
+姓名: ${name}
+性别: ${gender}
+年龄: ${age}岁
+种族: ${race}
+身份: ${identity}
+
+【初始血统】
+名称: ${bloodlineName}
+品质: ${tier}级
+描述: 最初的基础，却有无限可能
+
+【协同实体 (伙伴)】
+${partnerText}
+
+【世界与降临信息】
+${worldText}
+
+---
+【系统指令与叙事要求】：
+生成一个极具沉浸感的开局场景。
+首次降临时，请根据角色填写的【种族】特性，为「${bloodlineName}」设计 1~2 个符合【${tier}级】强度限制的专属血统效果，并在剧情中表现出觉醒的异象！
+${envInstruction}
+${partnerNode ? `[协同实体补全指令]：角色身边存在专属伙伴「${partnerNode.姓名 || '未命名'}」。该实体当前仅具有基础概念（层级、阵营、背景故事、喜好），缺乏具体战斗数据。请你基于其资料与【${partnerNode.层级 || '未知'}级】的强度限制，**自动为其推演并补全空白的战术模块**：
+1. 赋予契合人设并符合层级限制的【血统】与【技能】。
+2. 为其配备 1~2 件符合层级的【初始装备/武器】。
+【叙事要求】：在开局场景中，请按时间锚点合理编排伙伴与角色的切入关系。在登场时，必须通过外貌细节与动作描写，自然地展现出伙伴补全的外貌着装等，并清晰呈现其性格、当前对角色的信任状态及真实态度。` : ''}`;
+
+        // -----------------------------------------------------
+        // 3. 拦截酒馆文本框并发送
+        // -----------------------------------------------------
+        try {
+            const win = window.parent || window;
+            const textarea = win.document.getElementById('send_textarea');
+            const sendBtn = win.document.getElementById('send_but');
+            
+            if (textarea && sendBtn) {
+                textarea.value = promptText;
+                textarea.dispatchEvent(new Event('input', { bubbles: true }));
+                sendBtn.click();
+                showToast('正在降临世界...', 'success');
+            } else {
+                console.log(promptText);
+                showToast('未检测到酒馆界面，请手动在终端输入。', 'warning');
+            }
+        } catch(e) {
+            showToast('跨域访问受限，无法自动发送！', 'error');
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>
+```
