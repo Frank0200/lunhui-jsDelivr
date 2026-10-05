@@ -607,8 +607,8 @@
                 return '';
               });
             }
-            take(/(-?\d+(?:\.\d+)?)\s*(万)?\s*空间币/g);
-            take(/空间币\s*(?:奖励|惩罚|扣除|损失|减少|[：:]|\s)*\s*(-?\d+(?:\.\d+)?)\s*(万)?/g);
+            take(/(-?\d+(?:\.\d+)?)\s*(万)?\s*(?:スペースコイン|空间币)/g);
+            take(/(?:スペースコイン|空间币)\s*(?:奖励|惩罚|扣除|损失|减少|[：:]|\s)*\s*(-?\d+(?:\.\d+)?)\s*(万)?/g);
             return values.reduce(function(sum, n) {
               return sum + (penaltyMode ? Math.abs(n) : Math.max(0, n));
             }, 0);
@@ -618,7 +618,7 @@
             return String(value || '')
               .split(/[；;、|｜+＋\n]+/)
               .map(function(x) { return x.trim(); })
-              .filter(function(x) { return x && x.indexOf('空间币') < 0; })
+              .filter(function(x) { return x && x.indexOf('スペースコイン') < 0 && x.indexOf('空间币') < 0; })
               .join('；');
           }
 
@@ -696,7 +696,7 @@
             const reputationReward = isSingleWorld ? 0 : Math.min(reputationRaw, reputationCap);
 
             const totalReward = taskReward + killReward + explorationReward + reputationReward - penalty;
-            const balanceBefore = Number(stat.角色 && stat.角色.空间币) || 0;
+            const balanceBefore = Number(stat.角色 && stat.角色.スペースコイン) || 0;
             const balanceAfter = balanceBefore + totalReward;
             return {
               isSingleWorld:isSingleWorld,
@@ -844,6 +844,17 @@
             } catch (e) { return value; }
           }
 
+          /* B4_CURRENCY_KEY_COMPAT: 旧セーブの通貨キーを正規キーへ読み取り時に移行する。入力境界専用・冪等。 */
+          var CURRENCY_KEY_CANONICAL = 'スペースコイン';
+          var CURRENCY_KEY_LEGACY = '空间币';
+          function normalizeLegacyCurrencyKey(character) {
+              if (!character || typeof character !== 'object') return character;
+              if (!Object.prototype.hasOwnProperty.call(character, CURRENCY_KEY_LEGACY)) return character;
+              var legacy = character[CURRENCY_KEY_LEGACY];
+              delete character[CURRENCY_KEY_LEGACY];
+              if (character[CURRENCY_KEY_CANONICAL] === undefined || character[CURRENCY_KEY_CANONICAL] === null) character[CURRENCY_KEY_CANONICAL] = legacy;
+              return character;
+          }
           function getMvuContext() {
             try {
               const wins = [];
@@ -853,7 +864,7 @@
               for (const win of wins) {
                 if (!win || !win.Mvu || typeof win.Mvu.getMvuData !== 'function') continue;
                 const data = win.Mvu.getMvuData({ type: 'message', message_id: 'latest' });
-                if (data) return { win: win, data: data, stat: data.stat_data || data };
+                if (data) { normalizeLegacyCurrencyKey((data.stat_data || data).角色); return { win: win, data: data, stat: data.stat_data || data }; }
               }
             } catch (e) {}
             return null;
@@ -1305,7 +1316,8 @@
 
           function settlementCoinValue(data) {
             const stat = data && (data.stat_data || data);
-            const raw = stat && stat.角色 ? Number(stat.角色.空间币) : NaN;
+            normalizeLegacyCurrencyKey(stat && stat.角色);
+            const raw = stat && stat.角色 ? Number(stat.角色.スペースコイン) : NaN;
             return Number.isFinite(raw) ? raw : null;
           }
 
@@ -1603,6 +1615,35 @@
             return { grade:grade, world:world, name:grade + '级盲盒' + (safeWorldKey ? '·' + safeWorldKey : '') };
           }
 
+          /* B1_SETTLEMENT_HEADING_COMPAT: 旧チャット/旧AI出力の決算見出しを正規見出しへ読み替える。入力境界専用・冪等。 */
+          var SETTLEMENT_HEADING_ALIASES = [
+            ['轮回清算协议', '輪廻清算プロトコル'],
+            ['世界因果与综合评估', '世界因果と総合評価'],
+            ['因果烙印与干涉回放', '因果の烙印と干渉の再生'],
+            ['因果演进与世界暗流', '因果の進展と世界の暗流']
+          ];
+          var SETTLEMENT_KEY_ALIASES = {
+            '判定依据': '判定根拠',
+            '判定结果': '判定結果',
+            '获得': '獲得',
+            '获得物品': '獲得物品',
+            '类型': 'タイプ',
+            '效果': '効果',
+            '描述': '説明',
+            '来源': '出典'
+          };
+          function normalizeLegacySettlementHeading(name) {
+            var s = String(name == null ? '' : name);
+            for (var i = 0; i < SETTLEMENT_HEADING_ALIASES.length; i++) {
+              var legacy = SETTLEMENT_HEADING_ALIASES[i][0], canon = SETTLEMENT_HEADING_ALIASES[i][1];
+              if (s.indexOf(legacy) >= 0) s = s.split(legacy).join(canon);
+            }
+            return s;
+          }
+          function normalizeLegacySettlementKey(key) {
+            var k = String(key == null ? '' : key).trim();
+            return Object.prototype.hasOwnProperty.call(SETTLEMENT_KEY_ALIASES, k) ? SETTLEMENT_KEY_ALIASES[k] : k;
+          }
           function parseSettlement(text) {
             const out = { title: '', serial: '', player: '', stages: [] };
             const lines = String(text).replace(/\r/g, '').split('\n');
@@ -1613,10 +1654,10 @@
 
             function classifyStage(name) {
               const n = String(name || '');
-              if (/评估|难度|稳定/.test(n)) return 'assess';
-              if (/烙印|回放|传闻|风格/.test(n)) return 'story';
-              if (/法则|战利品|遗物/.test(n)) return 'loot';
-              if (/收益|核算|空间币/.test(n)) return 'income';
+              if (/评估|評価|难度|稳定|安定/.test(n)) return 'assess';
+              if (/烙印|回放|再生|传闻|噂|风格/.test(n)) return 'story';
+              if (/法则|战利品|遗物|遺物/.test(n)) return 'loot';
+              if (/收益|核算|スペースコイン|空间币/.test(n)) return 'income';
               if (/演进|暗流|最终|因果/.test(n)) return 'epilogue';
               return 'generic';
             }
@@ -1644,23 +1685,23 @@
               if (/^<\/?(settlement tasks|System_Rules|dm_think)/i.test(line)) continue;
 
               let m;
-              if ((m = line.match(/^####(?!#)\s*(.+)$/))) { newStage(stripDecor(m[1]).replace(/^【|】$/g, '')); continue; }
-              if ((m = line.match(/^#{1,3}(?!#)\s*(.+)$/))) { out.title = stripDecor(m[1]).replace(/^【|】$/g, ''); continue; }
-              if ((m = line.match(/^\*{0,2}\[?\s*协议序列\s*\]?\*{0,2}\s*[：:]\s*(.+)$/))) { out.serial = stripDecor(m[1]); continue; }
+              if ((m = line.match(/^####(?!#)\s*(.+)$/))) { newStage(normalizeLegacySettlementHeading(stripDecor(m[1]).replace(/^【|】$/g, ''))); continue; }
+              if ((m = line.match(/^#{1,3}(?!#)\s*(.+)$/))) { out.title = normalizeLegacySettlementHeading(stripDecor(m[1]).replace(/^【|】$/g, '')); continue; }
+              if ((m = line.match(/^\*{0,2}\[?\s*(?:プロトコル序列|协议序列)\s*\]?\*{0,2}\s*[：:]\s*(.+)$/))) { out.serial = stripDecor(m[1]); continue; }
               if ((m = line.match(/^\*{0,2}\[?\s*轮回者\s*\]?\*{0,2}\s*[：:]\s*(.+)$/))) { out.player = stripDecor(m[1]); continue; }
 
               let body = isList ? line.replace(/^\s*[*+-]\s+/, '').trim() : line;
               body = body.replace(/^\$\((.+?)\)\s*[：:]\s*/, '\u0024' + '1：');
 
-              if (/^[\*【]*提示[：:]/.test(body)) { push('notice', { text: stripDecor(body.replace(/^[\*【]*提示[：:]?\s*/, '').replace(/[\*】]*$/, '')) }); curSub = ''; continue; }
-              if ((m = body.match(/^\*{0,2}副本烙印\s*[｜|]?\s*(.+)$/))) { push('brand', { name: stripDecor(m[1]) }); continue; }
+              if (/^[\*【]*(?:ヒント|提示)[：:]/.test(body)) { push('notice', { text: stripDecor(body.replace(/^[\*【]*(?:ヒント|提示)[：:]?\s*/, '').replace(/[\*】]*$/, '')) }); curSub = ''; continue; }
+              if ((m = body.match(/^\*{0,2}(?:インスタンスの烙印|副本烙印)\s*[｜|]?\s*(.+)$/))) { push('brand', { name: stripDecor(m[1]) }); continue; }
               if (/主神权限凭证/.test(body) && body.replace(/\*/g, '').length < 30) { curSub = '主神权限凭证'; cardSec = ''; push('cert', {}); continue; }
-              if (/世界结晶/.test(body) && body.replace(/[*【】（）()：:]/g, '').length < 30) { curSub = '世界结晶'; cardSec = ''; push('relic', { label: '世界結晶 · クリア記念品', name: '', type: '', effect: '', desc: '' }); continue; }
-              if (/世界遗物特别嘉奖/.test(body) && body.replace(/\*/g, '').length < 30) { curSub = '世界遗物'; cardSec = ''; push('relicGold', { label: '世界遺物 · 特別褒賞', name: '', type: '', effect: '', desc: '', origin: '' }); continue; }
+              if (/(?:世界結晶|世界结晶)/.test(body) && body.replace(/[*【】（）()：:]/g, '').length < 30) { curSub = '世界結晶'; cardSec = ''; push('relic', { label: '世界結晶 · クリア記念品', name: '', type: '', effect: '', desc: '' }); continue; }
+              if (/(?:世界遺物・特別褒賞|世界遗物特别嘉奖)/.test(body) && body.replace(/\*/g, '').length < 30) { curSub = '世界遺物'; cardSec = ''; push('relicGold', { label: '世界遺物 · 特別褒賞', name: '', type: '', effect: '', desc: '', origin: '' }); continue; }
 
               if ((m = body.match(/^\*{0,2}[【\[]?([^*【】\[\]：:]{2,16})[】\]]?\*{0,2}\s*[：:]\s*$/))) {
-                const subName = m[1].trim();
-                if (!/判定依据|判定结果|^获得$|获得物品|检定源|^结果$/.test(subName)) { curSub = subName; push('sub', { name: subName }); continue; }
+                const subName = normalizeLegacySettlementKey(m[1].trim());
+                if (!/判定根拠|判定結果|^獲得$|獲得物品|检定源|^结果$/.test(subName)) { curSub = subName; push('sub', { name: subName }); continue; }
               }
 
               if (curStage && curStage.type === 'income' && /×/.test(body) && /=/.test(body)) {
@@ -1673,22 +1714,23 @@
                 continue;
               }
 
-              if (curStage && curStage.type === 'loot' && /产地/.test(body)) {
-                const cm = body.match(/^(.+?)\s*[（(]\s*产地[：:]\s*([^）)]+)[）)]\s*[：:]?\s*(.*)$/);
+              if (curStage && curStage.type === 'loot' && /(?:産地|产地)/.test(body)) {
+                const cm = body.match(/^(.+?)\s*[（(]\s*(?:産地|产地)[：:]\s*([^）)]+)[）)]\s*[：:]?\s*(.*)$/);
                 if (cm) { push('lootItem', { name: stripDecor(cm[1]), origin: cm[2].trim(), note: stripDecor(cm[3]) }); continue; }
               }
 
-              if ((m = body.match(/^[\(*]*检测仓库物品[：:]?\s*(.+?)\)*$/))) { push('warehouse', { text: m[1].replace(/[\)*]+$/, '').trim() }); continue; }
+              if ((m = body.match(/^[\(*]*(?:倉庫物品の検出|检测仓库物品)[：:]?\s*(.+?)\)*$/))) { push('warehouse', { text: m[1].replace(/[\)*]+$/, '').trim() }); continue; }
 
-              if (curStage && (curSub === '世界结晶' || curSub === '世界遗物')) {
-                const secM = stripDecor(body).match(/^(判定依据|判定结果|获得|获得物品)[：:]?$/);
+              if (curStage && (curSub === '世界結晶' || curSub === '世界遺物')) {
+                const secM = stripDecor(body).match(/^(判定依据|判定结果|获得|获得物品|判定根拠|判定結果|獲得|獲得物品)[：:]?$/);
                 if (secM) {
-                  if (secM[1] === '判定依据' || secM[1] === '判定结果') { cardSec = 'reasons'; push('reasonHead', { text: secM[1] }); }
+                  const secKey = normalizeLegacySettlementKey(secM[1]);
+                  if (secKey === '判定根拠' || secKey === '判定結果') { cardSec = 'reasons'; push('reasonHead', { text: secKey }); }
                   else cardSec = 'item';
                   continue;
                 }
                 if (cardSec === 'reasons') {
-                  const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界结晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
+                  const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界結晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
                   const plainR = stripDecor(body);
                   if (card && plainR && !/[：:]/.test(plainR) && plainR.length <= 40) { card.reasons = (card.reasons || []).concat(plainR); push('reason', { text: plainR }); continue; }
                 }
@@ -1696,17 +1738,17 @@
 
 
               if ((m = body.match(/^\*{0,2}[【\[]?([^*【】\[\]：:]{1,22})[】\]]?\*{0,2}\s*[：:]\s*(.+)$/))) {
-                const k = m[1].trim();
+                const k = normalizeLegacySettlementKey(m[1].trim());
                 const v = stripDecor(m[2]);
 
-                if (curSub === '世界结晶' || curSub === '世界遗物') {
+                if (curSub === '世界結晶' || curSub === '世界遺物') {
                   if (k === '判定依据') cardSec = 'reasons';
                   else if (k === '获得' || k === '获得物品') cardSec = 'item';
                   else cardSec = '';
                 }
 
-                if (curStage && (curSub === '世界结晶' || curSub === '世界遗物') && /^\d+[.、]/.test(k)) {
-                  const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界结晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
+                if (curStage && (curSub === '世界結晶' || curSub === '世界遺物') && /^\d+[.、]/.test(k)) {
+                  const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界結晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
                   if (card) { card.effect = (card.effect ? card.effect + '\n' : '') + k + '：' + v; push('para', { text: k + '：' + v }); continue; }
                 }
 
@@ -1715,10 +1757,10 @@
                 if (/稳定/.test(k) && /→|->/.test(v)) { const pm = v.match(/(\d+(?:\.\d+)?)\s*%\s*(?:→|->)\s*(\d+(?:\.\d+)?)\s*%/); if (pm) { push('stab', { from: parseFloat(pm[1]), to: parseFloat(pm[2]) }); continue; } }
                 if (/^注/.test(k)) { push('note', { text: k + '：' + v }); continue; }
                 if (curStage && curStage.type === 'income' && isList && !/^注/.test(k) && /->|→|强制执行惩罚/.test(v)) { push('punish', { name: k.replace(/[[\]]/g, ''), desc: v.replace(/^强制执行惩罚\s*(?:->|→)?\s*/, '') }); continue; }
-                if (curStage && curStage.type === 'story' && isList && curSub && /高光|回放/.test(curSub)) { push('hl', { t: k, d: v }); continue; }
+                if (curStage && curStage.type === 'story' && isList && curSub && /ハイライト|再生|高光|回放/.test(curSub)) { push('hl', { t: k, d: v }); continue; }
 
-                if (curStage && (curSub === '世界结晶' || curSub === '世界遗物')) {
-                  const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界结晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
+                if (curStage && (curSub === '世界結晶' || curSub === '世界遺物')) {
+                  const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界結晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
                   if (card) {
                     if (k === '获得物品' || k === '获得') card.name = v.replace(/^[【[]|[】\]]$/g, '').trim() || v;
                     else if (k === '类型') card.type = v;
@@ -1732,15 +1774,15 @@
               }
 
               const plainBody = stripDecor(body);
-              if (!/[：:]/.test(plainBody) && plainBody.length < 60 && /未|无/.test(plainBody) && /惩罚|失败|获得|遗物|检测|压缩|抵扣/.test(plainBody)) { push('empty', { text: plainBody }); continue; }
-              if (/^【.*完毕.*】$/.test(stripDecor(body))) { push('closing', { text: stripDecor(body) }); continue; }
+              if (!/[：:]/.test(plainBody) && plainBody.length < 60 && /未|无/.test(plainBody) && /惩罚|罰則|失败|失敗|获得|獲得|遗物|遺物|检测|検出|压缩|抵扣/.test(plainBody)) { push('empty', { text: plainBody }); continue; }
+              if (/^【.*(?:完了|完毕).*】$/.test(stripDecor(body))) { push('closing', { text: stripDecor(body) }); continue; }
 
-              if (curStage && (curSub === '世界结晶' || curSub === '世界遗物') && /^\d+[.、]\s*\S/.test(stripDecor(body))) {
-                const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界结晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
+              if (curStage && (curSub === '世界結晶' || curSub === '世界遺物') && /^\d+[.、]\s*\S/.test(stripDecor(body))) {
+                const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界結晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
                 if (card) { card.effect = (card.effect ? card.effect + '\n' : '') + stripDecor(body); push('para', { text: stripDecor(body) }); continue; }
               }
-              if (curStage && (curSub === '世界结晶' || curSub === '世界遗物')) {
-                const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界结晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
+              if (curStage && (curSub === '世界結晶' || curSub === '世界遺物')) {
+                const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界結晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
                 const plain0 = stripDecor(body);
                 if (card && !card.name && plain0 && !/[：:]/.test(plain0) && (cardSec === 'item' || /^[【\[]/.test(plain0)) && plain0.replace(/^[【[]|[】\]]$/g, '').trim().length <= 30) card.name = plain0.replace(/^[【[]|[】\]]$/g, '').trim();
               }
@@ -1754,13 +1796,13 @@
             function sub(name) { items.push({ kind:'sub', sub:'', name:name }); }
             function sum(name, value) { items.push({ kind:'sum', sub:'', name:name, v:fmtNum(value) + ' スペースコイン' }); }
 
-            sub('主神/试炼任务保底空间币');
+            sub('主神/试炼任务保底スペースコイン');
             if (result.taskRewardDetails.length) {
               result.taskRewardDetails.forEach(function(x) {
-                items.push({ kind:'kv', sub:'主神/试炼任务保底空间币', k:'[' + x.name + ']', v:fmtNum(x.amount) + ' スペースコイン' });
+                items.push({ kind:'kv', sub:'主神/试炼任务保底スペースコイン', k:'[' + x.name + ']', v:fmtNum(x.amount) + ' スペースコイン' });
               });
             } else {
-              items.push({ kind:'empty', sub:'主神/试炼任务保底空间币', text:'今回、成功任務のスペースコイン報酬はない' });
+              items.push({ kind:'empty', sub:'主神/试炼任务保底スペースコイン', text:'今回、成功任務のスペースコイン報酬はない' });
             }
             sum('任務スペースコイン合計', result.taskReward);
 
@@ -1803,9 +1845,9 @@
             }
 
             if (result.penaltyDetails.length) {
-              sub('失败/未完成空间币惩罚');
+              sub('失败/未完成スペースコイン惩罚');
               result.penaltyDetails.forEach(function(x) {
-                items.push({ kind:'punish', sub:'失败/未完成空间币惩罚', name:x.name, desc:'控除 ' + fmtNum(x.amount) + ' スペースコイン' });
+                items.push({ kind:'punish', sub:'失败/未完成スペースコイン惩罚', name:x.name, desc:'控除 ' + fmtNum(x.amount) + ' スペースコイン' });
               });
               sum('スペースコイン罰則合計', -result.penalty);
             }
@@ -1830,7 +1872,7 @@
               const legacySub = String(item && item.sub || '').trim();
               const legacyName = String(item && item.name || '').trim();
               if (legacyIncomeSubs.has(legacySub) || legacyIncomeSubs.has(legacyName)) return false;
-              try { if (/空间币/.test(JSON.stringify(item))) return false; } catch (e) {}
+              try { if (/スペースコイン|空间币/.test(JSON.stringify(item))) return false; } catch (e) {}
               return true;
             });
             stage.items = buildProgrammaticIncomeItems(result).concat(aiNonCoinItems);
@@ -1859,11 +1901,11 @@
                 const k = it.k, v = it.v;
                 if (/评级|等级|难度|基准/.test(k) && /^[A-Za-z]{1,3}$/.test(v.trim()) && GRADES.indexOf(v.trim().toUpperCase()) >= 0) return rateRow(k, v);
                 if (/难度|评级/.test(k) && /^[A-Za-z]{1,3}\s*[-~—–]\s*[A-Za-z]{1,3}$/.test(v.trim())) return rateRow(k, v);
-                if ((k === '获得物品' || k === '获得') && /^【.+】$/.test(v)) return '<div class="st-relic-name">' + escapeHtml(v) + '</div>';
-                if (k === '判定结果') { const okV = /满足|授予/.test(v) && !/未获得/.test(v); return '<div class="st-verdict ' + (okV ? 'ok' : 'no') + '">' + (okV ? '✔ ' : '✕ ') + escapeHtml(v) + '</div>'; }
-                if (k === '描述' && /[“”"]/.test(v)) return '<div class="st-relic-quote">' + escapeHtml(v) + '</div>';
-                if (k === '效果' && /事迹留存/.test(v)) return '<div class="st-kv effect"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>';
-                if (/评述/.test(k)) return '<div class="st-comment">' + escapeHtml(v) + '</div>';
+                if ((k === '獲得物品' || k === '獲得') && /^【.+】$/.test(v)) return '<div class="st-relic-name">' + escapeHtml(v) + '</div>';
+                if (k === '判定結果') { const okV = /充足|授与|满足|授予/.test(v) && !/未獲得|未获得/.test(v); return '<div class="st-verdict ' + (okV ? 'ok' : 'no') + '">' + (okV ? '✔ ' : '✕ ') + escapeHtml(v) + '</div>'; }
+                if (k === '説明' && /[“”"]/.test(v)) return '<div class="st-relic-quote">' + escapeHtml(v) + '</div>';
+                if (k === '効果' && /事迹留存/.test(v)) return '<div class="st-kv effect"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>';
+                if (/(?:評述|评述)/.test(k)) return '<div class="st-comment">' + escapeHtml(v) + '</div>';
                 if (st && st.type === 'income' && /奖励|收益/.test(k)) return '<div class="st-kv income-v"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>';
                 return '<div class="st-kv"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>';
               }
@@ -1930,15 +1972,15 @@
               while (i < items.length) {
                 const it = items[i];
 
-                if (it.kind === 'sub' && /任务专属奖励/.test(it.name || '')) rewardSeen = true;
-                if (rewardSeen && !trialInserted && it.kind === 'sub' && !/任务专属奖励/.test(it.name || '') && (trialTasks.length || /晋升试炼[·\.]/.test(rawText))) {
+                if (it.kind === 'sub' && /(?:任務専用報酬|任务专属奖励)/.test(it.name || '')) rewardSeen = true;
+                if (rewardSeen && !trialInserted && it.kind === 'sub' && !/(?:任務専用報酬|任务专属奖励)/.test(it.name || '') && (trialTasks.length || /晋升试炼[·\.]/.test(rawText))) {
                   inner += '<div class="st-trial-host">' + renderTrialPanel() + '</div>';
                   trialInserted = true;
                 }
 
-                if (it.kind === 'kv' && /任务专属奖励/.test(it.sub || '')) {
+                if (it.kind === 'kv' && /(?:任務専用報酬|任务专属奖励)/.test(it.sub || '')) {
                   let rows = '';
-                  while (i < items.length && items[i].kind === 'kv' && /任务专属奖励/.test(items[i].sub || '')) {
+                  while (i < items.length && items[i].kind === 'kv' && /(?:任務専用報酬|任务专属奖励)/.test(items[i].sub || '')) {
                     const reward = items[i];
                     const valueClass = /已发放|获得|到账/.test(reward.v || '') ? ' reward-ok' : '';
                     rows += '<div class="st-sum-row"><span class="k">' + escapeHtml(reward.k) + '</span><span class="v' + valueClass + '">' + escapeHtml(reward.v) + '</span></div>';
@@ -2001,12 +2043,12 @@
           }
 
           function hasSettlementHeader(text) {
-            return String(text || '').includes('轮回清算协议');
+            return normalizeLegacySettlementHeading(text).includes('輪廻清算プロトコル');
           }
 
           function isFullSettlement(text) {
-            const source = String(text || '');
-            return ['轮回清算协议', '世界因果与综合评估', '因果烙印与干涉回放', '因果演进与世界暗流']
+            const source = normalizeLegacySettlementHeading(text);
+            return ['輪廻清算プロトコル', '世界因果と総合評価', '因果の烙印と干渉の再生', '因果の進展と世界の暗流']
               .every(function(kw) { return source.includes(kw); });
           }
 
@@ -2219,6 +2261,7 @@
               const c = win.Mvu.getMvuData({ type: 'message', message_id: targetMessageId });
               if (!c) return;
               const settlementStat = c.stat_data || c;
+              normalizeLegacyCurrencyKey(settlementStat.角色);
               const isSingleWorldSettlement = !!(settlementStat.设置 && settlementStat.设置.单一世界 === true);
 
               // 未完了の昇格試練は昇格資格と最終清理のみを阻止する；完了済み主神任務のスペースコイン/権限証憑/戦利品は通常どおり決算される。
@@ -2228,7 +2271,7 @@
                 const settlementMarker = String(settlementTarget.marker || targetMessageId);
                 const recordedMarker = readSettlementCoinMessageMarker(win, targetMessageId);
                 const markerState = settlementCoinMarkerState(recordedMarker, settlementMarker);
-                const currentCoin = Number(settlementStat.角色.空间币);
+                const currentCoin = Number(settlementStat.角色.スペースコイン);
                 let nextCoin = null;
                 settlementCoinWriteDone = true;
 
@@ -2242,7 +2285,7 @@
                 }
 
                 if (nextCoin !== null) {
-                  settlementStat.角色.空间币 = nextCoin;
+                  settlementStat.角色.スペースコイン = nextCoin;
                   changed = true;
                 }
               }
@@ -2356,7 +2399,7 @@
                 win._.set(c, key + '.标签', ['主神空间', g.origin || world].filter(Boolean));
                 win._.set(c, key + '.原始属性', {});
                 win._.set(c, key + '.效果', parseEffectLines(g.effect));
-                win._.set(c, key + '.描述', g.desc || (world ? ('世界遗物, 来源: ' + world) : '世界遗物'));
+                win._.set(c, key + '.描述', g.desc || (world ? ('世界遺物, 出典: ' + world) : '世界遺物'));
                 win._.set(c, key + '.消耗', '');
                 win._.set(c, key + '.状态', 0);
                 changed = true;
@@ -2366,7 +2409,7 @@
                 if (!r.name || exists('stat_data.角色.道具.' + r.name)) return;
                 const key = 'stat_data.角色.道具.' + r.name;
                 win._.set(c, key + '.品质', baseGrade);
-                win._.set(c, key + '.类型', r.type || '纪念物');
+                win._.set(c, key + '.类型', r.type || '記念品');
                 win._.set(c, key + '.数量', 1);
                 win._.set(c, key + '.标签', ['主神空间', world].filter(Boolean));
                 win._.set(c, key + '.效果', parseEffectLines(r.effect));

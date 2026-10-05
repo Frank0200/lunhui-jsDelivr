@@ -136,6 +136,17 @@
         return false;
     }
 
+    /* B4_CURRENCY_KEY_COMPAT: 旧セーブの通貨キーを正規キーへ読み取り時に移行する。入力境界専用・冪等。 */
+    var CURRENCY_KEY_CANONICAL = 'スペースコイン';
+    var CURRENCY_KEY_LEGACY = '空间币';
+    function normalizeLegacyCurrencyKey(character) {
+        if (!character || typeof character !== 'object') return character;
+        if (!Object.prototype.hasOwnProperty.call(character, CURRENCY_KEY_LEGACY)) return character;
+        var legacy = character[CURRENCY_KEY_LEGACY];
+        delete character[CURRENCY_KEY_LEGACY];
+        if (character[CURRENCY_KEY_CANONICAL] === undefined || character[CURRENCY_KEY_CANONICAL] === null) character[CURRENCY_KEY_CANONICAL] = legacy;
+        return character;
+    }
     /* ===== 5. 旧インスタンスの事前クリーンアップ ===== */
     function samPreClean() {
         try {
@@ -161,7 +172,7 @@
             var win = getMvuGlobal();
             if (win && win.Mvu && typeof win.Mvu.getMvuData === 'function') {
                 var r = win.Mvu.getMvuData({ type: 'message', message_id: 'latest' });
-                if (r && r.stat_data) return r.stat_data;
+                if (r && r.stat_data) { normalizeLegacyCurrencyKey(r.stat_data.角色); return r.stat_data; }
                 if (r) return r;
             }
             if (typeof GS_PARENT.getMessageVar === 'function') return GS_PARENT.getMessageVar('stat_data');
@@ -461,7 +472,7 @@
             cost: safeNum(SOURCE_INFUSION_COSTS[nextGrade], 0),
             credentialName: credentialName,
             credentialGrade: nextGrade,
-            coin: safeNum(sd.角色.空间币, 0),
+            coin: safeNum(sd.角色.スペースコイン, 0),
             credentialQty: sourceInfusionCredentialQty(sd.角色, nextGrade)
         };
     }
@@ -502,7 +513,7 @@
                 var target = check.isReincarnator ? payer : (statData.关系列表 && statData.关系列表[check.targetName]);
                 if (!target || (!check.isReincarnator && target.是否队友 !== true)) return;
                 if (!sourceInfusionConsumeCredential(payer, check.credentialGrade)) return;
-                payer.空间币 = Math.max(0, safeNum(payer.空间币, 0) - check.cost);
+                payer.スペースコイン = Math.max(0, safeNum(payer.スペースコイン, 0) - check.cost);
                 target.层级 = check.nextTier;
                 var receiptActor = check.isReincarnator ? '角色' : check.targetName;
                 shopAppendReceipt(statData, '[昇格]['+receiptActor+'] 源力注入：'+check.currentTier+' → '+check.nextTier+'｜消費 '+sourceInfusionFmtNum(check.cost)+'スペースコイン、'+check.credentialName+'×1');
@@ -2222,7 +2233,7 @@
         if (bloodFusionShopItem) {
             var prePrice = safeNum(bloodFusionShopItem.price, 0);
             var preSd = getStatData();
-            var preCoin = preSd && preSd.角色 ? safeNum(preSd.角色.空间币, 0) : 0;
+            var preCoin = preSd && preSd.角色 ? safeNum(preSd.角色.スペースコイン, 0) : 0;
             if (preCoin < prePrice) { samToast('warning', 'スペースコインが不足しているため、この血統を購入して融合できません'); return; }
             // ★ 複数キャラクター: 通貨/証憑は引き続き 角色 アカウントから控除; 血統商品は今回の融合対象キャラクターの 商城 ライブラリから削除
             var preActor = bloodFusionActionActor || SHOP_ACTOR_REINCARNATOR;
@@ -2246,7 +2257,7 @@
                 statData.角色 = statData.角色 || {};
                 statData.角色.权限凭证 = statData.角色.权限凭证 || {};
                 if (!shopCredentialConsume(statData.角色.权限凭证, preCredentialRequirements)) throw new Error('权限凭证扣除失败');
-                statData.角色.空间币 = Math.max(0, safeNum(statData.角色.空间币, 0) - prePrice);
+                statData.角色.スペースコイン = Math.max(0, safeNum(statData.角色.スペースコイン, 0) - prePrice);
                 var _lib = shopGetActorLibRaw(statData.商城, preActor);
                 if (_lib && Array.isArray(_lib.血统列表)) {
                     _lib.血统列表 = _lib.血统列表.filter(function(item) { return safeStr(item.名称) !== bloodFusionShopItem.name; });
@@ -2299,7 +2310,7 @@
                 _ch0.血统 = _ch0.血统 || {};
                 if (b.owned) delete _ch0.血统[b.name];
                 if (bloodFusionSnap && bloodFusionShopItem) {
-                    shopAppendReceipt(statData, shopReceiptLine('血統融合', bloodFusionShopItem.name+' → '+rollName0, bloodFusionSnap.price, statData.角色.空间币, (bloodFusionActionActor === SHOP_ACTOR_REINCARNATOR ? '角色' : bloodFusionActionActor)));
+                    shopAppendReceipt(statData, shopReceiptLine('血統融合', bloodFusionShopItem.name+' → '+rollName0, bloodFusionSnap.price, statData.角色.スペースコイン, (bloodFusionActionActor === SHOP_ACTOR_REINCARNATOR ? '角色' : bloodFusionActionActor)));
                 }
                 var _ulib0 = shopGetActorLibRaw(statData.商城, _actor0);
                 if (_ulib0 && Array.isArray(_ulib0.升级列表) && consumedNames0.length) {
@@ -2316,7 +2327,7 @@
                     try {
                         writeBackMvu(function(statData) {
                             statData.角色 = statData.角色 || {};
-                            statData.角色.空间币 = safeNum(statData.角色.空间币, 0) + bloodFusionSnap.price;
+                            statData.角色.スペースコイン = safeNum(statData.角色.スペースコイン, 0) + bloodFusionSnap.price;
                             statData.角色.权限凭证 = statData.角色.权限凭证 || {};
                             shopCredentialRefund(statData.角色.权限凭证, bloodFusionSnap.credentialRequirements || {});
                             if (bloodFusionSnap.preBloodLib !== null && statData.商城) {
@@ -2576,7 +2587,7 @@
                 if (b.owned) delete _fch.血统[b.name];
                 _fch.血统[resultName] = result;
                 if (bloodFusionSnap && bloodFusionShopItem) {
-                    shopAppendReceipt(statData, shopReceiptLine('血统融合', bloodFusionShopItem.name+' → '+resultName, bloodFusionSnap.price, statData.角色.空间币, (bloodFusionActionActor === SHOP_ACTOR_REINCARNATOR ? '角色' : bloodFusionActionActor)));
+                    shopAppendReceipt(statData, shopReceiptLine('血统融合', bloodFusionShopItem.name+' → '+resultName, bloodFusionSnap.price, statData.角色.スペースコイン, (bloodFusionActionActor === SHOP_ACTOR_REINCARNATOR ? '角色' : bloodFusionActionActor)));
                 }
                 // 升级列表の整理: "类型=血统 の昇級項目" かつ replace_target が今回消費された元血統名に一致 → 削除
                 var _fulib = shopGetActorLibRaw(statData.商城, _fActor);
@@ -2656,7 +2667,7 @@
                 try {
                     writeBackMvu(function(statData) {
                         statData.角色 = statData.角色 || {};
-                        statData.角色.空间币 = safeNum(statData.角色.空间币, 0) + bloodFusionSnap.price;
+                        statData.角色.スペースコイン = safeNum(statData.角色.スペースコイン, 0) + bloodFusionSnap.price;
                         statData.角色.权限凭证 = statData.角色.权限凭证 || {};
                         shopCredentialRefund(statData.角色.权限凭证, bloodFusionSnap.credentialRequirements || {});
                         if (bloodFusionSnap.preBloodLib !== null && statData.商城) {
@@ -2678,7 +2689,7 @@
         var dpCtx = shopResolveCharacter(sd, dpActor);
         var dpCh = dpCtx.character;
         if (!dpCh) { samToast('error', '対象キャラクターのデータが存在しない, 購入できません'); return; }
-        if (safeNum(sd.角色.空间币, 0) < safeNum(item.price, 0)) { samToast('warning', 'スペースコイン不足のため購入できません'); return; }
+        if (safeNum(sd.角色.スペースコイン, 0) < safeNum(item.price, 0)) { samToast('warning', 'スペースコイン不足のため購入できません'); return; }
         var dpCredentialRequirements = {};
         var dpCredentialRequirement = shopCredentialRequirement(dpCh, item);
         if (dpCredentialRequirement.required) dpCredentialRequirements[dpCredentialRequirement.grade] = 1;
@@ -2694,10 +2705,10 @@
             _dch.血统 = _dch.血统 || {}; _dch.血统[item.name] = blood;
             statData.角色.权限凭证 = statData.角色.权限凭证 || {};
             if (!shopCredentialConsume(statData.角色.权限凭证, dpCredentialRequirements)) throw new Error('権限証憑の控除に失敗');
-            statData.角色.空间币 = Math.max(0, safeNum(statData.角色.空间币, 0) - safeNum(item.price, 0));
+            statData.角色.スペースコイン = Math.max(0, safeNum(statData.角色.スペースコイン, 0) - safeNum(item.price, 0));
             var _dlib = shopGetActorLibRaw(statData.商城, dpActor);
             if (_dlib && Array.isArray(_dlib.血统列表)) _dlib.血统列表 = _dlib.血统列表.filter(function(x){ return safeStr(x.名称) !== item.name; });
-            shopAppendReceipt(statData, shopReceiptLine('购买血统', item.name, item.price, statData.角色.空间币, (dpActor === SHOP_ACTOR_REINCARNATOR ? '角色' : dpActor)));
+            shopAppendReceipt(statData, shopReceiptLine('购买血统', item.name, item.price, statData.角色.スペースコイン, (dpActor === SHOP_ACTOR_REINCARNATOR ? '角色' : dpActor)));
         });
         if (ok) { closeModal(); bloodFusionShopItem = null; shopCart = []; renderAll(); samToast('success', '血統を購入しました：'+item.name); }
     }
@@ -2735,7 +2746,7 @@
         var rpCh = rpCtx.character;
         if (!rpCh) { samToast('error', '対象キャラクターのデータが存在しない, 購入できません'); return; }
         if (!(rpCh.血统 && rpCh.血统[targetName])) { samToast('error', '置換対象の血統が見つかりません'); return; }
-        if (safeNum(sd.角色.空间币, 0) < safeNum(item.price, 0)) { samToast('warning', 'スペースコイン不足のため購入できません'); return; }
+        if (safeNum(sd.角色.スペースコイン, 0) < safeNum(item.price, 0)) { samToast('warning', 'スペースコイン不足のため購入できません'); return; }
         var rpCredentialRequirements = {};
         var rpCredentialRequirement = shopCredentialRequirement(rpCh, item);
         if (rpCredentialRequirement.required) rpCredentialRequirements[rpCredentialRequirement.grade] = 1;
@@ -2750,7 +2761,7 @@
             if (!shopCredentialConsume(statData.角色.权限凭证, rpCredentialRequirements)) throw new Error('権限証憑の控除に失敗');
             delete _rch.血统[targetName];              // 置換される旧血統を削除
             _rch.血统[item.name] = blood;              // ショップで購入した新血統を書き込む
-            statData.角色.空间币 = Math.max(0, safeNum(statData.角色.空间币, 0) - safeNum(item.price, 0));
+            statData.角色.スペースコイン = Math.max(0, safeNum(statData.角色.スペースコイン, 0) - safeNum(item.price, 0));
             var _rlib = shopGetActorLibRaw(statData.商城, rpActor);
             if (_rlib && Array.isArray(_rlib.血统列表)) _rlib.血统列表 = _rlib.血统列表.filter(function(x){ return safeStr(x.名称) !== item.name; });
             // ★ 昇級サービス内の置換対象血統向け商品も同時削除(所属大类=血统 かつ replace_target が当該血統を指す)
@@ -2762,7 +2773,7 @@
                     return true;
                 });
             }
-            shopAppendReceipt(statData, shopReceiptLine('替换血统', targetName+' → '+item.name, item.price, statData.角色.空间币, (rpActor === SHOP_ACTOR_REINCARNATOR ? '角色' : rpActor)));
+            shopAppendReceipt(statData, shopReceiptLine('替换血统', targetName+' → '+item.name, item.price, statData.角色.スペースコイン, (rpActor === SHOP_ACTOR_REINCARNATOR ? '角色' : rpActor)));
         });
         if (ok) { closeModal(); bloodFusionShopItem = null; shopCart = []; renderAll(); samToast('success', '血統を置換しました：'+targetName+' → '+item.name); }
     }
@@ -3518,7 +3529,7 @@
             
             var content = ''
                 + '属性系统 (底层定义):\n'
-                + '  基础五维 (判定依据):\n'
+                + '  基礎五維 (判定根拠):\n'
                 + '    力量: 近战/负重/破坏\n'
                 + '    敏捷: 平衡/潜行/瞄准\n'
                 + '    体质: 生命/耐性/恢复\n'
@@ -3645,7 +3656,7 @@
                     var fnd = shopFindItems(cat, slot, name);
                     if (fnd.length) unitPrice = Number(fnd[0].price || 0);
                 }
-                var coinNow = (function(){ var sd = getStatData(); return sd && sd.角色 ? safeNum(sd.角色.空间币, 0) : 0; })();
+                var coinNow = (function(){ var sd = getStatData(); return sd && sd.角色 ? safeNum(sd.角色.スペースコイン, 0) : 0; })();
                 // 残り残高 = 元の残高 - 選択済み合計(本商品の選択済み数量を含む)
                 var remainNow = shopRemain(coinNow) + (cur * unitPrice); // 本商品が占有している枠を除いて初めて、実際に追加可能な残りになる
                 if (remainNow < unitPrice * (cur + 1)) { samToast('warning', 'スペースコイン不足, あと1件追加できません(残り '+remainNow.toLocaleString()+')'); return; }
@@ -3669,7 +3680,7 @@
                 var up = 0;
                 for (var k = 0; k < shopCart.length; k++) { if (shopCart[k].name === name && shopCart[k]._cat === '道具区') { up = Number(shopCart[k].price || 0); break; } }
                 if (!up) { var f = shopFindItems('道具区', '', name); if (f.length) up = Number(f[0].price || 0); }
-                var cn = (function(){ var sd = getStatData(); return sd && sd.角色 ? safeNum(sd.角色.空间币, 0) : 0; })();
+                var cn = (function(){ var sd = getStatData(); return sd && sd.角色 ? safeNum(sd.角色.スペースコイン, 0) : 0; })();
                 // 残り残高 = 元の残高 - 選択済み合計; ただし本商品の選択済み数量は除外する(これは cur から nxtへ変更するため)
                 var curQty = shopGetQty(name, '道具区') || 0;
                 var remainB = shopRemain(cn) + (curQty * up);
@@ -3689,7 +3700,7 @@
                 var upInp = 0;
                 for (var k2 = 0; k2 < shopCart.length; k2++) { if (shopCart[k2].name === name && shopCart[k2]._cat === '道具区') { upInp = Number(shopCart[k2].price || 0); break; } }
                 if (!upInp) { var fInp = shopFindItems('道具区', '', name); if (fInp.length) upInp = Number(fInp[0].price || 0); }
-                var cnInp = (function(){ var sd = getStatData(); return sd && sd.角色 ? safeNum(sd.角色.空间币, 0) : 0; })();
+                var cnInp = (function(){ var sd = getStatData(); return sd && sd.角色 ? safeNum(sd.角色.スペースコイン, 0) : 0; })();
                 var curQtyInp = shopGetQty(name, '道具区') || 0;
                 var remainInp = shopRemain(cnInp) + (curQtyInp * upInp);
                 if (remainInp < upInp * qty) {
@@ -4573,7 +4584,7 @@
         try {
             var raceStr = safeStr(p.种族, '');
             var idArr = Array.isArray(p.身份) ? p.身份 : [];
-            var coin = safeNum(p.空间币, 0);
+            var coin = safeNum(p.スペースコイン, 0);
             var freshSig = (raceStr === '' && idArr.length === 0 && coin === 0) ? 'FRESH' : 'PLAY';
             if (freshSig === 'FRESH' && lastReincarnatorSig !== 'FRESH') {
                 clearAllPortraits();
@@ -6305,7 +6316,7 @@
     }
 
     /* ===== 30b. Tab: ショップ(主神空間の取引端末) =====
-       - 上部のコンパクト残高バー: 現在のスペースコイン(角色.空间币, 読み取り専用, システムの決算で付与)を表示
+       - 上部のコンパクト残高バー: 現在のスペースコイン(角色.スペースコイン, 読み取り専用, システムの決算で付与)を表示
        - ステータス通知バー: 戦闘中/任務世界/主神空間 の三態, ショップ入口欄の上に配置
        - 取引ルール欄(折りたたみ): 二重経済/物価アンカーなど, ショップ入口の上に配置
        - ショップ入口欄: 要望入力欄(左) + 商品更新ボタン(右); 主神空間外/戦闘中は無効化
@@ -6315,7 +6326,7 @@
         var p = sd.角色 || {};
         var sys = sd.系统状态 || {};
         var editMode = isEditMode();
-        var coin = safeNum(p.空间币, 0);
+        var coin = safeNum(p.スペースコイン, 0);
         var inHub = (sys.是否在主神空间 === true);
         var isCombat = (sys.是否战斗中 === true);
         // ★ 複数キャラのショップ: shopCurrentActor(現在のNPCが退場済みなら角色へフォールバック)を補正, 現在のキャラクターオブジェクトを解決
@@ -6328,7 +6339,7 @@
         var isSingleWorld = (sd && sd.设置 && sd.设置.单一世界 === true);
         var html = '';
         // 上部コンパクト残高バー(スペースコインはシステムの決算で付与, 残高は読み取り専用表示; 編集モードはフォールバックのみ)
-        var coinDisplay = editMode ? editInput('角色.空间币', coin, 'number') : esc(String(coin));
+        var coinDisplay = editMode ? editInput('角色.スペースコイン', coin, 'number') : esc(String(coin));
         html += '<div class="sam-shop-coin-mini"><span class="lbl">💰 残高</span><span class="val">' + coinDisplay + '</span><span class="lbl">スペースコイン</span></div>';
         var credentialLedger = p.权限凭证 || {};
         var credentialChips = [];
@@ -7993,7 +8004,7 @@ function shopCredentialRefund(credentials, requirements) {
     function shopRefreshMarket() {
         shopPreserveScroll(function() {
             var $market = $('#samsara-panel .sam-shop-market');
-            if ($market.length) { var sd = getStatData(); var coin = sd && sd.角色 ? safeNum(sd.角色.空间币, 0) : 0; $market.html(shopRenderTabs() + shopRenderContent(coin) + shopRenderFooter(coin)); }
+            if ($market.length) { var sd = getStatData(); var coin = sd && sd.角色 ? safeNum(sd.角色.スペースコイン, 0) : 0; $market.html(shopRenderTabs() + shopRenderContent(coin) + shopRenderFooter(coin)); }
             else renderAll();
         });
     }
@@ -8496,7 +8507,7 @@ function shopCredentialRefund(credentials, requirements) {
         else samToast('error', '削除に失敗: MVU書き戻しが使用できません');
     }
     // 取引の構築: stat_data のコピー上でコイン控除/バッグ格納を実行し, { statData, purchaseLog, receipts, actorName } を返す
-    // ★ 複数キャラのショップ: 受取人(荷造りしてバッグへ入れるキャラクター)は shopCurrentActor が決定する(角色またはNPC); 通貨は常に 角色.空间币 から控除する
+    // ★ 複数キャラのショップ: 受取人(荷造りしてバッグへ入れるキャラクター)は shopCurrentActor が決定する(角色またはNPC); 通貨は常に 角色.スペースコイン から控除する
     function shopBuildTransaction(statData) {
         var coinOwner = statData.角色;
         if (!coinOwner) throw new Error('キャラクターデータが存在しません');
@@ -8512,11 +8523,11 @@ function shopCredentialRefund(credentials, requirements) {
         var credentialShortages = shopCredentialShortages(coinOwner.权限凭证, credentialRequirements);
         if (credentialShortages.length) throw new Error('権限証憑不足：' + shopCredentialShortageText(credentialShortages));
         var total = shopCartCost();
-        var startCoin = Number(coinOwner.空间币 || 0);
+        var startCoin = Number(coinOwner.スペースコイン || 0);
         if (startCoin < total) throw new Error('キャラクターのスペースコインが不足しています');
         coinOwner.权限凭证 = coinOwner.权限凭证 || {};
         if (!shopCredentialConsume(coinOwner.权限凭证, credentialRequirements)) throw new Error('権限証憑の控除に失敗しました');
-        coinOwner.空间币 = startCoin - total;
+        coinOwner.スペースコイン = startCoin - total;
         if (!character.装备) character.装备 = {};
         if (!character.技能) character.技能 = {};
         if (!character.血统) character.血统 = {};
@@ -8709,8 +8720,8 @@ function shopCredentialRefund(credentials, requirements) {
             openBloodFusionModal(keepBlood);
             return;
         }
-        // ★ 複数キャラのショップ: 通貨は常に 角色.空间币 から控除する; 角色 のスペースコイン残高を検証
-        var coin = safeNum(sd.角色 && sd.角色.空间币, 0);
+        // ★ 複数キャラのショップ: 通貨は常に 角色.スペースコイン から控除する; 角色 のスペースコイン残高を検証
+        var coin = safeNum(sd.角色 && sd.角色.スペースコイン, 0);
         if (coin < shopCartCost()) { samToast('error', 'スペースコイン不足, 取引を実行できません'); return; }
         // ★ 現在の対象キャラクター(NPC) がまだ在場しているかを検証(切替後に退場する可能性)
         if (shopCurrentActor !== SHOP_ACTOR_REINCARNATOR) {
@@ -9076,7 +9087,7 @@ function shopCredentialRefund(credentials, requirements) {
         actorName = actorName || shopCurrentActor || SHOP_ACTOR_REINCARNATOR;
         var ctx = shopResolveCharacter(sd, actorName);
         var p = ctx.character || {};
-        var reincarnatorCoin = (sd.角色 && sd.角色.空间币 != null) ? sd.角色.空间币 : null;
+        var reincarnatorCoin = (sd.角色 && sd.角色.スペースコイン != null) ? sd.角色.スペースコイン : null;
         var reincarnatorCredentials = (sd.角色 && sd.角色.权限凭证 && typeof sd.角色.权限凭证 === 'object') ? sd.角色.权限凭证 : {};
         var parts = [];
         // 先頭に今回の生成対象(角色/チームメイト名)を明記し, AI がビルドを合わせられるようにする
@@ -9089,7 +9100,7 @@ function shopCredentialRefund(credentials, requirements) {
         }
         if (p.层级) parts.push('层级: ' + p.层级);
         // スペースコインも権限証憑も角色アカウントに属する；現在がNPCの購入であっても角色アカウントで支払い/認可する。
-        if (reincarnatorCoin != null) parts.push('空间币: ' + reincarnatorCoin);
+        if (reincarnatorCoin != null) parts.push('スペースコイン: ' + reincarnatorCoin);
         var credentialParts = [];
         for (var _ci = 0; _ci < SHOP_PERMISSION_QUALITY_ORDER.length; _ci++) {
             var _cg = SHOP_PERMISSION_QUALITY_ORDER[_ci];
@@ -9226,7 +9237,7 @@ function shopCredentialRefund(credentials, requirements) {
             + '   - 【升级列表】: \n'
             + '      * プレイヤーが現在所持する血統・スキル・装備・形態の強化・昇階・再鋳造のみを扱う。正確な替换目标 を必ず記入すること。\n'
             + '      * 同階強化と跨階昇階はいずれも有効なアップグレード案であり、同一の対象に同階強化と跨階昇階の選択肢を同時に提供してもよい。\n'
-            + '   - 【世界遗物规则】:\n'
+            + '   - 【世界遺物規則】:\n'
             + '      * 世界遺物はショップの一般商品として生成することを禁止。\n'
             + '      * 世界遺物は任務世界の探索、特殊イベント、シナリオ報酬、または世界決算によってのみ獲得できる。\n'
             + '      * 主神空間は世界遺物の解析・修復・強化・融合などのサービスのみを提供し、新しい世界遺物を直接販売しない。\n'
@@ -9449,7 +9460,7 @@ if (hasReq) {
             try {
                 writeBackMvu(function(statData) {
                     statData.角色 = statData.角色 || {};
-                    statData.角色.空间币 = safeNum(statData.角色.空间币, 0) + bloodFusionSnap.price;
+                    statData.角色.スペースコイン = safeNum(statData.角色.スペースコイン, 0) + bloodFusionSnap.price;
                     statData.角色.权限凭证 = statData.角色.权限凭证 || {};
                     shopCredentialRefund(statData.角色.权限凭证, bloodFusionSnap.credentialRequirements || {});
                     if (bloodFusionSnap.preBloodLib !== null && statData.商城) {
