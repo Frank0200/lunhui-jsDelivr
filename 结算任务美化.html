@@ -9,8 +9,8 @@
       正規表現の設定メモ ( SillyTavern の正規表現として取り込む際 ):
         findRegex:     /<settlement tasks>([\s\S]*?)<\/settlement tasks>/gsi
         replaceString: 本ファイル "替换模板开始" ~ "替换模板结束" までの全内容
-        対応出力形式: 世界书/【结算任务】.txt
-        (settlement tasks パネル, 段階数とブロックは 单一世界/世界超稳 モードで動的に変化: 3~5 段階)
+        対応出力形式: 世界书/【決算任務】.txt
+        (settlement tasks パネル, 段階数とブロックは 単一世界/世界超安定 モードで動的に変化: 3~5 段階)
     -->
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -553,7 +553,7 @@
           const GRADES = ['F','E','D','C','B','A','S','SS','SSS'];
 
           // 決算の寛容判定：主神任務/昇格試練の完了状態は一般的な同義表記を許容し、AIの偶発的な表現揺れで失敗と誤判定されるのを防ぐ。
-          const SETTLEMENT_SUCCESS_STATUSES = new Set(['可结算','可交付','待结算','结算','已结算','完成','已完成','结算完成']);
+          const SETTLEMENT_SUCCESS_STATUSES = new Set(['決算可能','提出可能','待结算','结算','已结算','完成','已完成','结算完成']);
           const SETTLEMENT_FAILURE_STATUSES = new Set(['失败','已失败','任务失败']);
           function settlementTaskStatus(value) { return String(value || '').trim(); }
           function isSettlementTaskSuccessful(value) { return SETTLEMENT_SUCCESS_STATUSES.has(settlementTaskStatus(value)); }
@@ -624,8 +624,8 @@
 
           function calculateSpaceCoinSettlement(data) {
             const stat = data && (data.stat_data || data) || {};
-            const isSingleWorld = !!(stat.设置 && stat.设置.单一世界 === true);
-            const grades = String(stat.世界 && stat.世界.难度 || '').toUpperCase().match(/SSS|SS|S|A|B|C|D|E|F/g) || [];
+            const isSingleWorld = !!(stat.設定 && stat.設定.単一世界 === true);
+            const grades = String(stat.世界 && stat.世界.難易度 || '').toUpperCase().match(/SSS|SS|S|A|B|C|D|E|F/g) || [];
             let gradeIndex = grades.length ? Math.min.apply(null, grades.map(function(g) { return SETTLEMENT_COIN_GRADES.indexOf(g); }).filter(function(i) { return i >= 0; })) : 0;
             if (!Number.isFinite(gradeIndex) || gradeIndex < 0) gradeIndex = 0;
             const base = SETTLEMENT_COIN_BASES[gradeIndex] || 0;
@@ -634,21 +634,21 @@
             // スペースコイン額は任務データ上の事実：任務の終端状態と明示された金額のみを見て、委託元/任務身分を支給権限の根拠にはしない。
             const taskRewardDetails = [];
             const penaltyDetails = [];
-            const taskList = stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
+            const taskList = stat.任務 && stat.任務.リスト && typeof stat.任務.リスト === 'object' ? stat.任務.リスト : {};
             Object.keys(taskList).forEach(function(name) {
               const task = taskList[name] || {};
-              if (isSettlementTaskSuccessful(task.状态)) {
-                const amount = parseSpaceCoinTotal(task.奖励, false);
+              if (isSettlementTaskSuccessful(task.状態)) {
+                const amount = parseSpaceCoinTotal(task.報酬, false);
                 if (amount > 0) taskRewardDetails.push({ name:name, amount:amount });
-              } else if (isSettlementTaskFailed(task.状态)) {
-                const amount = parseSpaceCoinTotal(task.惩罚, true);
+              } else if (isSettlementTaskFailed(task.状態)) {
+                const amount = parseSpaceCoinTotal(task.罰則, true);
                 if (amount > 0) penaltyDetails.push({ name:name, amount:amount });
               }
             });
             const taskReward = taskRewardDetails.reduce(function(sum, x) { return sum + x.amount; }, 0);
             const penalty = penaltyDetails.reduce(function(sum, x) { return sum + x.amount; }, 0);
 
-            const kills = stat.任务 && stat.任务.击杀 && typeof stat.任务.击杀 === 'object' ? stat.任务.击杀 : {};
+            const kills = stat.任務 && stat.任務.撃破 && typeof stat.任務.撃破 === 'object' ? stat.任務.撃破 : {};
             const killDetails = [];
             let killRaw = 0;
             SETTLEMENT_KILL_TIERS.forEach(function(tier, index) {
@@ -681,7 +681,7 @@
 
             const reputationDetails = [];
             let reputationRaw = 0;
-            const factions = stat.世界 && stat.世界.势力 && typeof stat.世界.势力 === 'object' ? stat.世界.势力 : {};
+            const factions = stat.世界 && stat.世界.勢力 && typeof stat.世界.勢力 === 'object' ? stat.世界.勢力 : {};
             if (!isSingleWorld) {
               Object.keys(factions).forEach(function(name) {
                 const entry = factions[name] || {};
@@ -696,7 +696,7 @@
             const reputationReward = isSingleWorld ? 0 : Math.min(reputationRaw, reputationCap);
 
             const totalReward = taskReward + killReward + explorationReward + reputationReward - penalty;
-            const balanceBefore = Number(stat.角色 && stat.角色.スペースコイン) || 0;
+            const balanceBefore = Number(stat.キャラ && stat.キャラ.スペースコイン) || 0;
             const balanceAfter = balanceBefore + totalReward;
             return {
               isSingleWorld:isSingleWorld,
@@ -855,6 +855,28 @@
               if (character[CURRENCY_KEY_CANONICAL] === undefined || character[CURRENCY_KEY_CANONICAL] === null) character[CURRENCY_KEY_CANONICAL] = legacy;
               return character;
           }
+          /* B3_SETTINGS_KEY_COMPAT: 旧セーブの設定キーを正規キーへ読み取り時に移行する。入力境界専用・冪等。 */
+          var SETTINGS_KEY_CANONICAL = '単一世界';
+          var SETTINGS_KEY_LEGACY = '単一世界';
+          function normalizeLegacySettingsKey(settings) {
+              if (!settings || typeof settings !== 'object') return settings;
+              if (!Object.prototype.hasOwnProperty.call(settings, SETTINGS_KEY_LEGACY)) return settings;
+              var legacy = settings[SETTINGS_KEY_LEGACY];
+              delete settings[SETTINGS_KEY_LEGACY];
+              if (settings[SETTINGS_KEY_CANONICAL] === undefined || settings[SETTINGS_KEY_CANONICAL] === null) settings[SETTINGS_KEY_CANONICAL] = legacy;
+              return settings;
+          }
+          /* BATCH_A_CHARACTER_KEY_COMPAT: 旧セーブの 角色 コンテナを正規キーへ読み取り時に移行する。入力境界専用・冪等。 */
+          var CHARACTER_KEY_CANONICAL = 'キャラ';
+          var CHARACTER_KEY_LEGACY = '角色';
+          function normalizeLegacyCharacterKey(stat) {
+              if (!stat || typeof stat !== 'object') return stat;
+              if (!Object.prototype.hasOwnProperty.call(stat, CHARACTER_KEY_LEGACY)) return stat;
+              var legacy = stat[CHARACTER_KEY_LEGACY];
+              delete stat[CHARACTER_KEY_LEGACY];
+              if (stat[CHARACTER_KEY_CANONICAL] === undefined || stat[CHARACTER_KEY_CANONICAL] === null) stat[CHARACTER_KEY_CANONICAL] = legacy;
+              return stat;
+          }
           function getMvuContext() {
             try {
               const wins = [];
@@ -864,7 +886,7 @@
               for (const win of wins) {
                 if (!win || !win.Mvu || typeof win.Mvu.getMvuData !== 'function') continue;
                 const data = win.Mvu.getMvuData({ type: 'message', message_id: 'latest' });
-                if (data) { normalizeLegacyCurrencyKey((data.stat_data || data).角色); return { win: win, data: data, stat: data.stat_data || data }; }
+                if (data) { normalizeLegacyCharacterKey(data.stat_data || data); normalizeLegacyCurrencyKey((data.stat_data || data).キャラ); normalizeLegacySettingsKey((data.stat_data || data).設定); return { win: win, data: data, stat: data.stat_data || data }; }
               }
             } catch (e) {}
             return null;
@@ -873,17 +895,17 @@
           function isSingleWorldMode() {
             const ctx = getMvuContext();
             const stat = ctx && ctx.stat ? ctx.stat : {};
-            return !!(stat.设置 && stat.设置.单一世界 === true);
+            return !!(stat.設定 && stat.設定.単一世界 === true);
           }
 
 
           function extractTrialTasks(data) {
             const stat = data && (data.stat_data || data) || {};
-            const list = stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
-            const sys = stat && stat.系统状态 && typeof stat.系统状态 === 'object' ? stat.系统状态 : {};
-            const marked = sys.是否试炼任务 === true;
-            const exactNames = Array.isArray(sys.试炼任务名单)
-              ? sys.试炼任务名单.map(function(name) { return String(name || '').trim(); }).filter(Boolean)
+            const list = stat && stat.任務 && stat.任務.リスト && typeof stat.任務.リスト === 'object' ? stat.任務.リスト : {};
+            const sys = stat && stat.システム状態 && typeof stat.システム状態 === 'object' ? stat.システム状態 : {};
+            const marked = sys.試練任務中 === true;
+            const exactNames = Array.isArray(sys.試練任務名簿)
+              ? sys.試練任務名簿.map(function(name) { return String(name || '').trim(); }).filter(Boolean)
               : [];
             let keys = [];
 
@@ -896,7 +918,7 @@
                 const fallback = Object.keys(list).filter(function(key) {
                   if (keys.indexOf(key) >= 0) return false;
                   const task = list[key];
-                  return task && /(主神|系统|空间|普升|晋升|试炼)/.test(String(task.委托方 || '').trim());
+                  return task && /(主神|系统|空间|普升|晋升|试炼)/.test(String(task.依頼元 || '').trim());
                 });
                 keys = keys.concat(fallback.slice(0, missing));
               }
@@ -904,14 +926,14 @@
               // 試練マークはあるが任務名簿が未作成の移行セーブとの互換。
               keys = Object.keys(list).filter(function(key) {
                 const task = list[key];
-                return task && /(主神|系统|空间|普升|晋升|试炼)/.test(String(task.委托方 || '').trim());
+                return task && /(主神|系统|空间|普升|晋升|试炼)/.test(String(task.依頼元 || '').trim());
               });
             } else {
               // 旧セーブは標準値を優先して踏襲する；委託元がAIに壊されている場合は、プログラム側の試練署名にも同時に合致するときのみ救済する。
-              // TRIAL_COMMISSIONER_ALIAS_V2：旧セーブは「普升试炼」のみ正確に互換し、通常の「主神空间」任務には拡大しない。
+              // TRIAL_COMMISSIONER_ALIAS_V2：旧セーブは「普升试炼」のみ正確に互換し、通常の「主神空間」任務には拡大しない。
               const canonical = Object.keys(list).filter(function(key) {
                 const task = list[key];
-                return task && ['晋升试炼','普升试炼'].includes(String(task.委托方 || '').trim());
+                return task && ['昇格試練','晋升试炼','普升试炼'].includes(String(task.依頼元 || '').trim());
               });
               if (canonical.length) {
                 keys = canonical;
@@ -919,11 +941,11 @@
                 keys = Object.keys(list).filter(function(key) {
                   const task = list[key];
                   if (!task || typeof task !== 'object') return false;
-                  const commissioner = String(task.委托方 || '').trim();
+                  const commissioner = String(task.依頼元 || '').trim();
                   if (!/(主神|系统|空间|普升|晋升|试炼)/.test(commissioner)) return false;
-                  const delivery = String(task.交付 || '').trim();
+                  const delivery = String(task.納品 || '').trim();
                   const legacyKey = String(key || '').trim();
-                  return delivery === '全部试炼主任务完成后统一结算' || /晋升试炼[·.]\s*\d+/.test(legacyKey);
+                  return delivery === '全部试炼主任务完成后统一结算' || /(?:昇格試練|晋升试炼)[·.]\s*\d+/.test(legacyKey);
                 });
               }
             }
@@ -932,8 +954,8 @@
               const task = list[key] || {};
               return {
                 key: key,
-                name: String(task.名称 || task.任务名 || task.标题 || key || ('晋升试炼·' + (index + 1))),
-                status: String(task.状态 || '').trim()
+                name: String(task.名称 || task.任务名 || task.标题 || key || ('昇格試練·' + (index + 1))),
+                status: String(task.状態 || '').trim()
               };
             });
           }
@@ -944,10 +966,10 @@
 
           function settlementTaskKeysForData(data) {
             const stat = data && (data.stat_data || data) || {};
-            const list = stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
+            const list = stat && stat.任務 && stat.任務.リスト && typeof stat.任務.リスト === 'object' ? stat.任務.リスト : {};
             const keys = Object.keys(list).filter(function(key) {
-              const commissioner = String(list[key] && list[key].委托方 || '').trim();
-              return commissioner === '主神任务' || commissioner === '晋升试炼' || commissioner === '普升试炼';
+              const commissioner = String(list[key] && list[key].依頼元 || '').trim();
+              return commissioner === '主神任務' || commissioner === '主神任务' || commissioner === '昇格試練' || commissioner === '晋升试炼' || commissioner === '普升试炼';
             });
             extractTrialTasks(data).forEach(function(task) {
               if (task && task.key && keys.indexOf(task.key) < 0) keys.push(task.key);
@@ -1083,10 +1105,10 @@
 
           function extractAchievementTasks(data) {
             const stat = data && (data.stat_data || data);
-            const dict = stat && stat.任务 && stat.任务.副本成就 && typeof stat.任务.副本成就 === 'object' ? stat.任务.副本成就 : {};
+            const dict = stat && stat.任務 && stat.任務.インスタンス実績 && typeof stat.任務.インスタンス実績 === 'object' ? stat.任務.インスタンス実績 : {};
             return Object.keys(dict).map(function(key) {
               const x = dict[key] || {};
-              return { name:String(x.名称 || x.成就名 || key), desc:String(x.说明 || x.描述 || ''), difficulty:String(x.难度 || ''), reward:String(x.奖励 || ''), status:String(x.状态 || '').trim() };
+              return { name:String(x.名称 || x.成就名 || key), desc:String(x.説明 || x.説明 || ''), difficulty:String(x.難易度 || ''), reward:String(x.報酬 || ''), status:String(x.状態 || '').trim() };
             });
           }
 
@@ -1096,7 +1118,7 @@
 
           function achievementTaskScore(tasks) {
             const list = Array.isArray(tasks) ? tasks : [];
-            const achieved = list.filter(function(x) { return String(x && x.status || '').trim() === '已达成'; }).length;
+            const achieved = list.filter(function(x) { return String(x && x.status || '').trim() === '達成済み'; }).length;
             return achieved * 1000 + list.length;
           }
 
@@ -1168,16 +1190,16 @@
 
           function settlementSnapshotTaskScore(data) {
             const stat=data && (data.stat_data || data);
-            const list=stat && stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
-            const marked=!!(stat && stat.系统状态 && stat.系统状态.是否试炼任务 === true);
+            const list=stat && stat.任務 && stat.任務.リスト && typeof stat.任務.リスト === 'object' ? stat.任務.リスト : {};
+            const marked=!!(stat && stat.システム状態 && stat.システム状態.試練任務中 === true);
             let count=0, score=0;
             settlementTaskKeysForData(data).forEach(function(key) {
               const task=list[key] || {};
               count++;
-              const status=String(task.状态 || '').trim();
+              const status=String(task.状態 || '').trim();
               const terminal=(typeof isSettlementTaskTerminal === 'function')
                 ? isSettlementTaskTerminal(status)
-                : ['可结算','可交付','待结算','结算','已结算','完成','已完成','结算完成','失败','已失败','任务失败'].indexOf(status)>=0;
+                : ['決算可能','提出可能','待结算','结算','已结算','完成','已完成','结算完成','失败','已失败','任务失败'].indexOf(status)>=0;
               if (terminal) score+=100;
               else if (status) score+=10;
             });
@@ -1237,20 +1259,20 @@
             const worldName = String(stat.世界 && stat.世界.名称 || '').trim();
             if (expectedWorld && worldName && worldName !== expectedWorld) return -1;
 
-            const tasks = stat.任务 && typeof stat.任务 === 'object' ? stat.任务 : {};
+            const tasks = stat.任務 && typeof stat.任務 === 'object' ? stat.任務 : {};
             const world = stat.世界 && typeof stat.世界 === 'object' ? stat.世界 : {};
-            const taskList = tasks.列表 && typeof tasks.列表 === 'object' ? tasks.列表 : {};
-            const kills = tasks.击杀 && typeof tasks.击杀 === 'object' ? tasks.击杀 : {};
+            const taskList = tasks.リスト && typeof tasks.リスト === 'object' ? tasks.リスト : {};
+            const kills = tasks.撃破 && typeof tasks.撃破 === 'object' ? tasks.撃破 : {};
             const exploration = world.探索 && typeof world.探索 === 'object' ? world.探索 : {};
-            const factions = world.势力 && typeof world.势力 === 'object' ? world.势力 : {};
+            const factions = world.勢力 && typeof world.勢力 === 'object' ? world.勢力 : {};
 
             let terminalTasks = 0;
             let explicitCoinTasks = 0;
             Object.keys(taskList).forEach(function(name) {
               const task = taskList[name] || {};
-              if (isSettlementTaskTerminal(task.状态)) terminalTasks += 1;
-              if (isSettlementTaskSuccessful(task.状态) && parseSpaceCoinTotal(task.奖励, false) > 0) explicitCoinTasks += 1;
-              else if (isSettlementTaskFailed(task.状态) && parseSpaceCoinTotal(task.惩罚, true) > 0) explicitCoinTasks += 1;
+              if (isSettlementTaskTerminal(task.状態)) terminalTasks += 1;
+              if (isSettlementTaskSuccessful(task.状態) && parseSpaceCoinTotal(task.報酬, false) > 0) explicitCoinTasks += 1;
+              else if (isSettlementTaskFailed(task.状態) && parseSpaceCoinTotal(task.罰則, true) > 0) explicitCoinTasks += 1;
             });
 
             const positiveKills = SETTLEMENT_KILL_TIERS.reduce(function(count, tier) {
@@ -1316,8 +1338,8 @@
 
           function settlementCoinValue(data) {
             const stat = data && (data.stat_data || data);
-            normalizeLegacyCurrencyKey(stat && stat.角色);
-            const raw = stat && stat.角色 ? Number(stat.角色.スペースコイン) : NaN;
+            normalizeLegacyCurrencyKey(stat && stat.キャラ);
+            const raw = stat && stat.キャラ ? Number(stat.キャラ.スペースコイン) : NaN;
             return Number.isFinite(raw) ? raw : null;
           }
 
@@ -1346,38 +1368,38 @@
 
           function readReincarnatorTier(data) {
             const stat = data && (data.stat_data || data);
-            return String(stat && stat.角色 && stat.角色.层级 || '').trim();
+            return String(stat && stat.キャラ && stat.キャラ.階層 || '').trim();
           }
 
           // SETTLEMENT_CREDENTIAL_CORE_START
           function resolveCredentialDecision(data) {
             const stat = data && (data.stat_data || data);
-            if (!stat || !stat.角色) {
+            if (!stat || !stat.キャラ) {
               return { granted:false, reasonCode:'missing_data', grade:'', name:'', playerTier:'', playerGrade:'', requiredGrade:'', sourceGrade:'', basis:'', successfulTaskCount:0 };
             }
             const LIFE_TIERS = ['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'];
-            const tierRaw = String(stat.角色.层级 || 'Ⅰ').trim();
+            const tierRaw = String(stat.キャラ.階層 || 'Ⅰ').trim();
             let reincarnatorIndex = LIFE_TIERS.indexOf(tierRaw);
             if (reincarnatorIndex < 0) reincarnatorIndex = GRADES.indexOf(gradeTier(tierRaw));
             if (reincarnatorIndex < 0) reincarnatorIndex = 0;
             const playerGrade = GRADES[reincarnatorIndex] || GRADES[0];
-            const isSingleWorld = !!(stat.设置 && stat.设置.单一世界 === true);
+            const isSingleWorld = !!(stat.設定 && stat.設定.単一世界 === true);
             const basis = isSingleWorld ? '成功した主神任務の最高難易度' : '世界の最低難易度';
 
             if (reincarnatorIndex >= GRADES.length - 1) {
               return { granted:false, reasonCode:'max_tier', grade:'', name:'', playerTier:tierRaw, playerGrade:playerGrade, requiredGrade:'', sourceGrade:'', basis:basis, successfulTaskCount:0 };
             }
 
-            const list = stat.任务 && stat.任务.列表 && typeof stat.任务.列表 === 'object' ? stat.任务.列表 : {};
+            const list = stat.任務 && stat.任務.リスト && typeof stat.任務.リスト === 'object' ? stat.任務.リスト : {};
             let successfulTaskCount = 0;
             let bestIndex = -1;
             Object.keys(list).forEach(function(key) {
               const task = list[key] || {};
-              if (String(task.委托方 || '').trim() !== '主神任务') return;
-              if (!isSettlementTaskSuccessful(task.状态)) return;
+              if (String(task.依頼元 || '').trim() !== '主神任務' && String(task.依頼元 || '').trim() !== '主神任务') return;
+              if (!isSettlementTaskSuccessful(task.状態)) return;
               successfulTaskCount += 1;
               if (!isSingleWorld) return;
-              const idx = GRADES.indexOf(gradeTier(task.难度 || ''));
+              const idx = GRADES.indexOf(gradeTier(task.難易度 || ''));
               if (idx > bestIndex) bestIndex = idx;
             });
 
@@ -1389,7 +1411,7 @@
             if (isSingleWorld) {
               if (bestIndex >= 0) baseGrade = GRADES[bestIndex];
             } else {
-              baseGrade = gradeFloor(stat.世界 && stat.世界.难度);
+              baseGrade = gradeFloor(stat.世界 && stat.世界.難易度);
             }
 
             const gradeIndex = GRADES.indexOf(baseGrade);
@@ -1461,7 +1483,7 @@
           function trialScore(tasks) {
             return (tasks || []).reduce(function(sum, task) {
               if (isSettlementTaskTerminal(task.status)) return sum + 3;
-              if (task.status === '进行中') return sum + 1;
+              if (task.status === '進行中') return sum + 1;
               return sum;
             }, 0);
           }
@@ -1518,7 +1540,7 @@
           function inferTrialTasksFromSettlement(text) {
             const source = String(text || '');
             const rewards = {};
-            const re = /【?晋升试炼[·.]\s*(\d+)】?\s*[：:]\s*([^\n]+)/g;
+            const re = /【?(?:昇格試練|晋升试炼)[·.]\s*(\d+)】?\s*[：:]\s*([^\n]+)/g;
             let m;
             let maxNo = 0;
             while ((m = re.exec(source)) !== null) {
@@ -1532,8 +1554,8 @@
             for (let no = 1; no <= maxNo; no++) {
               out.push({
                 key: 'replay-' + no,
-                name: '晋升试炼·' + no,
-                status: rewards[no] ? '可结算' : '进行中',
+                name: '昇格試練·' + no,
+                status: rewards[no] ? '決算可能' : '進行中',
                 replay: true
               });
             }
@@ -1555,7 +1577,7 @@
               let label = task.status || '未設定';
               if (isSettlementTaskSuccessful(task.status)) { cls = 'ok'; label = '完了'; }
               else if (isSettlementTaskFailed(task.status)) { cls = 'bad'; label = '失敗'; }
-              else if (task.status === '进行中') { label = '未完了'; }
+              else if (task.status === '進行中') { label = '未完了'; }
               html += '<div class="st-trial-row"><div class="st-trial-name">' + escapeHtml(task.name) + '</div><div class="st-trial-state ' + cls + '">' + escapeHtml(label) + '</div></div>';
             });
             html += '<div class="st-trial-bar"><div class="st-trial-fill" style="width:' + pct + '%"></div></div>';
@@ -1566,12 +1588,12 @@
 
           function renderAchievementPanel() {
             if (!achievementTasks.length) return '';
-            const done = achievementTasks.filter(function(x) { return x.status === '已达成'; }).length;
+            const done = achievementTasks.filter(function(x) { return x.status === '達成済み'; }).length;
             const pct = Math.round(done / achievementTasks.length * 100);
             let html = '<div class="st-trial-check pending">';
             html += '<div class="st-trial-head"><div class="st-trial-title" style="color:#f5d76e">✦ 副本実績決算</div><div class="st-trial-count">' + done + ' / ' + achievementTasks.length + '</div></div>';
             achievementTasks.forEach(function(x) {
-              const ok = x.status === '已达成';
+              const ok = x.status === '達成済み';
               html += '<div class="st-trial-row"><div class="st-trial-name"><b>' + escapeHtml((x.difficulty ? x.difficulty + ' · ' : '') + x.name) + '</b>';
               if (x.desc) html += '<div style="margin-top:2px;color:#8fa0b3;font-size:.9em;white-space:normal">' + escapeHtml(x.desc) + '</div>';
               if (x.reward) html += '<div style="margin-top:2px;color:#d6c791;font-size:.9em;white-space:normal">🎁 ' + escapeHtml(x.reward) + '</div>';
@@ -1605,14 +1627,14 @@
 
           function parseAchievementReward(reward, fallbackWorld) {
             const v = String(reward || '').trim();
-            let m = v.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*级盲盒\s*[·・]\s*(.+)$/i);
-            if (!m) m = v.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*级盲盒\s*[（(]\s*([^）)]*)\s*[）)]$/i);
-            if (!m) m = v.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*级盲盒\s*$/i);
+            let m = v.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*(?:級ブラインドボックス|级盲盒)\s*[·・]\s*(.+)$/i);
+            if (!m) m = v.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*(?:級ブラインドボックス|级盲盒)\s*[（(]\s*([^）)]*)\s*[）)]$/i);
+            if (!m) m = v.match(/^(SSS|SS|S|A|B|C|D|E|F)\s*(?:級ブラインドボックス|级盲盒)\s*$/i);
             if (!m) return null;
             const grade = gradeTier(m[1]);
             const world = String(m[2] || fallbackWorld || '').replace(/[【】《》]/g, '').trim();
             const safeWorldKey = sanitizeMvuObjectKey(world);
-            return { grade:grade, world:world, name:grade + '级盲盒' + (safeWorldKey ? '·' + safeWorldKey : '') };
+            return { grade:grade, world:world, name:grade + '級ブラインドボックス' + (safeWorldKey ? '·' + safeWorldKey : '') };
           }
 
           /* B1_SETTLEMENT_HEADING_COMPAT: 旧チャット/旧AI出力の決算見出しを正規見出しへ読み替える。入力境界専用・冪等。 */
@@ -1627,10 +1649,21 @@
             '判定结果': '判定結果',
             '获得': '獲得',
             '获得物品': '獲得物品',
-            '类型': 'タイプ',
-            '效果': '効果',
-            '描述': '説明',
-            '来源': '出典'
+            'タイプ': 'タイプ',
+            '効果': '効果',
+            '説明': '説明',
+            '出典': '出典',
+            '系统评述': 'システム評述',
+            '世界传闻': '世界の噂',
+            '高光回放': 'ハイライト再生',
+            '任务专属奖励': '任務専用報酬',
+            '副本烙印': 'インスタンスの烙印',
+            '协议序列': 'プロトコル序列',
+            '提示': 'ヒント',
+            '世界结晶': '世界結晶',
+            '世界遗物': '世界遺物',
+            '世界遗物特别嘉奖': '世界遺物・特別褒賞',
+            '纪念物': '記念品'
           };
           function normalizeLegacySettlementHeading(name) {
             var s = String(name == null ? '' : name);
@@ -1654,7 +1687,7 @@
 
             function classifyStage(name) {
               const n = String(name || '');
-              if (/评估|評価|难度|稳定|安定/.test(n)) return 'assess';
+              if (/評価|评估|難易度|难度|安定|稳定/.test(n)) return 'assess';
               if (/烙印|回放|再生|传闻|噂|风格/.test(n)) return 'story';
               if (/法则|战利品|遗物|遺物/.test(n)) return 'loot';
               if (/收益|核算|スペースコイン|空间币/.test(n)) return 'income';
@@ -1688,7 +1721,7 @@
               if ((m = line.match(/^####(?!#)\s*(.+)$/))) { newStage(normalizeLegacySettlementHeading(stripDecor(m[1]).replace(/^【|】$/g, ''))); continue; }
               if ((m = line.match(/^#{1,3}(?!#)\s*(.+)$/))) { out.title = normalizeLegacySettlementHeading(stripDecor(m[1]).replace(/^【|】$/g, '')); continue; }
               if ((m = line.match(/^\*{0,2}\[?\s*(?:プロトコル序列|协议序列)\s*\]?\*{0,2}\s*[：:]\s*(.+)$/))) { out.serial = stripDecor(m[1]); continue; }
-              if ((m = line.match(/^\*{0,2}\[?\s*轮回者\s*\]?\*{0,2}\s*[：:]\s*(.+)$/))) { out.player = stripDecor(m[1]); continue; }
+              if ((m = line.match(/^\*{0,2}\[?\s*(?:輪廻者|轮回者)\s*\]?\*{0,2}\s*[：:]\s*(.+)$/))) { out.player = stripDecor(m[1]); continue; }
 
               let body = isList ? line.replace(/^\s*[*+-]\s+/, '').trim() : line;
               body = body.replace(/^\$\((.+?)\)\s*[：:]\s*/, '\u0024' + '1：');
@@ -1742,8 +1775,8 @@
                 const v = stripDecor(m[2]);
 
                 if (curSub === '世界結晶' || curSub === '世界遺物') {
-                  if (k === '判定依据') cardSec = 'reasons';
-                  else if (k === '获得' || k === '获得物品') cardSec = 'item';
+                  if (k === '判定根拠') cardSec = 'reasons';
+                  else if (k === '獲得' || k === '獲得物品') cardSec = 'item';
                   else cardSec = '';
                 }
 
@@ -1754,7 +1787,7 @@
 
                 if (curStage && curStage.type === 'income' && /合计|上限|实际计入/.test(k)) { push('sum', { name: k, v: v }); continue; }
                 if (/总收益/.test(k)) { const nm = v.match(/-?[\d,，\.]+\s*万?/); push('total', { num: nm ? parseCnNum(nm[0]) : null, text: v, debt: /负债/.test(v) }); continue; }
-                if (/稳定/.test(k) && /→|->/.test(v)) { const pm = v.match(/(\d+(?:\.\d+)?)\s*%\s*(?:→|->)\s*(\d+(?:\.\d+)?)\s*%/); if (pm) { push('stab', { from: parseFloat(pm[1]), to: parseFloat(pm[2]) }); continue; } }
+                if (/稳定|安定/.test(k) && /→|->/.test(v)) { const pm = v.match(/(\d+(?:\.\d+)?)\s*%\s*(?:→|->)\s*(\d+(?:\.\d+)?)\s*%/); if (pm) { push('stab', { from: parseFloat(pm[1]), to: parseFloat(pm[2]) }); continue; } }
                 if (/^注/.test(k)) { push('note', { text: k + '：' + v }); continue; }
                 if (curStage && curStage.type === 'income' && isList && !/^注/.test(k) && /->|→|强制执行惩罚/.test(v)) { push('punish', { name: k.replace(/[[\]]/g, ''), desc: v.replace(/^强制执行惩罚\s*(?:->|→)?\s*/, '') }); continue; }
                 if (curStage && curStage.type === 'story' && isList && curSub && /ハイライト|再生|高光|回放/.test(curSub)) { push('hl', { t: k, d: v }); continue; }
@@ -1762,11 +1795,11 @@
                 if (curStage && (curSub === '世界結晶' || curSub === '世界遺物')) {
                   const card = curStage.items.filter(function(x) { return x.kind === (curSub === '世界結晶' ? 'relic' : 'relicGold') && x.sub === curSub; }).pop();
                   if (card) {
-                    if (k === '获得物品' || k === '获得') card.name = v.replace(/^[【[]|[】\]]$/g, '').trim() || v;
-                    else if (k === '类型') card.type = v;
-                    else if (k === '效果') card.effect = (card.effect ? card.effect + '\n' : '') + v;
-                    else if (k === '描述') card.desc = v;
-                    else if (k === '来源') card.origin = v;
+                    if (k === '獲得物品' || k === '獲得') card.name = v.replace(/^[【[]|[】\]]$/g, '').trim() || v;
+                    else if (k === 'タイプ') card.type = v;
+                    else if (k === '効果') card.effect = (card.effect ? card.effect + '\n' : '') + v;
+                    else if (k === '説明') card.desc = v;
+                    else if (k === '出典') card.origin = v;
                   }
                 }
                 push('kv', { k: k, v: v });
@@ -1774,7 +1807,7 @@
               }
 
               const plainBody = stripDecor(body);
-              if (!/[：:]/.test(plainBody) && plainBody.length < 60 && /未|无/.test(plainBody) && /惩罚|罰則|失败|失敗|获得|獲得|遗物|遺物|检测|検出|压缩|抵扣/.test(plainBody)) { push('empty', { text: plainBody }); continue; }
+              if (!/[：:]/.test(plainBody) && plainBody.length < 60 && /未|无/.test(plainBody) && /惩罚|失败|获得|獲得|遗物|检测|压缩|抵扣/.test(plainBody)) { push('empty', { text: plainBody }); continue; }
               if (/^【.*(?:完了|完毕).*】$/.test(stripDecor(body))) { push('closing', { text: stripDecor(body) }); continue; }
 
               if (curStage && (curSub === '世界結晶' || curSub === '世界遺物') && /^\d+[.、]\s*\S/.test(stripDecor(body))) {
@@ -1906,7 +1939,7 @@
                 if (k === '説明' && /[“”"]/.test(v)) return '<div class="st-relic-quote">' + escapeHtml(v) + '</div>';
                 if (k === '効果' && /事迹留存/.test(v)) return '<div class="st-kv effect"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>';
                 if (/(?:評述|评述)/.test(k)) return '<div class="st-comment">' + escapeHtml(v) + '</div>';
-                if (st && st.type === 'income' && /奖励|收益/.test(k)) return '<div class="st-kv income-v"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>';
+                if (st && st.type === 'income' && /奖励|報酬|收益/.test(k)) return '<div class="st-kv income-v"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>';
                 return '<div class="st-kv"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>';
               }
               case 'reasonHead': return '<div class="st-reason-head">' + escapeHtml(it.text) + '</div>';
@@ -1942,7 +1975,7 @@
                 if (/^【.+】$/.test(t)) return '<div class="st-relic-name">' + escapeHtml(t) + '</div>';
                 if (/凭证/.test(sub)) return '<div class="st-cert-desc">' + escapeHtml(t) + '</div>';
                 if (/遗物/.test(sub)) return '<div class="st-note">' + escapeHtml(t) + '</div>';
-                if (/传闻/.test(sub)) return '<div class="st-tl-item rumor"><span class="d">' + escapeHtml(t) + '</span></div>';
+                if (/噂/.test(sub)) return '<div class="st-tl-item rumor"><span class="d">' + escapeHtml(t) + '</span></div>';
                 return '<div class="st-para">' + escapeHtml(t) + '</div>';
               }
               default: return '';
@@ -1973,7 +2006,7 @@
                 const it = items[i];
 
                 if (it.kind === 'sub' && /(?:任務専用報酬|任务专属奖励)/.test(it.name || '')) rewardSeen = true;
-                if (rewardSeen && !trialInserted && it.kind === 'sub' && !/(?:任務専用報酬|任务专属奖励)/.test(it.name || '') && (trialTasks.length || /晋升试炼[·\.]/.test(rawText))) {
+                if (rewardSeen && !trialInserted && it.kind === 'sub' && !/(?:任務専用報酬|任务专属奖励)/.test(it.name || '') && (trialTasks.length || /(?:昇格試練|晋升试炼)[·\.]/.test(rawText))) {
                   inner += '<div class="st-trial-host">' + renderTrialPanel() + '</div>';
                   trialInserted = true;
                 }
@@ -2016,7 +2049,7 @@
                 i++;
               }
 
-              if (rewardSeen && !trialInserted && (trialTasks.length || /晋升试炼[·\.]/.test(rawText))) {
+              if (rewardSeen && !trialInserted && (trialTasks.length || /(?:昇格試練|晋升试炼)[·\.]/.test(rawText))) {
                 inner += '<div class="st-trial-host">' + renderTrialPanel() + '</div>';
               }
 
@@ -2130,10 +2163,10 @@
             // 完全な清算では元の onClearCache の意味論を踏襲し、データベース内の昇格試練がすべて承認済み完了状態であれば完了と記録する。
             // 階層が既に変化していれば今回の資格は昇格に使用済み；旧決算パネルは再度補記してはならない。
             if (hasHeader && trialPassed && !reincarnatorTierChanged) {
-              const currentSys = stat.系统状态 && typeof stat.系统状态 === 'object' ? stat.系统状态 : {};
+              const currentSys = stat.システム状態 && typeof stat.システム状態 === 'object' ? stat.システム状態 : {};
               if (currentSys.试炼已完成 !== true) {
-                const sys = ensureObject(stat, '系统状态');
-                setValue(sys, '试炼已完成', true);
+                const sys = ensureObject(stat, 'システム状態');
+                setValue(sys, '試練完了', true);
               }
             }
 
@@ -2142,41 +2175,41 @@
             if (trialTasks.some(function(task){return !isSettlementTaskTerminal(task.status);})) return changed;
 
             // 成功/失敗のいずれも今回の試練ライフサイクルの終了を意味する；身分マークは一度だけ消費され、過去のパネルがそれを復活させることはできない。
-            const activeTrialSys = stat.系统状态 && typeof stat.系统状态 === 'object' ? stat.系统状态 : null;
+            const activeTrialSys = stat.システム状態 && typeof stat.システム状態 === 'object' ? stat.システム状態 : null;
             if (activeTrialSys && activeTrialSys.是否试炼任务 === true) {
-              const sys = ensureObject(stat, '系统状态');
-              setValue(sys, '是否试炼任务', false);
-              setValue(sys, '试炼任务名单', []);
+              const sys = ensureObject(stat, 'システム状態');
+              setValue(sys, '試練任務中', false);
+              setValue(sys, '試練任務名簿', []);
             }
 
-            const isSingleWorld = !!(stat.设置 && stat.设置.单一世界 === true);
-            const tasks = ensureObject(stat, '任务');
+            const isSingleWorld = !!(stat.設定 && stat.設定.単一世界 === true);
+            const tasks = ensureObject(stat, '任務');
             const world = ensureObject(stat, '世界');
-            setValue(tasks, '击杀', {Ⅰ:0, Ⅱ:0, Ⅲ:0, Ⅳ:0, Ⅴ:0, Ⅵ:0, Ⅶ:0, Ⅷ:0, Ⅸ:0});
+            setValue(tasks, '撃破', {Ⅰ:0, Ⅱ:0, Ⅲ:0, Ⅳ:0, Ⅴ:0, Ⅵ:0, Ⅶ:0, Ⅷ:0, Ⅸ:0});
 
             if (!isSingleWorld) {
               setValue(world, '探索', {});
               // インスタンスキャッシュと同じライフサイクルにし、バックグラウンドイベントがインスタンスを跨いで継承されるのを避ける。
-              setValue(world, '后台', {});
+              setValue(world, 'バックステージ', {});
 
               // 通常インスタンスが現在の世界を離れるとき、関係人物も世界のライフサイクルに従わなければならない。
               // 明確にパーティ関係を結んだ正式な仲間だけが世界を跨いで保持される；高い好感度、まだ場にいること、通常の関係はいずれも保持条件ではない。
-              const relations = ensureObject(stat, '关系列表');
+              const relations = ensureObject(stat, '関係リスト');
               Object.keys(relations).forEach(function(name) {
                 const npc = relations[name];
-                if (!npc || npc.是否队友 !== true) delete relations[name];
+                if (!npc || npc.仲間 !== true) delete relations[name];
               });
 
-              setValue(world, '势力', {});
-              setValue(world, '稳定', 100);
-              const radar = ensureObject(world, '异端雷达');
-              setValue(radar, '当前模式', '');
-              setValue(radar, '名单', {});
-              setValue(world, '法则', []);
-              setValue(world, '货币', {});
-              setValue(world, '因果轨道', {});
-              setValue(tasks, '列表', {});
-              setValue(tasks, '副本成就', {});
+              setValue(world, '勢力', {});
+              setValue(world, '安定', 100);
+              const radar = ensureObject(world, '異端レーダー');
+              setValue(radar, '現在モード', '');
+              setValue(radar, '名簿', {});
+              setValue(world, '法則', []);
+              setValue(world, '通貨', {});
+              setValue(world, '因果軌道', {});
+              setValue(tasks, 'リスト', {});
+              setValue(tasks, 'インスタンス実績', {});
 
               // 通常インスタンス終了時はプレイヤーが所有/共有管理する資産のみを残す；純NPC、勢力、無主の資産はインスタンスと共に消去する。
               // <user> はプロンプトマクロ；プログラム側では Tavern の現在の Persona 名を正式なプレイヤー身分とし、旧マークは互換のみを担う。
@@ -2198,7 +2231,7 @@
               };
               Object.keys(assets).forEach(function(assetName) {
                 const asset = assets[assetName];
-                const rawOwners = asset && typeof asset === 'object' ? asset.所属对象 : null;
+                const rawOwners = asset && typeof asset === 'object' ? asset.所属対象 : null;
                 // 旧セーブで所属対象が欠落している場合は既存の移行意味論を踏襲する：プレイヤー資産とみなし、誤削除を避ける。
                 if (rawOwners == null) return;
                 const owners = Array.isArray(rawOwners) ? rawOwners : [rawOwners];
@@ -2207,15 +2240,15 @@
                 changed = true;
               });
 
-              const rumors = ensureObject(stat, '传闻');
-              setValue(rumors, '街头巷议', {});
-              setValue(rumors, '情报交易', {});
-              setValue(rumors, '布告与檄文', {});
+              const rumors = ensureObject(stat, '噂');
+              setValue(rumors, '街頭の噂', {});
+              setValue(rumors, '情報取引', {});
+              setValue(rumors, '布告と檄文', {});
 
-              const sys = ensureObject(stat, '系统状态');
+              const sys = ensureObject(stat, 'システム状態');
               // 主神空間は独自の輪廻暦を使用する：第1プレイ日は輪廻暦1年-04月-04日から始まり、
-              // 以降は 系统状态.游玩天数 のみで対応付け、いかなるインスタンス世界の年代も継承しない。
-              const playDays = Math.max(1, Math.floor(Number(sys.游玩天数) || 1));
+              // 以降は システム状態.プレイ日数 のみで対応付け、いかなるインスタンス世界の年代も継承しない。
+              const playDays = Math.max(1, Math.floor(Number(sys.プレイ日数) || 1));
               const samsaraDayIndex = ((4 - 1) * 30 + (4 - 1)) + (playDays - 1);
               const samsaraYear = Math.floor(samsaraDayIndex / 360) + 1;
               const samsaraDayOfYear = samsaraDayIndex % 360;
@@ -2224,20 +2257,20 @@
               const settlementPad2 = function(value) { return String(value).padStart(2, '0'); };
               const samsaraTime = '轮回历' + samsaraYear + '年-' + settlementPad2(samsaraMonth) + '月-' + settlementPad2(samsaraDay) + '日-清晨';
 
-              setValue(world, '名称', '主神空间');
+              setValue(world, '名称', '主神空間');
               setValue(world, '位格', 'Ⅸ');
-              setValue(world, '难度', 'F~SSS');
-              setValue(world, '时间', samsaraTime);
+              setValue(world, '難易度', 'F~SSS');
+              setValue(world, '時間', samsaraTime);
               // 暦法はインスタンス世界のライフサイクルに属する；主神空間は前のインスタンスの暦法を保持しない。
-              setValue(world, '历法', {});
+              setValue(world, '暦法', {});
               // 輪廻暦の表示値と同期アンカーを取り、補助計算が「主神空間へ戻る」を余分な日跨ぎと誤計算するのを避ける。
-              setValue(sys, '上次世界日期', samsaraYear + '-' + samsaraMonth + '-' + samsaraDay);
-              setValue(sys, '是否在主神空间', true);
+              setValue(sys, '前回世界日付', samsaraYear + '-' + samsaraMonth + '-' + samsaraDay);
+              setValue(sys, '主神空間滞在中', true);
             } else {
-              // 单一世界は同じ世界を使い続ける：探索档案は長期保持されるが、スペースコイン決算には参加しない。
-              // 单一世界には副本実績がない；決算時に旧インスタンス/旧バージョンの残留を同時に消去するが、現在の世界と未決算の任務には影響しない。
-              setValue(tasks, '副本成就', {});
-              const taskList = ensureObject(tasks, '列表');
+              // 単一世界は同じ世界を使い続ける：探索档案は長期保持されるが、スペースコイン決算には参加しない。
+              // 単一世界には副本実績がない；決算時に旧インスタンス/旧バージョンの残留を同時に消去するが、現在の世界と未決算の任務には影響しない。
+              setValue(tasks, 'インスタンス実績', {});
+              const taskList = ensureObject(tasks, 'リスト');
               settlementTaskKeys.forEach(function(taskKey) {
                 if (!Object.hasOwn(taskList, taskKey)) return;
                 delete taskList[taskKey];
@@ -2261,17 +2294,17 @@
               const c = win.Mvu.getMvuData({ type: 'message', message_id: targetMessageId });
               if (!c) return;
               const settlementStat = c.stat_data || c;
-              normalizeLegacyCurrencyKey(settlementStat.角色);
-              const isSingleWorldSettlement = !!(settlementStat.设置 && settlementStat.设置.单一世界 === true);
+              normalizeLegacyCurrencyKey(settlementStat.キャラ);
+              const isSingleWorldSettlement = !!(settlementStat.設定 && settlementStat.設定.単一世界 === true);
 
               // 未完了の昇格試練は昇格資格と最終清理のみを阻止する；完了済み主神任務のスペースコイン/権限証憑/戦利品は通常どおり決算される。
               let changed = false;
               let settlementCoinMarkerPending = null;
-              if (!settlementCoinWriteDone && isLatestPanel && isFullSettlement(rawText) && settlementStat.角色) {
+              if (!settlementCoinWriteDone && isLatestPanel && isFullSettlement(rawText) && settlementStat.キャラ) {
                 const settlementMarker = String(settlementTarget.marker || targetMessageId);
                 const recordedMarker = readSettlementCoinMessageMarker(win, targetMessageId);
                 const markerState = settlementCoinMarkerState(recordedMarker, settlementMarker);
-                const currentCoin = Number(settlementStat.角色.スペースコイン);
+                const currentCoin = Number(settlementStat.キャラ.スペースコイン);
                 let nextCoin = null;
                 settlementCoinWriteDone = true;
 
@@ -2285,7 +2318,7 @@
                 }
 
                 if (nextCoin !== null) {
-                  settlementStat.角色.スペースコイン = nextCoin;
+                  settlementStat.キャラ.スペースコイン = nextCoin;
                   changed = true;
                 }
               }
@@ -2300,12 +2333,12 @@
               const assess = d.stages.find(function(s) { return s.type === 'assess'; });
               (assess ? assess.items : []).forEach(function(it) {
                 if (it.kind !== 'kv') return;
-                if (/难度/.test(it.k) && /评级|等级/.test(it.k) && !baseGrade) baseGrade = gradeFloor(it.v);
+                if (/難易度/.test(it.k) && /评级|等级/.test(it.k) && !baseGrade) baseGrade = gradeFloor(it.v);
               });
               if (!baseGrade) {
                 d.stages.forEach(function(s) {
                   s.items.forEach(function(it) {
-                    if (it.kind === 'kv' && /难度/.test(it.k) && /评级|等级/.test(it.k) && !baseGrade) baseGrade = gradeFloor(it.v);
+                    if (it.kind === 'kv' && /難易度/.test(it.k) && /评级|等级/.test(it.k) && !baseGrade) baseGrade = gradeFloor(it.v);
                   });
                 });
               }
@@ -2324,14 +2357,14 @@
               if (!isSingleWorldSettlement) {
               const achievementGrants = {};
               achievementTasks.forEach(function(x) {
-                if (x.status !== '已达成') return;
+                if (x.status !== '達成済み') return;
                 const r = parseAchievementReward(x.reward, world);
                 if (!r) { console.warn('[決算美化] 成就報酬を識別できない:', x.name, x.reward); return; }
                 if (!achievementGrants[r.name]) achievementGrants[r.name] = { grade:r.grade, world:r.world, count:0 };
                 achievementGrants[r.name].count++;
               });
               Object.keys(achievementGrants).forEach(function(name) {
-                const g = achievementGrants[name], key = 'stat_data.角色.道具.' + name;
+                const g = achievementGrants[name], key = 'stat_data.キャラ.道具.' + name;
                 const old = win._.get(c, key) || {};
                 const currentQty = Number(old.数量) || 0;
                 const baselineQty = achievementBaselineData
@@ -2342,21 +2375,21 @@
 
                 if (missing <= 0) return;
 
-                const tags = Array.isArray(old.标签) ? old.标签.slice() : [];
-                ['主神空间','盲盒',g.world].filter(Boolean).forEach(function(t) { if (tags.indexOf(t) < 0) tags.push(t); });
-                win._.set(c, key + '.品质', g.grade);
-                win._.set(c, key + '.类型', '盲盒');
+                const tags = Array.isArray(old.タグ) ? old.タグ.slice() : [];
+                ['主神空間','ブラインドボックス',g.world].filter(Boolean).forEach(function(t) { if (tags.indexOf(t) < 0) tags.push(t); });
+                win._.set(c, key + '.品質', g.grade);
+                win._.set(c, key + '.タイプ', 'ブラインドボックス');
                 win._.set(c, key + '.数量', currentQty + missing);
-                win._.set(c, key + '.标签', tags);
-                win._.set(c, key + '.效果', old.效果 && typeof old.效果 === 'object' ? old.效果 : { 开启:'盲盒抽奖，打开后随机抽取「' + (g.world || '主神空间') + '」对应品质的奖励。' });
-                win._.set(c, key + '.描述', old.描述 || '副本成就奖励。');
-                win._.set(c, key + '.状态', [0,1,2].includes(Number(old.状态)) ? Number(old.状态) : 0);
+                win._.set(c, key + '.タグ', tags);
+                win._.set(c, key + '.効果', old.効果 && typeof old.効果 === 'object' ? old.効果 : { 开启:'ブラインドボックス抽選，打开后随机抽取「' + (g.world || '主神空間') + '」对应品质的奖励。' });
+                win._.set(c, key + '.説明', old.説明 || '副本成就奖励。');
+                win._.set(c, key + '.状態', [0,1,2].includes(Number(old.状態)) ? Number(old.状態) : 0);
                 changed = true;
               });
               }
 
               if (credentialGrant) {
-                const key = 'stat_data.角色.权限凭证.' + credentialGrant.grade;
+                const key = 'stat_data.キャラ.権限証憑.' + credentialGrant.grade;
                 const currentQty = Math.max(0, Number(win._.get(c, key)) || 0);
                 const baselineQty = settlementBaselineData
                   ? Math.max(0, Number(win._.get(settlementBaselineData, key)) || 0)
@@ -2392,29 +2425,29 @@
               }
 
               golds.forEach(function(g) {
-                if (!g.name || exists('stat_data.角色.装备.' + g.name)) return;
-                const key = 'stat_data.角色.装备.' + g.name;
-                win._.set(c, key + '.品质', baseGrade);
-                win._.set(c, key + '.类型', 8);
-                win._.set(c, key + '.标签', ['主神空间', g.origin || world].filter(Boolean));
+                if (!g.name || exists('stat_data.キャラ.装備.' + g.name)) return;
+                const key = 'stat_data.キャラ.装備.' + g.name;
+                win._.set(c, key + '.品質', baseGrade);
+                win._.set(c, key + '.タイプ', 8);
+                win._.set(c, key + '.タグ', ['主神空間', g.origin || world].filter(Boolean));
                 win._.set(c, key + '.原始属性', {});
-                win._.set(c, key + '.效果', parseEffectLines(g.effect));
-                win._.set(c, key + '.描述', g.desc || (world ? ('世界遺物, 出典: ' + world) : '世界遺物'));
-                win._.set(c, key + '.消耗', '');
-                win._.set(c, key + '.状态', 0);
+                win._.set(c, key + '.効果', parseEffectLines(g.effect));
+                win._.set(c, key + '.説明', g.desc || (world ? ('世界遺物, 出典: ' + world) : '世界遺物'));
+                win._.set(c, key + '.消費', '');
+                win._.set(c, key + '.状態', 0);
                 changed = true;
               });
 
               relics.forEach(function(r) {
-                if (!r.name || exists('stat_data.角色.道具.' + r.name)) return;
-                const key = 'stat_data.角色.道具.' + r.name;
-                win._.set(c, key + '.品质', baseGrade);
-                win._.set(c, key + '.类型', r.type || '記念品');
+                if (!r.name || exists('stat_data.キャラ.道具.' + r.name)) return;
+                const key = 'stat_data.キャラ.道具.' + r.name;
+                win._.set(c, key + '.品質', baseGrade);
+                win._.set(c, key + '.タイプ', r.type || '記念品');
                 win._.set(c, key + '.数量', 1);
-                win._.set(c, key + '.标签', ['主神空间', world].filter(Boolean));
-                win._.set(c, key + '.效果', parseEffectLines(r.effect));
-                win._.set(c, key + '.描述', r.desc || '');
-                win._.set(c, key + '.状态', 0);
+                win._.set(c, key + '.タグ', ['主神空間', world].filter(Boolean));
+                win._.set(c, key + '.効果', parseEffectLines(r.effect));
+                win._.set(c, key + '.説明', r.desc || '');
+                win._.set(c, key + '.状態', 0);
                 changed = true;
               });
 

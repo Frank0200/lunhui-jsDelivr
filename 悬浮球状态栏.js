@@ -85,9 +85,9 @@
 
     /* ===== 4. 保護(読み取り専用)フィールド定義 ===== */
     var READONLY_PATHS = [
-        '角色.HP_MAX', '角色.EP_MAX', '角色.最终属性', '角色.层级',
-        '角色.当前形态', '角色.形态库',
-        '世界.稳定', '世界.当前轮次', '系统状态.当前轮次'
+        'キャラ.HP_MAX', 'キャラ.EP_MAX', 'キャラ.最終属性', 'キャラ.階層',
+        'キャラ.現在形态', 'キャラ.形態庫',
+        '世界.安定', '世界.現在ラウンド', 'システム状態.現在ラウンド'
     ];
     /* 階層閾値表: F→E→D→C→B→A→S→SS→SSS (下限値; 階層が上がるのは昇格任務のみ, そのためプログレスバーは進捗のみ表示し自動昇格しない) */
     var TIER_THRESHOLDS = [
@@ -147,6 +147,28 @@
         if (character[CURRENCY_KEY_CANONICAL] === undefined || character[CURRENCY_KEY_CANONICAL] === null) character[CURRENCY_KEY_CANONICAL] = legacy;
         return character;
     }
+    /* B3_SETTINGS_KEY_COMPAT: 旧セーブの設定キーを正規キーへ読み取り時に移行する。入力境界専用・冪等。 */
+    var SETTINGS_KEY_CANONICAL = '単一世界';
+    var SETTINGS_KEY_LEGACY = '単一世界';
+    function normalizeLegacySettingsKey(settings) {
+        if (!settings || typeof settings !== 'object') return settings;
+        if (!Object.prototype.hasOwnProperty.call(settings, SETTINGS_KEY_LEGACY)) return settings;
+        var legacy = settings[SETTINGS_KEY_LEGACY];
+        delete settings[SETTINGS_KEY_LEGACY];
+        if (settings[SETTINGS_KEY_CANONICAL] === undefined || settings[SETTINGS_KEY_CANONICAL] === null) settings[SETTINGS_KEY_CANONICAL] = legacy;
+        return settings;
+    }
+    /* BATCH_A_CHARACTER_KEY_COMPAT: 旧セーブの 角色 コンテナを正規キーへ読み取り時に移行する。入力境界専用・冪等。 */
+    var CHARACTER_KEY_CANONICAL = 'キャラ';
+    var CHARACTER_KEY_LEGACY = '角色';
+    function normalizeLegacyCharacterKey(stat) {
+        if (!stat || typeof stat !== 'object') return stat;
+        if (!Object.prototype.hasOwnProperty.call(stat, CHARACTER_KEY_LEGACY)) return stat;
+        var legacy = stat[CHARACTER_KEY_LEGACY];
+        delete stat[CHARACTER_KEY_LEGACY];
+        if (stat[CHARACTER_KEY_CANONICAL] === undefined || stat[CHARACTER_KEY_CANONICAL] === null) stat[CHARACTER_KEY_CANONICAL] = legacy;
+        return stat;
+    }
     /* ===== 5. 旧インスタンスの事前クリーンアップ ===== */
     function samPreClean() {
         try {
@@ -172,7 +194,7 @@
             var win = getMvuGlobal();
             if (win && win.Mvu && typeof win.Mvu.getMvuData === 'function') {
                 var r = win.Mvu.getMvuData({ type: 'message', message_id: 'latest' });
-                if (r && r.stat_data) { normalizeLegacyCurrencyKey(r.stat_data.角色); return r.stat_data; }
+                if (r && r.stat_data) { normalizeLegacyCharacterKey(r.stat_data); normalizeLegacyCurrencyKey(r.stat_data.キャラ); normalizeLegacySettingsKey(r.stat_data.設定); return r.stat_data; }
                 if (r) return r;
             }
             if (typeof GS_PARENT.getMessageVar === 'function') return GS_PARENT.getMessageVar('stat_data');
@@ -302,7 +324,7 @@
             else { try { val = JSON.parse(_jt); } catch(e2) {} }
         }
         // ★ 身份は引き続き文字列配列(カンマ/スラッシュ区切りの入力を配列へ分割); 职业は「职业名をキーとするレコードオブジェクト」に変更済みのため, 分割しない
-        if (path.indexOf('.身份') >= 0) {
+        if (path.indexOf('.身分') >= 0) {
             val = String(val).split(/[\/,，]/).map(function(s){return s.trim();}).filter(Boolean);
         }
         stageEdit(path, val, type);
@@ -420,43 +442,43 @@
     function calcTrialScore(fa, lifeTier) {
         var attrs = fa || {};
         var total = 0;
-        ['力量','敏捷','体质','精神','魅力'].forEach(function(an) {
+        ['筋力','敏捷','体力','精神','魅力'].forEach(function(an) {
             total += attrTierScore(attrs[an], lifeTier);
         });
         return total;
     }
     // SOURCE_INFUSION_CREDENTIAL_START
-    /* 权限凭证の所持数：角色.权限凭证.<品质>のみを読む。 */
+    /* 权限凭证の所持数：角色.権限証憑.<品质>のみを読む。 */
     function sourceInfusionCredentialQty(reincarnator, credentialGrade) {
         if (!reincarnator || !credentialGrade) return 0;
-        var ledger = reincarnator.权限凭证 || {};
+        var ledger = reincarnator.権限証憑 || {};
         return Math.max(0, Math.floor(safeNum(ledger[credentialGrade], 0)));
     }
 
     /* 指定品質の証憑をちょうど1枚消費する；証憑は独立した数値台帳で，道具/状態からは検索しない。 */
     function sourceInfusionConsumeCredential(reincarnator, credentialGrade) {
         if (!reincarnator || !credentialGrade) return false;
-        reincarnator.权限凭证 = reincarnator.权限凭证 || {};
-        var q = Math.max(0, Math.floor(safeNum(reincarnator.权限凭证[credentialGrade], 0)));
+        reincarnator.権限証憑 = reincarnator.権限証憑 || {};
+        var q = Math.max(0, Math.floor(safeNum(reincarnator.権限証憑[credentialGrade], 0)));
         if (q < 1) return false;
-        reincarnator.权限凭证[credentialGrade] = q - 1;
+        reincarnator.権限証憑[credentialGrade] = q - 1;
         return true;
     }
     // SOURCE_INFUSION_CREDENTIAL_END    /* “現在階層→次階層”の源力注入プランを一度だけ生成する；証憑の品質による段階飛ばしは絶対に行わない。 */
     function sourceInfusionPlan(sd, targetName) {
-        if (!sd || !sd.角色) return { error:'データが未準備です' };
-        var isReincarnator = (targetName === '角色');
-        var target = isReincarnator ? sd.角色 : (sd.关系列表 && sd.关系列表[targetName]);
+        if (!sd || !sd.キャラ) return { error:'データが未準備です' };
+        var isReincarnator = (targetName === 'キャラ');
+        var target = isReincarnator ? sd.キャラ : (sd.关系リスト && sd.关系リスト[targetName]);
         if (!target) return { error:'対象キャラクターが見つかりません' };
-        if (!isReincarnator && target.是否队友 !== true) return { error:'源力注入はチームメイトのみ使用できます' };
-        if (sd.系统状态 && sd.系统状态.是否战斗中 === true) return { error:'安全なエリアで再度お試しください' };
-        if (isReincarnator && sd.系统状态 && sd.系统状态.试炼已完成 === true) return { error:'昇格試練は完了済みです。「昇格開始」を直接使用してください' };
+        if (!isReincarnator && target.仲間 !== true) return { error:'源力注入はチームメイトのみ使用できます' };
+        if (sd.システム状態 && sd.システム状態.戦闘中 === true) return { error:'安全なエリアで再度お試しください' };
+        if (isReincarnator && sd.システム状態 && sd.システム状態.試練完了 === true) return { error:'昇格試練は完了済みです。「昇格開始」を直接使用してください' };
 
-        var currentTier = normalizeLifeTier(target.层级);
+        var currentTier = normalizeLifeTier(target.階層);
         var idx = TIER_ROMAN.indexOf(currentTier);
         if (idx < 0) idx = 0;
         if (idx >= TIER_ROMAN.length - 1) return { error:'現在はすでに最高階層です' };
-        var score = calcTrialScore(target.最终属性 || {}, currentTier);
+        var score = calcTrialScore(target.最終属性 || {}, currentTier);
         if (score < TRIAL_SCORE_THRESHOLD) return { error:'段位累計が昇格要件を満たしていません' };
 
         var nextTier = TIER_ROMAN[idx + 1];
@@ -472,8 +494,8 @@
             cost: safeNum(SOURCE_INFUSION_COSTS[nextGrade], 0),
             credentialName: credentialName,
             credentialGrade: nextGrade,
-            coin: safeNum(sd.角色.スペースコイン, 0),
-            credentialQty: sourceInfusionCredentialQty(sd.角色, nextGrade)
+            coin: safeNum(sd.キャラ.スペースコイン, 0),
+            credentialQty: sourceInfusionCredentialQty(sd.キャラ, nextGrade)
         };
     }
 
@@ -483,10 +505,10 @@
     }
 
     function openSourceInfusion(targetName) {
-        targetName = targetName || '角色';
+        targetName = targetName || 'キャラ';
         var first = sourceInfusionPlan(getStatData(), targetName);
         if (first.error) { samToast('warning', first.error); return; }
-        var label = first.isReincarnator ? '角色' : first.targetName;
+        var label = first.isReincarnator ? 'キャラ' : first.targetName;
         var body = '対象: '+label+' '+first.currentTier+' → '+first.nextTier+'（'+first.nextGrade+'）'
             +' ｜ スペースコイン: '+sourceInfusionFmtNum(first.cost)+'（所持 '+sourceInfusionFmtNum(first.coin)+'）'
             +' ｜ 証憑: '+first.credentialName+' ×1（所持 ×'+first.credentialQty+'）'
@@ -509,15 +531,15 @@
                 var check = sourceInfusionPlan(statData, targetName);
                 if (check.error || check.nextTier !== latest.nextTier || check.nextGrade !== latest.nextGrade) return;
                 if (check.coin < check.cost || check.credentialQty < 1) return;
-                var payer = statData.角色;
-                var target = check.isReincarnator ? payer : (statData.关系列表 && statData.关系列表[check.targetName]);
-                if (!target || (!check.isReincarnator && target.是否队友 !== true)) return;
+                var payer = statData.キャラ;
+                var target = check.isReincarnator ? payer : (statData.关系リスト && statData.关系リスト[check.targetName]);
+                if (!target || (!check.isReincarnator && target.仲間 !== true)) return;
                 if (!sourceInfusionConsumeCredential(payer, check.credentialGrade)) return;
                 payer.スペースコイン = Math.max(0, safeNum(payer.スペースコイン, 0) - check.cost);
-                target.层级 = check.nextTier;
-                var receiptActor = check.isReincarnator ? '角色' : check.targetName;
+                target.階層 = check.nextTier;
+                var receiptActor = check.isReincarnator ? 'キャラ' : check.targetName;
                 shopAppendReceipt(statData, '[昇格]['+receiptActor+'] 源力注入：'+check.currentTier+' → '+check.nextTier+'｜消費 '+sourceInfusionFmtNum(check.cost)+'スペースコイン、'+check.credentialName+'×1');
-                if (check.isReincarnator && statData.系统状态) statData.系统状态.试炼已完成 = false;
+                if (check.isReincarnator && statData.システム状態) statData.システム状態.試練完了 = false;
                 applied = true;
             }, opts);
             if (ok && applied) {
@@ -550,14 +572,14 @@
     /* 階層表示の元値：現在形態が有効(激活===true かつ名称が非空)で形態階層 > 自身階層のとき，
        形態階層を返す；それ以外は自身階層を返す。UI表示のみに使用（データへは絶対に書き戻さない）。
        判定規則は各レンダリング関数に既存の formActive / npcFormName 判定と一致する。
-       形態変身の終了後は 当前形态.激活 が trueでなくなる → 自動的に自身階層の表示へ戻る。 */
+       形態変身の終了後は 現在形態.激活 が trueでなくなる → 自動的に自身階層の表示へ戻る。 */
     function displayTierRaw(char) {
-        var ownRaw = (char && char.层级 != null) ? char.层级 : '';
-        var cf = char && char.当前形态 ? char.当前形态 : null;
+        var ownRaw = (char && char.階層 != null) ? char.階層 : '';
+        var cf = char && char.現在形態 ? char.現在形態 : null;
         if (!cf || cf.激活 !== true || !safeStr(cf.名称)) return ownRaw;
-        var entry = char.形态库 && char.形态库[cf.名称];
+        var entry = char.形態庫 && char.形態庫[cf.名称];
         if (!entry || typeof entry !== 'object') return ownRaw;
-        var fTierRaw = (entry.层级 != null) ? entry.层级 : entry.品质;  // 旧セーブでは 品质 フィールドでフォールバックする可能性がある
+        var fTierRaw = (entry.階層 != null) ? entry.階層 : entry.品質;  // 旧セーブでは 品质 フィールドでフォールバックする可能性がある
         var ownIdx = TIER_ROMAN.indexOf(tierRomanOf(ownRaw));     // Ⅰ~Ⅸ のインデックスへ正規化
         var formIdx = TIER_ROMAN.indexOf(tierRomanOf(fTierRaw));
         if (formIdx > ownIdx) return fTierRaw;  // 形態階層がより高い → 形態階層を表示
@@ -941,8 +963,8 @@
         .sam-buff-chip:hover { transform:translateY(-2px); box-shadow:0 3px 8px rgba(0,0,0,0.4); }
         .sam-buff-chip .sam-buff-name { font-weight:bold; }
         .sam-buff-chip .sam-buff-dur { font-size:9px; opacity:0.85; }
-        .sam-buff-chip.增益 { color:#56bf7b; border-color:#56bf7b; background:rgba(86,191,123,0.14); }
-        .sam-buff-chip.减益 { color:var(--sam-hp); border-color:var(--sam-hp); background:rgba(228,88,125,0.14); }
+        .sam-buff-chip.バフ { color:#56bf7b; border-color:#56bf7b; background:rgba(86,191,123,0.14); }
+        .sam-buff-chip.デバフ { color:var(--sam-hp); border-color:var(--sam-hp); background:rgba(228,88,125,0.14); }
         .sam-buff-chip.特殊 { color:var(--sam-accent); border-color:var(--sam-accent); background:rgba(143,159,255,0.14); }
         /* 編集モード: 右側に削除ボタン用の余白を確保; 削除ボタンはchip内で小さな丸点に縮小(sam-fc-del-btnの既定22pxを上書き) */
         .sam-buff-chip.is-edit { padding-right:16px; }
@@ -1447,17 +1469,17 @@
         .sam-occ-sumrow { display:inline-flex; flex-wrap:wrap; gap:4px; margin-left:auto; }
         .sam-occ-sumname { font-size:11px; font-weight:normal; padding:1px 4px 1px 8px; border-radius:9px; background:rgba(143,159,255,0.07); border:1px solid rgba(143,159,255,0.14); display:inline-flex; align-items:center; gap:5px; color:var(--sam-text); }
         .sam-occ-sumtype { font-size:9px; font-weight:bold; padding:0 6px; border-radius:7px; border:1px solid; }
-        .sam-occ-sumtype.战斗 { color:#e57373; border-color:#e57373; }
+        .sam-occ-sumtype.戦闘 { color:#e57373; border-color:#e57373; }
         .sam-occ-sumtype.生活 { color:#66bb6a; border-color:#66bb6a; }
-        .sam-occ-sumtype.辅助 { color:#7dbde0; border-color:#7dbde0; }
+        .sam-occ-sumtype.支援 { color:#7dbde0; border-color:#7dbde0; }
         .sam-occ-body { padding:8px 10px; display:flex; flex-direction:column; gap:8px; border-top:1px dashed var(--sam-border); }
         .sam-occ-card { padding:9px 12px; border:1px solid var(--sam-border); border-left:3px solid var(--sam-accent); border-radius:8px; background:var(--sam-bg); }
         .sam-occ-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
         .sam-occ-name { font-size:14px; font-weight:bold; color:var(--sam-text); }
         .sam-occ-type { font-size:10px; font-weight:bold; padding:2px 10px; border-radius:10px; border:1px solid; white-space:nowrap; }
-        .sam-occ-type.战斗 { color:#e57373; border-color:#e57373; background:rgba(229,115,115,0.14); }
+        .sam-occ-type.戦闘 { color:#e57373; border-color:#e57373; background:rgba(229,115,115,0.14); }
         .sam-occ-type.生活 { color:#66bb6a; border-color:#66bb6a; background:rgba(102,187,106,0.14); }
-        .sam-occ-type.辅助 { color:#7dbde0; border-color:#7dbde0; background:rgba(125,189,224,0.14); }
+        .sam-occ-type.支援 { color:#7dbde0; border-color:#7dbde0; background:rgba(125,189,224,0.14); }
         .sam-occ-tags { display:flex; flex-wrap:wrap; gap:5px; margin-top:8px; }
         .sam-occ-tag { font-size:10px; padding:2px 9px; border-radius:10px; background:rgba(143,159,255,0.10); color:var(--sam-sub); border:1px solid rgba(143,159,255,0.18); }
         .sam-occ-src { font-size:10px; color:var(--sam-sub); margin-top:7px; padding-top:6px; border-top:1px dashed rgba(143,159,255,0.12); display:flex; align-items:center; gap:3px; }
@@ -1900,20 +1922,20 @@
        その他のショップ操作(エリアTab切替/装備・アイテム・スキル選択/商品更新)には影響しない */
     var bloodFusionBusy = false;
     var bloodFusionShopItem = null;
-    var bloodFusionActionActor = '角色'; // 今回の融合の書き込み先(パネル入口=角色、ショップ入口は shopCurrentActor に追従)
+    var bloodFusionActionActor = 'キャラ'; // 今回の融合の書き込み先(パネル入口=角色、ショップ入口は shopCurrentActor に追従)
     var bloodFusionLastVals = { a: null, b: null }; // A/B 連動: 各側の前回選択値を記録し、値衝突時の交換に使用
     var BLOODLINE_RANK = { F:1, E:2, D:3, C:4, B:5, A:6, S:7, SS:8, SSS:9 };
     function bloodFusionEntries(extra) {
         var sd = getStatData(), ctx = shopResolveCharacter(sd, shopCurrentActor);
         var ch = ctx.character || {};
-        var blood = ch && ch.血统 || {};
+        var blood = ch && ch.血統 || {};
         var list = [];
         Object.keys(blood).forEach(function(name) { list.push({ name:name, data:blood[name] || {}, owned:true }); });
         if (extra) list.push({ name:extra.name, data:extra, owned:false });
         return list;
     }
     function bloodFusionOption(entry, selected, hidden) {
-        return '<option value="'+esc(entry.name)+'"'+(selected ? ' selected' : '')+(hidden ? ' hidden' : '')+'>'+esc(entry.name)+' · '+esc(entry.data.品质 || 'F')+'</option>';
+        return '<option value="'+esc(entry.name)+'"'+(selected ? ' selected' : '')+(hidden ? ' hidden' : '')+'>'+esc(entry.name)+' · '+esc(entry.data.品質 || 'F')+'</option>';
     }
     /* 血統融合の規則ライブラリ: 同級 / 高低級 の2系統の結果式、融合ポッドの規則パネル表示 + フロントの確率アルゴリズムに使用 */
     var BLOOD_FUSION_RULES = {
@@ -1947,8 +1969,8 @@
        AI はこの結果に従って血統データを描画するのみで、自ら選択することは禁止) */
     var bloodFusionResult = null;
     /* 今回の融合で消費される血統名(A と B)、用途:
-       1) 融合進行中: アップグレード欄で"替换目标 = これらの血統"のアップグレードカードをグレーアウトしてロック;
-       2) 融合成功: アップグレード欄で"替换目标 = 削除された血統"のアップグレード項目もショップのアップグレード一覧から削除
+       1) 融合進行中: アップグレード欄で"置換対象 = これらの血統"のアップグレードカードをグレーアウトしてロック;
+       2) 融合成功: アップグレード欄で"置換対象 = 削除された血統"のアップグレード項目もショップのアップグレード一覧から削除
        (元の血統は融合で消費済みのため、対応する旧アップグレードサービスは意味を失う) */
     var bloodFusionConsumedNames = [];
     /* 融合のターン番号: bloodFusionStart ごとに +1、旧 Promise のコールバックはターン不一致で結果を破棄("融合停止"でスタックしたリクエストを打ち切るため);
@@ -1958,14 +1980,14 @@
     /* 血統カードのプレビュー(fullCard を再利用、読み取り専用): 品質/タグ/原始属性/効果/描述 */
     function bloodFusionPreviewCardHtml(entry) {
         if (!entry) return '<div class="sam-fusion-preview-empty">— 利用可能な血統なし —</div>';
-        var b = entry.data || {}, q = parseRarity(b.品质);
+        var b = entry.data || {}, q = parseRarity(b.品質);
         var rows = '', body = '<div class="sam-fc-body">';
-        body += fcBody('标签', formatTags(b.标签 || [], '', false), 'sam-fc-tags');
+        body += fcBody('タグ', formatTags(b.タグ || [], '', false), 'sam-fc-tags');
         if (b.原始属性 && typeof b.原始属性 === 'object' && Object.keys(b.原始属性).length > 0) {
             body += fcBodyCollapsible('原始属性', formatStatGrid(b.原始属性, 3), 'sam-fc-stats', false);
         }
-        body += fcBody('效果', formatEffects(b.效果 || {}, '', false), 'sam-fc-effects');
-        body += fcBody('描述', esc(safeStr(b.描述)));
+        body += fcBody('効果', formatEffects(b.効果 || {}, '', false), 'sam-fc-effects');
+        body += fcBody('説明', esc(safeStr(b.説明)));
         body += '</div>';
         var badge = entry.owned ? '<span class="sam-fusion-owned-pill" style="font-size:10px;padding:2px 6px;border-radius:8px;background:rgba(143,159,255,0.18);color:var(--sam-sub)">所持済み</span>' : '<span class="sam-fusion-shop-pill" style="font-size:10px;padding:2px 6px;border-radius:8px;background:var(--sam-hp);color:#fff">ショップ商品</span>';
         return '<div class="sam-fusion-preview">'+fullCard(q, entry.name, rows, body, badge)+'</div>';
@@ -1988,7 +2010,7 @@
     /* entry の品質数値を取得 */
     function bloodFusionRankOf(entry) {
         if (!entry || !entry.data) return 1;
-        return BLOODLINE_RANK[String(entry.data.品质 || 'F').toUpperCase()] || 1;
+        return BLOODLINE_RANK[String(entry.data.品質 || 'F').toUpperCase()] || 1;
     }
     /* 融合ポッド内の A/B ドロップダウンを描画(値衝突の交換 + フィルタ規則、A/B 双方向で対称):
        - 自側の現在選択項目: selected + hidden(展開リストでは隠すが、select は現在値を表示)
@@ -2011,7 +2033,7 @@
                 // 双方とも A と B が同品質(同級)のときのみ '(= 相手, クリックで交換)' を表示、それ以外は隠す
                 if (sameRank) {
                     var peer = (role === 'a') ? 'B' : 'A';
-                    html += '<option value="'+esc(x.name)+'">'+esc(x.name)+' · '+esc(x.data.品质 || 'F')+' (クリックで交換)</option>';
+                    html += '<option value="'+esc(x.name)+'">'+esc(x.name)+' · '+esc(x.data.品質 || 'F')+' (クリックで交換)</option>';
                 }
                 return;
             }
@@ -2037,7 +2059,7 @@
         var sd = getStatData();
         var bctx = shopResolveCharacter(sd, bloodFusionActionActor);
         var bch = bctx.character || {};
-        var cap = BLOODLINE_CAP, count = Object.keys(bch.血统 || {}).length;
+        var cap = BLOODLINE_CAP, count = Object.keys(bch.血統 || {}).length;
         var full = (count >= cap);
         return { show: true, full: full, count: count, cap: cap };
     }
@@ -2080,8 +2102,8 @@
         };
         var a = find(aName), b = find(bName);
         if (!a || !b) return 'same';
-        var ar = BLOODLINE_RANK[String(a.data.品质 || 'F').toUpperCase()] || 1;
-        var br = BLOODLINE_RANK[String(b.data.品质 || 'F').toUpperCase()] || 1;
+        var ar = BLOODLINE_RANK[String(a.data.品質 || 'F').toUpperCase()] || 1;
+        var br = BLOODLINE_RANK[String(b.data.品質 || 'F').toUpperCase()] || 1;
         return (ar === br) ? 'same' : 'diff';
     }
     /* ポッド内の A/B プレビューカード + 規則パネルを同期更新(ドロップダウンは再構築しない、selects は呼び出し側の責務) */
@@ -2123,7 +2145,7 @@
         bloodFusionShopItem = shopItem || null;
         // ★ 融合の書き込み先: 血統パネル入口(ショップ血統なし) → 角色; ショップ入口(shopItem あり) → 現在のショップ選択キャラクターに追従
         bloodFusionActionActor = shopItem ? (shopCurrentActor || SHOP_ACTOR_REINCARNATOR) : SHOP_ACTOR_REINCARNATOR;
-        var extra = shopItem ? { name:shopItem.name, 品质:shopItem.rating, 标签:shopItem.tags || [], 原始属性:shopItem.raw_attrs || {}, 效果:shopItem.effects || {}, 描述:shopItem.description || '' } : null;
+        var extra = shopItem ? { name:shopItem.name, 品質:shopItem.rating, タグ:shopItem.tags || [], 原始属性:shopItem.raw_attrs || {}, 効果:shopItem.effects || {}, 説明:shopItem.description || '' } : null;
         var entries = bloodFusionEntries(extra);
         var title = shopItem ? '血統の購入と融合の確認' : '血統融合ポッド';
         var head = '<div class="sam-fusion-head">'
@@ -2181,7 +2203,7 @@
         var $a = $('.sam-fusion-select[data-fusion-role="a"]');
         var $b = $('.sam-fusion-select[data-fusion-role="b"]');
         if (!$a.length || !$b.length) return;
-        var entries = bloodFusionEntries(bloodFusionShopItem ? { name:bloodFusionShopItem.name, 品质:bloodFusionShopItem.rating, 标签:bloodFusionShopItem.tags || [], 原始属性:bloodFusionShopItem.raw_attrs || {}, 效果:bloodFusionShopItem.effects || {}, 描述:bloodFusionShopItem.description || '' } : null);
+        var entries = bloodFusionEntries(bloodFusionShopItem ? { name:bloodFusionShopItem.name, 品質:bloodFusionShopItem.rating, タグ:bloodFusionShopItem.tags || [], 原始属性:bloodFusionShopItem.raw_attrs || {}, 効果:bloodFusionShopItem.effects || {}, 説明:bloodFusionShopItem.description || '' } : null);
         var oldA = bloodFusionLastVals.a, oldB = bloodFusionLastVals.b;
         var newVal = (role === 'a') ? $a.val() : $b.val();
         var otherVal = (role === 'a') ? $b.val() : $a.val();
@@ -2212,13 +2234,13 @@
     }
     async function bloodFusionStart(aName, bName) {
         if (!aName || !bName || aName === bName) { samToast('warning', 'A と B には異なる2つの血統を選択してください'); return; }
-        var entries = bloodFusionEntries(bloodFusionShopItem ? { name:bloodFusionShopItem.name, 品质:bloodFusionShopItem.rating, 标签:bloodFusionShopItem.tags || [], 原始属性:bloodFusionShopItem.raw_attrs || {}, 效果:bloodFusionShopItem.effects || {}, 描述:bloodFusionShopItem.description || '' } : null);
+        var entries = bloodFusionEntries(bloodFusionShopItem ? { name:bloodFusionShopItem.name, 品質:bloodFusionShopItem.rating, タグ:bloodFusionShopItem.tags || [], 原始属性:bloodFusionShopItem.raw_attrs || {}, 効果:bloodFusionShopItem.effects || {}, 説明:bloodFusionShopItem.description || '' } : null);
         var a = entries.filter(function(x){return x.name === aName;})[0], b = entries.filter(function(x){return x.name === bName;})[0];
         if (!a || !b) { samToast('error', '血統データが変化しました。融合ポッドを開き直してください'); return; }
         if (bloodFusionShopItem && a.name !== bloodFusionShopItem.name && b.name !== bloodFusionShopItem.name) {
             samToast('warning', 'ショップの血統は今回の融合で A または B にする必要があります'); return;
         }
-        var ar = BLOODLINE_RANK[String(a.data.品质 || 'F').toUpperCase()] || 1, br = BLOODLINE_RANK[String(b.data.品质 || 'F').toUpperCase()] || 1;
+        var ar = BLOODLINE_RANK[String(a.data.品質 || 'F').toUpperCase()] || 1, br = BLOODLINE_RANK[String(b.data.品質 || 'F').toUpperCase()] || 1;
         if (ar < br) { var swap = a; a = b; b = swap; }
         // AI インターフェースのチェックは roll の後に延期: 基因崩溃/崩坏消散 は AI を呼ばない(純ローカル書き戻し)ため不要; その他の結果はインターフェースを要求
         var _mode0 = (ar === br) ? 'same' : 'diff';
@@ -2233,7 +2255,7 @@
         if (bloodFusionShopItem) {
             var prePrice = safeNum(bloodFusionShopItem.price, 0);
             var preSd = getStatData();
-            var preCoin = preSd && preSd.角色 ? safeNum(preSd.角色.スペースコイン, 0) : 0;
+            var preCoin = preSd && preSd.キャラ ? safeNum(preSd.キャラ.スペースコイン, 0) : 0;
             if (preCoin < prePrice) { samToast('warning', 'スペースコインが不足しているため、この血統を購入して融合できません'); return; }
             // ★ 複数キャラクター: 通貨/証憑は引き続き 角色 アカウントから控除; 血統商品は今回の融合対象キャラクターの 商城 ライブラリから削除
             var preActor = bloodFusionActionActor || SHOP_ACTOR_REINCARNATOR;
@@ -2241,10 +2263,10 @@
             var preCredentialRequirements = {};
             var preCredentialRequirement = shopCredentialRequirement(preActorCtx.character || {}, bloodFusionShopItem);
             if (preCredentialRequirement.required) preCredentialRequirements[preCredentialRequirement.grade] = 1;
-            var preCredentialShortages = shopCredentialShortages(preSd && preSd.角色 && preSd.角色.权限凭证, preCredentialRequirements);
+            var preCredentialShortages = shopCredentialShortages(preSd && preSd.キャラ && preSd.キャラ.権限証憑, preCredentialRequirements);
             if (preCredentialShortages.length) { samToast('warning', '権限証憑が不足：'+shopCredentialShortageText(preCredentialShortages)); return; }
             var preActorLib = shopGetActorLibRaw(preSd && preSd.商城, preActor);
-            var preBloodArr = (preActorLib && Array.isArray(preActorLib.血统列表)) ? preActorLib.血统列表.slice() : null;
+            var preBloodArr = (preActorLib && Array.isArray(preActorLib.血統リスト)) ? preActorLib.血統リスト.slice() : null;
             // コイン控除/証憑消費/商品削除の前のスナップショットを保存し、失敗/停止時のロールバックに供する
             bloodFusionSnap = {
                 price: prePrice,
@@ -2254,13 +2276,13 @@
                 credentialRequirements: preCredentialRequirements
             };
             var preOk = writeBackMvu(function(statData) {
-                statData.角色 = statData.角色 || {};
-                statData.角色.权限凭证 = statData.角色.权限凭证 || {};
-                if (!shopCredentialConsume(statData.角色.权限凭证, preCredentialRequirements)) throw new Error('权限凭证扣除失败');
-                statData.角色.スペースコイン = Math.max(0, safeNum(statData.角色.スペースコイン, 0) - prePrice);
+                statData.キャラ = statData.キャラ || {};
+                statData.キャラ.権限証憑 = statData.キャラ.権限証憑 || {};
+                if (!shopCredentialConsume(statData.キャラ.権限証憑, preCredentialRequirements)) throw new Error('权限凭证扣除失败');
+                statData.キャラ.スペースコイン = Math.max(0, safeNum(statData.キャラ.スペースコイン, 0) - prePrice);
                 var _lib = shopGetActorLibRaw(statData.商城, preActor);
-                if (_lib && Array.isArray(_lib.血统列表)) {
-                    _lib.血统列表 = _lib.血统列表.filter(function(item) { return safeStr(item.名称) !== bloodFusionShopItem.name; });
+                if (_lib && Array.isArray(_lib.血統リスト)) {
+                    _lib.血統リスト = _lib.血統リスト.filter(function(item) { return safeStr(item.名称) !== bloodFusionShopItem.name; });
                 }
             });
             if (!preOk) { samToast('error', 'スペースコインの控除に失敗したため、融合を開始できません'); return; }
@@ -2307,17 +2329,17 @@
             var ok0 = writeBackMvu(function(statData) {
                 var _ctx0 = shopResolveCharacter(statData, _actor0);
                 var _ch0 = _ctx0.character || {};
-                _ch0.血统 = _ch0.血统 || {};
-                if (b.owned) delete _ch0.血统[b.name];
+                _ch0.血統 = _ch0.血統 || {};
+                if (b.owned) delete _ch0.血統[b.name];
                 if (bloodFusionSnap && bloodFusionShopItem) {
-                    shopAppendReceipt(statData, shopReceiptLine('血統融合', bloodFusionShopItem.name+' → '+rollName0, bloodFusionSnap.price, statData.角色.スペースコイン, (bloodFusionActionActor === SHOP_ACTOR_REINCARNATOR ? '角色' : bloodFusionActionActor)));
+                    shopAppendReceipt(statData, shopReceiptLine('血統融合', bloodFusionShopItem.name+' → '+rollName0, bloodFusionSnap.price, statData.キャラ.スペースコイン, (bloodFusionActionActor === SHOP_ACTOR_REINCARNATOR ? 'キャラ' : bloodFusionActionActor)));
                 }
                 var _ulib0 = shopGetActorLibRaw(statData.商城, _actor0);
-                if (_ulib0 && Array.isArray(_ulib0.升级列表) && consumedNames0.length) {
-                    _ulib0.升级列表 = _ulib0.升级列表.filter(function(u) {
-                        var upCat = String(shopPick(u, 'category','所属大类','类型','type') || '');
-                        var tgt = String(shopPick(u, 'replace_target','替换目标') || '');
-                        if (upCat === '血统' && tgt && consumedNames0.indexOf(tgt) >= 0) return false;
+                if (_ulib0 && Array.isArray(_ulib0.升級リスト) && consumedNames0.length) {
+                    _ulib0.升級リスト = _ulib0.升級リスト.filter(function(u) {
+                        var upCat = String(shopPick(u, 'category','所属カテゴリ','タイプ','type') || '');
+                        var tgt = String(shopPick(u, 'replace_target','置換対象') || '');
+                        if (upCat === '血統' && tgt && consumedNames0.indexOf(tgt) >= 0) return false;
                         return true;
                     });
                 }
@@ -2326,13 +2348,13 @@
                 if (bloodFusionSnap) {
                     try {
                         writeBackMvu(function(statData) {
-                            statData.角色 = statData.角色 || {};
-                            statData.角色.スペースコイン = safeNum(statData.角色.スペースコイン, 0) + bloodFusionSnap.price;
-                            statData.角色.权限凭证 = statData.角色.权限凭证 || {};
-                            shopCredentialRefund(statData.角色.权限凭证, bloodFusionSnap.credentialRequirements || {});
+                            statData.キャラ = statData.キャラ || {};
+                            statData.キャラ.スペースコイン = safeNum(statData.キャラ.スペースコイン, 0) + bloodFusionSnap.price;
+                            statData.キャラ.権限証憑 = statData.キャラ.権限証憑 || {};
+                            shopCredentialRefund(statData.キャラ.権限証憑, bloodFusionSnap.credentialRequirements || {});
                             if (bloodFusionSnap.preBloodLib !== null && statData.商城) {
                                 var _rlib0 = shopGetActorLibRaw(statData.商城, bloodFusionSnap.preActor);
-                                if (_rlib0) _rlib0.血统列表 = bloodFusionSnap.preBloodLib.slice();
+                                if (_rlib0) _rlib0.血統リスト = bloodFusionSnap.preBloodLib.slice();
                             }
                         });
                     } catch(eRoll0) { try { console.warn('[主神终端] '+rollName0+' 書き戻し失敗時のロールバック例外:', eRoll0.message); } catch(e2){} }
@@ -2370,9 +2392,9 @@
         var content = ''
             + '属性システム (下層定義):\n'
             + '  基礎五維 (判定基準):\n'
-            + '    力量: 近接/重量/破壊\n'
+            + '    筋力: 近接/重量/破壊\n'
             + '    敏捷: 平衡/隠密/照準\n'
-            + '    体质: 生命/耐性/回復\n'
+            + '    体力: 生命/耐性/回復\n'
             + '    精神: 詠唱/察知/意志\n'
             + '    魅力: 社交/欺瞞/威圧\n'
             + '  資源属性:\n'
@@ -2388,7 +2410,7 @@
             + '    MDEF: 術法防御\n'
             + '    AP: 術法強度の乗算区画\n'
             + '  行動属性 (グローバルで追加禁止):\n'
-            + '    先攻DC: 行動順\n'
+            + '    先制DC: 行動順\n'
             + '    防御DC: 被命中難易度\n';
         // ワールドブック内容の取得呼び出し
         content += await getWorldBookContent('⚙️生命层级与社会生态'); 
@@ -2406,16 +2428,16 @@
             + '【严格输出格式】\n'
             + 'YAML テキストのみを出力し、説明や markdown のコードフェンスは不要です。\n'
             + 'フィールドの型は厳密に従ってください:\n'
-            + '  - 品质: 文字列, F / E / D / C / B / A / S / SS / SSS のみ\n'
-            + '  - 标签: インライン配列 [\'标签1\', \'标签2\'...]\n'
-            + '  - 原始属性: インラインオブジェクト、段階付けは《品质效果数值规则》に従う; 血統は五維（力量、敏捷、体质、精神、魅力）を完全に含むこと、装備は有効な非0項目のみ記述\n'
-            + '  - 效果: インラインオブジェクト {效果名: \'描述\'}, キーは文字列, 値は文字列の説明\n'
-            + '  - 价格: 数値(スペースコイン)\n'
-            + '  - 描述/消耗: 字符串\n'
-            + '  - 类型:\n'
-            + '      技能列表.类型 = 数値 0(アクティブ) / 1(パッシブ) / 2(特殊)\n'
-            + '  - 替换目标: 文字列 (【形态列表】内でのみ必須、プレイヤーが現在所持する元アイテム名と一字一句違わず一致させること！)\n'
-            + '  - 道具列表.数量 = 数値(この商品を購入可能な在庫数, ≥1)\n'
+            + '  - 品質: 文字列, F / E / D / C / B / A / S / SS / SSS のみ\n'
+            + '  - タグ: インライン配列 [\'标签1\', \'标签2\'...]\n'
+            + '  - 原始属性: インラインオブジェクト、段階付けは《品質効果数値規則》に従う; 血統は五維（力量、敏捷、体质、精神、魅力）を完全に含むこと、装備は有効な非0項目のみ記述\n'
+            + '  - 効果: インラインオブジェクト {效果名: \'説明\'}, キーは文字列, 値は文字列の説明\n'
+            + '  - 価格: 数値(スペースコイン)\n'
+            + '  - 説明/消費: 字符串\n'
+            + '  - タイプ:\n'
+            + '      技能リスト.タイプ = 数値 0(アクティブ) / 1(パッシブ) / 2(特殊)\n'
+            + '  - 置換対象: 文字列 (【形态列表】内でのみ必須、プレイヤーが現在所持する元アイテム名と一字一句違わず一致させること！)\n'
+            + '  - 道具リスト.数量 = 数値(この商品を購入可能な在庫数, ≥1)\n'
             + 'オブジェクトのキーに英語のピリオドは使用禁止、口径系のX.YmmはX·Yと統一して記述（例：5.56mm弾薬→5·56弾薬）;\n'
 
         // 融合レンダリング prompt の構築: フロントはすでに bloodFusionRoll で重みに従って【确定结果】を roll 済み,
@@ -2431,11 +2453,11 @@
                 + 'この結果に対応する規則は以下のとおりで、必ずこの規則に厳密に従ってフォーマットデータを生成すること:\n' + rulesText + '\n\n'
                 + '  - 【组件替换规则】:\n'
                 + '     * 融合結果が新形態を生み出して旧形態を置き換える場合、替换目标 を必ず記入すること。\n'
-                + '     * 替换目标 は下記の【已有形态】の実際の名簿から一字一句選ぶこと; 名簿外・削除済み・存在しない形態名を使用してはならない。\n'
-                + '     * 替换目标 に対応するコンポーネントはバックグラウンドで削除され、説明文の形で残すことは許されない。\n'
+                + '     * 置換対象 は下記の【已有形态】の実際の名簿から一字一句選ぶこと; 名簿外・削除済み・存在しない形態名を使用してはならない。\n'
+                + '     * 置換対象 に対応するコンポーネントはバックグラウンドで削除され、説明文の形で残すことは許されない。\n'
                 + '     * 融合規則が詞条の消去を要求する場合、再構築を許可し、旧詞条は継承しない。\n'
                 + '     * 融合規則が強化継承を要求する場合、有効な詞条を完全に移行すること。\n'
-                + '     * 融合結果が形態能力を生まない場合、形态列表の出力は空とし、変身体系を無理に創造してはならない, 替换目标 には"无"を記入する。\n'
+                + '     * 融合結果が形態能力を生まない場合、形态列表の出力は空とし、変身体系を無理に創造してはならない, 置換対象 には"无"を記入する。\n'
                 + '     * 説明文に"已删除形态"、"删除 XX 形态"など、もはや存在しない形態への参照を一切含めてはならない, 【已有形态】の名簿のみに基づいて客観的に記述すること。\n'
                 + '  - 【形态生成规则】:\n'
                 + '     * 形態は独立した戦闘モードに属し、主血統の階層判定を継承しない。\n'
@@ -2443,31 +2465,31 @@
                 + '     * 形態の原始属性は自身の特徴と戦闘定位に従って生成し、主血統の属性を複製・継承・微調整してはならない。\n'
                 + 'YAML 形式のみを出力すること, フィールドは以下のとおり:\n'
                 + '融合结果: ' + result.name + '\n'
-                + '血统列表:\n'
+                + '血統リスト:\n'
                 + '  - 名称: 最終血統の名称\n'
-                + '    品质: F\n'
-                + '    标签: [标签]\n'
-                + '    原始属性: {力量: C, 敏捷: E, 体质: D, 精神: F, 魅力: E}\n'
-                + '    效果: {词条: 描述}\n'
-                + '    描述: 結果の説明\n\n'
+                + '    品質: F\n'
+                + '    タグ: [タグ]\n'
+                + '    原始属性: {筋力: C, 敏捷: E, 体力: D, 精神: F, 魅力: E}\n'
+                + '    効果: {词条: 説明}\n'
+                + '    説明: 結果の説明\n\n'
                 + '形态列表:\n'
                 + '  - 名称: 形態名\n'
-                + '    替换目标: 元の形態の正確な名称 (例: 人狼形態)\n'
-                + '    层级: {形態自身の戦闘位格に従って生成, Ⅰ－Ⅸ}\n'
-                + '    消耗: HP/EP/特殊資源\n'
-                + '    状态: 完好\n'
-                + '    标签: ["主神空间", 依存する道具/血統/来源など]\n'
-                + '    原始属性: {基础属性/衍生属性: 品质}\n'
-                + '    效果: { [词条]: 描述 }\n'
+                + '    置換対象: 元の形態の正確な名称 (例: 人狼形態)\n'
+                + '    階層: {形態自身の戦闘位格に従って生成, Ⅰ－Ⅸ}\n'
+                + '    消費: HP/EP/特殊資源\n'
+                + '    状態: 完好\n'
+                + '    タグ: ["主神空間", 依存する道具/血統/来源など]\n'
+                + '    原始属性: {基础属性/衍生属性: 品質}\n'
+                + '    効果: { [词条]: 説明 }\n'
                 + '    技能: {\n'
                 + '     - 名称: スキル名\n'
-                + '       品质: F\n'
-                + '       类型: 0\n'
-                + '       标签: ["主神空间", "被动"]\n'
-                + '       效果: {射击校准: 射击检定+5}\n'
-                + '       描述: 簡潔な説明\n'
-                + '       消耗: 无}\n'
-                + '    描述: 簡潔な説明\n'
+                + '       品質: F\n'
+                + '       タイプ: 0\n'
+                + '       タグ: ["主神空間", "被动"]\n'
+                + '       効果: {射击校准: 射击检定+5}\n'
+                + '       説明: 簡潔な説明\n'
+                + '       消費: 无}\n'
+                + '    説明: 簡潔な説明\n'
                 + '注意: "基因崩溃" と "崩坏消散" は新しい血統を生まない, ただし結果として A の元血統を返す必要がある(説明の中で B が永久消耗することを述べる)。\n\n'
                 + 'A=' + JSON.stringify(a)
                 + '\nB=' + JSON.stringify(b);
@@ -2487,22 +2509,22 @@
                 var v = dict[k] || {};
                 var info = [];
 
-                if (v.品质) info.push(v.品质 + '级');
+                if (v.品質) info.push(v.品質 + '级');
                 if (v.数量 != null) info.push('数量:' + v.数量);
-                if (v.消耗) info.push('消耗:' + v.消耗);
-                if (Array.isArray(v.标签) && v.标签.length > 0) info.push('标签:' + v.标签.join('、'));
+                if (v.消費) info.push('消費:' + v.消費);
+                if (Array.isArray(v.タグ) && v.タグ.length > 0) info.push('タグ:' + v.タグ.join('、'));
                 // 属性と効果はオブジェクトなので JSON.stringify で平坦化して表示
                 if (v.原始属性 && Object.keys(v.原始属性).length > 0) info.push('属性:' + JSON.stringify(v.原始属性));
-                if (v.效果 && Object.keys(v.效果).length > 0) info.push('效果:' + JSON.stringify(v.效果));
+                if (v.効果 && Object.keys(v.効果).length > 0) info.push('効果:' + JSON.stringify(v.効果));
                 if (v.技能) info.push('技能:' + JSON.stringify(v.技能));
-                if (v.描述) info.push('描述:' + v.描述);
+                if (v.説明) info.push('説明:' + v.説明);
                 
                 // 出力形式の例: "  - 御剑术 [F级 | 消耗:8MP | 效果:{"主动":"..."} | 描述:...]"
                 return '  - ' + k + ' [' + info.join(' | ') + ']';
             }).join('\n');
         }
         // 既存の形態名(AIの重複回避+構築適合を支援)
-        var formData = p.形态库 || {};
+        var formData = p.形態庫 || {};
         if (Object.keys(formData).length) parts.push('已有形态:\n' + formatDict(formData));
         
         var playerCtx = parts.join('\n');
@@ -2514,7 +2536,7 @@
             var out = await shopCallAI(sysPrompt, userPrompt);
             // ターン検証: ユーザーが"融合停止"を押すか新しい融合を再開すると epoch が変わる, 遅れて届いた結果は破棄
             if (myEpoch !== bloodFusionEpoch || !bloodFusionBusy) return;
-            var parsed = shopParseMarketText(out), result = parsed.血统列表 && parsed.血统列表[0];
+            var parsed = shopParseMarketText(out), result = parsed.血統リスト && parsed.血統リスト[0];
             if (!result || !result.名称) throw new Error('融合結果の形式が無効');
             var resultName = result.名称;
             // AI が 形态列表(融合で新形態を生成)を返す場合がある, 升级列表 の replace_target と同じ処理方式:
@@ -2539,33 +2561,33 @@
                     if (!s || typeof s !== 'object') return;
                     var sn = shopPick(s, 'name','名称');
                     if (!sn) return;
-                    var stn = shopPick(s, 'type','类型');
+                    var stn = shopPick(s, 'type','タイプ');
                     var stNum = (typeof stn === 'number') ? stn
                         : (typeof stn === 'string' && /^\d+$/.test(String(stn))) ? parseInt(String(stn), 10) : 0;
                     skillsMap[sn] = {
-                        品质:  shopPick(s, 'rating','品质','品级','评级') || 'F',
-                        类型:  stNum,
-                        标签:  shopEnsureSourceTag(shopPick(s, 'tags','标签')),
-                        效果:  shopPick(s, 'effects','效果') || {},
-                        描述:  shopPick(s, 'description','描述','说明') || '',
-                        消耗:  shopPick(s, '消费','消耗','cost') || '无'
+                        品質:  shopPick(s, 'rating','品質','品级','评级') || 'F',
+                        タイプ:  stNum,
+                        タグ:  shopEnsureSourceTag(shopPick(s, 'tags','タグ')),
+                        効果:  shopPick(s, 'effects','効果') || {},
+                        説明:  shopPick(s, 'description','説明','説明') || '',
+                        消費:  shopPick(s, '消费','消費','cost') || '无'
                     };
                 });
-                var tagsVal = shopPick(raw, 'tags','标签');
+                var tagsVal = shopPick(raw, 'tags','タグ');
                 if (typeof tagsVal === 'string') tagsVal = [tagsVal];
                 return {
                     _name:      name,                                                   // 形态库 へ書き込む際の key (ZOD strip, ライブラリには入らない)
-                    _replace:   shopPick(raw, 'replace_target','替换目标') || '',         // 書き込み前に旧形態を削除する用途 (ZOD strip, ライブラリには入らない)
+                    _replace:   shopPick(raw, 'replace_target','置換対象') || '',         // 書き込み前に旧形態を削除する用途 (ZOD strip, ライブラリには入らない)
                     // 形態フィールドは"品质"から"层级"へ変更済み(生命階層 Ⅰ~Ⅸ); 层级/tier, AI が 品质 を出力する場合にも対応
-                    层级:       tierRomanOf(shopPick(raw, 'tier','层级','rating','品质','品级','评级') || 'Ⅰ'),
-                    消耗:       shopPick(raw, 'cost','消耗') || '',
+                    階層:       tierRomanOf(shopPick(raw, 'tier','階層','rating','品質','品级','评级') || 'Ⅰ'),
+                    消費:       shopPick(raw, 'cost','消費') || '',
                     冷却:       shopPick(raw, 'cooldown','冷却') || '0回合',
-                    状态:       shopPick(raw, 'status','状态') || '完好',
-                    标签:       shopEnsureSourceTag(Array.isArray(tagsVal) ? tagsVal : []),
+                    状態:       shopPick(raw, 'status','状態') || '完好',
+                    タグ:       shopEnsureSourceTag(Array.isArray(tagsVal) ? tagsVal : []),
                     原始属性:   shopPick(raw, '原始属性','基础属性','属性') || {},
-                    效果:       shopPick(raw, 'effects','效果','特效','特殊效果') || {},
+                    効果:       shopPick(raw, 'effects','効果','特效','特殊效果') || {},
                     技能:       skillsMap,
-                    描述:       shopPick(raw, 'description','描述','说明') || ''
+                    説明:       shopPick(raw, 'description','説明','説明') || ''
                 };
             }
             var forms = [];
@@ -2582,20 +2604,20 @@
             var ok = writeBackMvu(function(statData) {
                 var _fctx = shopResolveCharacter(statData, _fActor);
                 var _fch = _fctx.character || {};
-                _fch.血统 = _fch.血统 || {};
-                delete _fch.血统[a.name];
-                if (b.owned) delete _fch.血统[b.name];
-                _fch.血统[resultName] = result;
+                _fch.血統 = _fch.血統 || {};
+                delete _fch.血統[a.name];
+                if (b.owned) delete _fch.血統[b.name];
+                _fch.血統[resultName] = result;
                 if (bloodFusionSnap && bloodFusionShopItem) {
-                    shopAppendReceipt(statData, shopReceiptLine('血统融合', bloodFusionShopItem.name+' → '+resultName, bloodFusionSnap.price, statData.角色.スペースコイン, (bloodFusionActionActor === SHOP_ACTOR_REINCARNATOR ? '角色' : bloodFusionActionActor)));
+                    shopAppendReceipt(statData, shopReceiptLine('血统融合', bloodFusionShopItem.name+' → '+resultName, bloodFusionSnap.price, statData.キャラ.スペースコイン, (bloodFusionActionActor === SHOP_ACTOR_REINCARNATOR ? 'キャラ' : bloodFusionActionActor)));
                 }
                 // 升级列表の整理: "类型=血统 の昇級項目" かつ replace_target が今回消費された元血統名に一致 → 削除
                 var _fulib = shopGetActorLibRaw(statData.商城, _fActor);
-                if (_fulib && Array.isArray(_fulib.升级列表) && consumedNames.length) {
-                    _fulib.升级列表 = _fulib.升级列表.filter(function(u) {
-                        var upCat = String(shopPick(u, 'category','所属大类','类型','type') || '');
-                        var tgt = String(shopPick(u, 'replace_target','替换目标') || '');
-                        if (upCat === '血统' && tgt && consumedNames.indexOf(tgt) >= 0) return false;
+                if (_fulib && Array.isArray(_fulib.升級リスト) && consumedNames.length) {
+                    _fulib.升級リスト = _fulib.升級リスト.filter(function(u) {
+                        var upCat = String(shopPick(u, 'category','所属カテゴリ','タイプ','type') || '');
+                        var tgt = String(shopPick(u, 'replace_target','置換対象') || '');
+                        if (upCat === '血統' && tgt && consumedNames.indexOf(tgt) >= 0) return false;
                         return true;
                     });
                 }
@@ -2603,15 +2625,15 @@
                 //   normalizeForm が出力する spec は _name/_replaceを含む( ZOD form_item で strip, 位置特定専用),
                 //   よって厳密クローンでは form_item schema のフィールドのみを残して 形态库 へ書き込み, _name/_replaceを持ち込まない
                 if (forms.length) {
-                    _fch.形态库 = _fch.形态库 || {};
+                    _fch.形態庫 = _fch.形態庫 || {};
                     for (var fk = 0; fk < forms.length; fk++) {
                         var f = forms[fk];
                         // 防御: AI が記入した"替换目标"が現在の形态库に無い場合(削除済み/編造), 強制的に"无"へ変更して孤立形態への参照が結果テキストへ漏れるのを防ぐ
-                        if (f._replace && f._replace !== '无' && !_fch.形态库[f._replace]) {
+                        if (f._replace && f._replace !== '无' && !_fch.形態庫[f._replace]) {
                             f._replace = '无';
                         }
-                        if (f._replace && f._replace !== '无' && _fch.形态库[f._replace]) {
-                            delete _fch.形态库[f._replace];
+                        if (f._replace && f._replace !== '无' && _fch.形態庫[f._replace]) {
+                            delete _fch.形態庫[f._replace];
                         }
                         // 派生項目(ATK/DEF/MATK/MDEF/AP)の値が0のものは除外し、データベースへ書き込まない
                         var _fDerived = ['ATK','DEF','MATK','MDEF','AP'];
@@ -2620,17 +2642,17 @@
                             if (String(_fAttrs[_fDerived[_dk]]).trim() === '0') delete _fAttrs[_fDerived[_dk]];
                         }
                         // 形態フィールドは"品质"から"层级"へ変更済み(生命階層 Ⅰ~Ⅸ); AI が 品质 を出力した場合のフォールバック補正に対応
-                        var _fTier = f.层级 != null ? f.层级 : f.品质;
-                        _fch.形态库[f._name] = {
-                            层级:     tierRomanOf(_fTier || 'Ⅰ'),
-                            消耗:     f.消耗,
+                        var _fTier = f.階層 != null ? f.階層 : f.品質;
+                        _fch.形態庫[f._name] = {
+                            階層:     tierRomanOf(_fTier || 'Ⅰ'),
+                            消費:     f.消費,
                             冷却:     f.冷却,
-                            状态:     f.状态,
-                            标签:     f.标签,
+                            状態:     f.状態,
+                            タグ:     f.タグ,
                             原始属性: _fAttrs,
-                            效果:     f.效果,
+                            効果:     f.効果,
                             技能:     f.技能,
-                            描述:     f.描述
+                            説明:     f.説明
                         };
                     }
                 }
@@ -2654,7 +2676,7 @@
             closeModal(); bloodFusionBusy = false; bloodFusionShopItem = null; bloodFusionResult = null; bloodFusionConsumedNames = [];
             renderAll();
             // 結果説明に残り得る"已删除形态/删除 XX 形态"の誤導テキストを除去(AI が存在しない形態を参照することがある)
-            var descRaw = String(result.描述 || '主神融合アルゴリズムが今回の血統再構成を完了しました。');
+            var descRaw = String(result.説明 || '主神融合アルゴリズムが今回の血統再構成を完了しました。');
             var descClean = descRaw.replace(/已删除(的)?\s*[^，。、;；\n]*形态/g, '形態スロットをリセット済み').replace(/删除\s*[^，。、;；\n]*形态/g, '形態スロットをリセット済み');
             showModal('融合結果 · '+rollName, '<div class="sam-shop-ok">融合完了：'+esc(rollName)+'</div><div class="sam-full-card">'+esc(descClean)+'</div>'
                 + (forms.length ? '<div class="sam-shop-ok" style="margin-top:8px">今回の融合で獲得した新形態：'+forms.map(function(f){return esc(f._name);}).join('、')+'</div>' : ''));
@@ -2666,13 +2688,13 @@
             if (bloodFusionSnap) {
                 try {
                     writeBackMvu(function(statData) {
-                        statData.角色 = statData.角色 || {};
-                        statData.角色.スペースコイン = safeNum(statData.角色.スペースコイン, 0) + bloodFusionSnap.price;
-                        statData.角色.权限凭证 = statData.角色.权限凭证 || {};
-                        shopCredentialRefund(statData.角色.权限凭证, bloodFusionSnap.credentialRequirements || {});
+                        statData.キャラ = statData.キャラ || {};
+                        statData.キャラ.スペースコイン = safeNum(statData.キャラ.スペースコイン, 0) + bloodFusionSnap.price;
+                        statData.キャラ.権限証憑 = statData.キャラ.権限証憑 || {};
+                        shopCredentialRefund(statData.キャラ.権限証憑, bloodFusionSnap.credentialRequirements || {});
                         if (bloodFusionSnap.preBloodLib !== null && statData.商城) {
                             var _rlibF = shopGetActorLibRaw(statData.商城, bloodFusionSnap.preActor);
-                            if (_rlibF) _rlibF.血统列表 = bloodFusionSnap.preBloodLib.slice();
+                            if (_rlibF) _rlibF.血統リスト = bloodFusionSnap.preBloodLib.slice();
                         }
                     });
                 } catch(eRoll) { try { console.warn('[主神端末] 融合失敗ロールバック異常:', eRoll.message); } catch(e2){} }
@@ -2684,31 +2706,31 @@
     }
     function bloodFusionDirectPurchase() {
         var item = bloodFusionShopItem, sd = getStatData();
-        if (!item || !sd || !sd.角色) return;
+        if (!item || !sd || !sd.キャラ) return;
         var dpActor = bloodFusionActionActor || SHOP_ACTOR_REINCARNATOR;
         var dpCtx = shopResolveCharacter(sd, dpActor);
         var dpCh = dpCtx.character;
         if (!dpCh) { samToast('error', '対象キャラクターのデータが存在しない, 購入できません'); return; }
-        if (safeNum(sd.角色.スペースコイン, 0) < safeNum(item.price, 0)) { samToast('warning', 'スペースコイン不足のため購入できません'); return; }
+        if (safeNum(sd.キャラ.スペースコイン, 0) < safeNum(item.price, 0)) { samToast('warning', 'スペースコイン不足のため購入できません'); return; }
         var dpCredentialRequirements = {};
         var dpCredentialRequirement = shopCredentialRequirement(dpCh, item);
         if (dpCredentialRequirement.required) dpCredentialRequirements[dpCredentialRequirement.grade] = 1;
-        var dpCredentialShortages = shopCredentialShortages(sd.角色.权限凭证, dpCredentialRequirements);
+        var dpCredentialShortages = shopCredentialShortages(sd.キャラ.権限証憑, dpCredentialRequirements);
         if (dpCredentialShortages.length) { samToast('warning', '権限証憑不足：'+shopCredentialShortageText(dpCredentialShortages)); return; }
         // 血統が満杯の場合はフロント側で"融合/置換"の二択へ分岐済み, ここはフォールバックの無言ブロックのみで, ダイアログは出さない
-        var cap = BLOODLINE_CAP, count = Object.keys(dpCh.血统 || {}).length;
+        var cap = BLOODLINE_CAP, count = Object.keys(dpCh.血統 || {}).length;
         if (count >= cap) return;
         var blood = shopToBloodlineVar(item);
         var ok = writeBackMvu(function(statData) {
             var _dctx = shopResolveCharacter(statData, dpActor);
             var _dch = _dctx.character || {};
-            _dch.血统 = _dch.血统 || {}; _dch.血统[item.name] = blood;
-            statData.角色.权限凭证 = statData.角色.权限凭证 || {};
-            if (!shopCredentialConsume(statData.角色.权限凭证, dpCredentialRequirements)) throw new Error('権限証憑の控除に失敗');
-            statData.角色.スペースコイン = Math.max(0, safeNum(statData.角色.スペースコイン, 0) - safeNum(item.price, 0));
+            _dch.血統 = _dch.血統 || {}; _dch.血統[item.name] = blood;
+            statData.キャラ.権限証憑 = statData.キャラ.権限証憑 || {};
+            if (!shopCredentialConsume(statData.キャラ.権限証憑, dpCredentialRequirements)) throw new Error('権限証憑の控除に失敗');
+            statData.キャラ.スペースコイン = Math.max(0, safeNum(statData.キャラ.スペースコイン, 0) - safeNum(item.price, 0));
             var _dlib = shopGetActorLibRaw(statData.商城, dpActor);
-            if (_dlib && Array.isArray(_dlib.血统列表)) _dlib.血统列表 = _dlib.血统列表.filter(function(x){ return safeStr(x.名称) !== item.name; });
-            shopAppendReceipt(statData, shopReceiptLine('购买血统', item.name, item.price, statData.角色.スペースコイン, (dpActor === SHOP_ACTOR_REINCARNATOR ? '角色' : dpActor)));
+            if (_dlib && Array.isArray(_dlib.血統リスト)) _dlib.血統リスト = _dlib.血統リスト.filter(function(x){ return safeStr(x.名称) !== item.name; });
+            shopAppendReceipt(statData, shopReceiptLine('购买血统', item.name, item.price, statData.キャラ.スペースコイン, (dpActor === SHOP_ACTOR_REINCARNATOR ? 'キャラ' : dpActor)));
         });
         if (ok) { closeModal(); bloodFusionShopItem = null; shopCart = []; renderAll(); samToast('success', '血統を購入しました：'+item.name); }
     }
@@ -2719,14 +2741,14 @@
         var sd = getStatData();
         var rctx = shopResolveCharacter(sd, bloodFusionActionActor || SHOP_ACTOR_REINCARNATOR);
         var rch = rctx.character || {};
-        var rblood = rch.血统 || {};
+        var rblood = rch.血統 || {};
         var rkeys = Object.keys(rblood);
         if (rkeys.length === 0) { samToast('warning', '置換可能な血統がありません'); return; }
         // 候補は品質の降順で表示し, 既定では最後の項目を選択(通常は品質が最も低く、置換に最適)
         var sorted = rkeys.slice().sort(function(p,q){ return bloodFusionRankOf({data:rblood[q]||{}}) - bloodFusionRankOf({data:rblood[p]||{}}); });
         var opts = '';
         for (var i = 0; i < sorted.length; i++) {
-            opts += '<option value="'+esc(sorted[i])+'"'+(i === sorted.length-1 ? ' selected' : '')+'>'+esc(sorted[i])+' · '+esc((rblood[sorted[i]]||{}).品质 || 'F')+'</option>';
+            opts += '<option value="'+esc(sorted[i])+'"'+(i === sorted.length-1 ? ' selected' : '')+'>'+esc(sorted[i])+' · '+esc((rblood[sorted[i]]||{}).品質 || 'F')+'</option>';
         }
         var html = '<div style="font-size:12px;color:var(--sam-sub);line-height:1.7;margin-bottom:10px">'
             + '購入 <b style="color:var(--sam-accent)">'+esc(item.name)+' · '+esc(item.rating || 'F')+'</b>(価格 '+safeNum(item.price,0)+' スペースコイン)後、選択した既存血統は<b style="color:var(--sam-hp)">永久に削除</b>され、関連する昇級サービス商品も同時に削除されます。この操作は取り消せません。</div>'
@@ -2740,63 +2762,63 @@
     }
     function bloodFusionReplacePurchase(targetName) {
         var item = bloodFusionShopItem, sd = getStatData();
-        if (!item || !sd || !sd.角色 || !targetName) return;
+        if (!item || !sd || !sd.キャラ || !targetName) return;
         var rpActor = bloodFusionActionActor || SHOP_ACTOR_REINCARNATOR;
         var rpCtx = shopResolveCharacter(sd, rpActor);
         var rpCh = rpCtx.character;
         if (!rpCh) { samToast('error', '対象キャラクターのデータが存在しない, 購入できません'); return; }
-        if (!(rpCh.血统 && rpCh.血统[targetName])) { samToast('error', '置換対象の血統が見つかりません'); return; }
-        if (safeNum(sd.角色.スペースコイン, 0) < safeNum(item.price, 0)) { samToast('warning', 'スペースコイン不足のため購入できません'); return; }
+        if (!(rpCh.血統 && rpCh.血統[targetName])) { samToast('error', '置換対象の血統が見つかりません'); return; }
+        if (safeNum(sd.キャラ.スペースコイン, 0) < safeNum(item.price, 0)) { samToast('warning', 'スペースコイン不足のため購入できません'); return; }
         var rpCredentialRequirements = {};
         var rpCredentialRequirement = shopCredentialRequirement(rpCh, item);
         if (rpCredentialRequirement.required) rpCredentialRequirements[rpCredentialRequirement.grade] = 1;
-        var rpCredentialShortages = shopCredentialShortages(sd.角色.权限凭证, rpCredentialRequirements);
+        var rpCredentialShortages = shopCredentialShortages(sd.キャラ.権限証憑, rpCredentialRequirements);
         if (rpCredentialShortages.length) { samToast('warning', '権限証憑不足：'+shopCredentialShortageText(rpCredentialShortages)); return; }
         var blood = shopToBloodlineVar(item);
         var ok = writeBackMvu(function(statData) {
             var _rctx = shopResolveCharacter(statData, rpActor);
             var _rch = _rctx.character || {};
-            _rch.血统 = _rch.血统 || {};
-            statData.角色.权限凭证 = statData.角色.权限凭证 || {};
-            if (!shopCredentialConsume(statData.角色.权限凭证, rpCredentialRequirements)) throw new Error('権限証憑の控除に失敗');
-            delete _rch.血统[targetName];              // 置換される旧血統を削除
-            _rch.血统[item.name] = blood;              // ショップで購入した新血統を書き込む
-            statData.角色.スペースコイン = Math.max(0, safeNum(statData.角色.スペースコイン, 0) - safeNum(item.price, 0));
+            _rch.血統 = _rch.血統 || {};
+            statData.キャラ.権限証憑 = statData.キャラ.権限証憑 || {};
+            if (!shopCredentialConsume(statData.キャラ.権限証憑, rpCredentialRequirements)) throw new Error('権限証憑の控除に失敗');
+            delete _rch.血統[targetName];              // 置換される旧血統を削除
+            _rch.血統[item.name] = blood;              // ショップで購入した新血統を書き込む
+            statData.キャラ.スペースコイン = Math.max(0, safeNum(statData.キャラ.スペースコイン, 0) - safeNum(item.price, 0));
             var _rlib = shopGetActorLibRaw(statData.商城, rpActor);
-            if (_rlib && Array.isArray(_rlib.血统列表)) _rlib.血统列表 = _rlib.血统列表.filter(function(x){ return safeStr(x.名称) !== item.name; });
+            if (_rlib && Array.isArray(_rlib.血統リスト)) _rlib.血統リスト = _rlib.血統リスト.filter(function(x){ return safeStr(x.名称) !== item.name; });
             // ★ 昇級サービス内の置換対象血統向け商品も同時削除(所属大类=血统 かつ replace_target が当該血統を指す)
-            if (_rlib && Array.isArray(_rlib.升级列表)) {
-                _rlib.升级列表 = _rlib.升级列表.filter(function(u) {
-                    var upCat = String(shopPick(u, 'category','所属大类','类型','type') || '');
-                    var tgt = String(shopPick(u, 'replace_target','替换目标') || '');
-                    if (upCat === '血统' && tgt && tgt === targetName) return false;
+            if (_rlib && Array.isArray(_rlib.升級リスト)) {
+                _rlib.升級リスト = _rlib.升級リスト.filter(function(u) {
+                    var upCat = String(shopPick(u, 'category','所属カテゴリ','タイプ','type') || '');
+                    var tgt = String(shopPick(u, 'replace_target','置換対象') || '');
+                    if (upCat === '血統' && tgt && tgt === targetName) return false;
                     return true;
                 });
             }
-            shopAppendReceipt(statData, shopReceiptLine('替换血统', targetName+' → '+item.name, item.price, statData.角色.スペースコイン, (rpActor === SHOP_ACTOR_REINCARNATOR ? '角色' : rpActor)));
+            shopAppendReceipt(statData, shopReceiptLine('替换血统', targetName+' → '+item.name, item.price, statData.キャラ.スペースコイン, (rpActor === SHOP_ACTOR_REINCARNATOR ? 'キャラ' : rpActor)));
         });
         if (ok) { closeModal(); bloodFusionShopItem = null; shopCart = []; renderAll(); samToast('success', '血統を置換しました：'+targetName+' → '+item.name); }
     }
 
     /* ===== 13.5 物資転送(在场NPCへ装備/アイテムを転送) ===== */
     var transferTarget = null;                  // 転送対象NPC名
-    var transferCart = { 装备: {}, 道具: {} };   // 選択項目: { 装备: {key:1}, 道具: {key:qty} }
+    var transferCart = { 装備: {}, 道具: {} };   // 選択項目: { 装备: {key:1}, 道具: {key:qty} }
     function openTransferModal(npcName) {
         var sd = getStatData();
-        var npc = sd && sd.关系列表 && sd.关系列表[npcName];
+        var npc = sd && sd.关系リスト && sd.关系リスト[npcName];
         if (!npc) { samToast('error', '該当キャラクターが見つかりません'); return; }
         transferTarget = npcName;
-        transferCart = { 装备: {}, 道具: {} };
+        transferCart = { 装備: {}, 道具: {} };
         showModal('「'+npcName+'」へ物資を転送', renderTransferList(sd));
     }
     function renderTransferList(sd) {
-        var equips = (sd.角色 && sd.角色.装备) || {};
-        var backpack = (sd.角色 && sd.角色.道具) || {};
+        var equips = (sd.キャラ && sd.キャラ.装備) || {};
+        var backpack = (sd.キャラ && sd.キャラ.道具) || {};
         var eqList = [], bpList = [];
         Object.keys(equips).forEach(function(k) {
             var e = equips[k] || {};
-            if (safeNum(e.状态, 0) === 1) return;   // 装備済み: 除外
-            if (safeNum(e.类型, 0) === 8) return;    // 特殊タイプ: 除外
+            if (safeNum(e.状態, 0) === 1) return;   // 装備済み: 除外
+            if (safeNum(e.タイプ, 0) === 8) return;    // 特殊タイプ: 除外
             eqList.push({ key: k, val: e });
         });
         Object.keys(backpack).forEach(function(k) {
@@ -2807,7 +2829,7 @@
         var html = '<div class="sam-trf-list">';
         if (eqList.length) {
             html += '<div class="sam-trf-sec">⚔ 装備 · '+eqList.length+'</div>';
-            eqList.forEach(function(it) { html += transferItemCard('装备', it.key, it.val, 1); });
+            eqList.forEach(function(it) { html += transferItemCard('装備', it.key, it.val, 1); });
         }
         if (bpList.length) {
             html += '<div class="sam-trf-sec">🎒 アイテム · '+bpList.length+'</div>';
@@ -2817,7 +2839,7 @@
             html += '<div class="sam-empty">転送可能な物資がありません（装備中および特殊装備は自動的に除外）</div>';
         }
         html += '</div>';
-        var hasSel = Object.keys(transferCart.装备).length + Object.keys(transferCart.道具).length > 0;
+        var hasSel = Object.keys(transferCart.装備).length + Object.keys(transferCart.道具).length > 0;
         html += '<div class="sam-trf-footer">';
         html += '<div class="sam-trf-warn">⚠️ 転送を確定すると<strong>取り消し・回収は不可</strong>。物資は直接対象キャラクターに帰属します。よく検討してください。</div>';
         html += '<div class="sam-trf-actions">';
@@ -2829,10 +2851,10 @@
     function transferItemCard(cat, key, item, maxQty) {
         var sel = transferCart[cat][key] != null;
         var selQty = sel ? transferCart[cat][key] : 0;
-        var q = parseRarity(item.品质);
+        var q = parseRarity(item.品質);
         var isItem = (cat === '道具');
         var corner = sel ? (isItem ? '選択済み ×'+selQty : '選択済み') : '';
-        var typeLabel = isItem ? safeStr(item.类型) : (EQUIP_TYPE_MAP[safeNum(item.类型, 0)] || '');
+        var typeLabel = isItem ? safeStr(item.タイプ) : (EQUIP_TYPE_MAP[safeNum(item.タイプ, 0)] || '');
         var attrs = item.原始属性 || {};
         // 属性表示: 品質の英字はそのまま表示し, 数値は0を非表示( formatStatGrid / 装備カードと同一)
         var attrStr = Object.keys(attrs).filter(function(k) {
@@ -2843,7 +2865,7 @@
             var v = attrs[k];
             return esc(k)+' '+(isStatQuality(v) ? safeStr(v) : safeNum(v, 0));
         }).join(' / ');
-        var desc = safeStr(item.描述) || '';
+        var desc = safeStr(item.説明) || '';
         var inner = '<div class="sam-trf-head"><span class="sam-trf-name">'+esc(key)+'</span><span class="sam-trf-qtag q-'+q+'">'+esc(q)+'</span></div>';
         if (typeLabel) inner += '<div class="sam-trf-sub">'+esc(typeLabel) + (isItem ? ' · 所持 '+maxQty : '') + '</div>';
         if (attrStr) inner += '<div class="sam-trf-attrs">'+attrStr+'</div>';
@@ -2865,7 +2887,7 @@
     function transferAdjustQty(cat, key, dir) {
         var sd = getStatData();
         var max = 1;
-        if (cat === '道具') max = safeNum(sd.角色.道具[key] && sd.角色.道具[key].数量, 1);
+        if (cat === '道具') max = safeNum(sd.キャラ.道具[key] && sd.キャラ.道具[key].数量, 1);
         var cur = transferCart[cat][key] != null ? transferCart[cat][key] : 1;
         if (dir === 'plus') cur = Math.min(max, cur + 1);
         else cur = Math.max(1, cur - 1);
@@ -2875,7 +2897,7 @@
     function transferInputQty(cat, key, val) {
         var sd = getStatData();
         var max = 1;
-        if (cat === '道具') max = safeNum(sd.角色.道具[key] && sd.角色.道具[key].数量, 1);
+        if (cat === '道具') max = safeNum(sd.キャラ.道具[key] && sd.キャラ.道具[key].数量, 1);
         var v = Math.max(1, Math.min(max, parseInt(val, 10) || 1));
         transferCart[cat][key] = v;
         refreshTransferModal();
@@ -2889,27 +2911,27 @@
         if ($body.length && saved > 0) { try { $body[0].scrollTop = saved; } catch(e){} }
     }
     function executeTransfer() {
-        var eqKeys = Object.keys(transferCart.装备);
+        var eqKeys = Object.keys(transferCart.装備);
         var bpKeys = Object.keys(transferCart.道具);
         if (eqKeys.length + bpKeys.length === 0) return;
         var npcName = transferTarget;
         samConfirm('転送の確認', '選択した物資を「'+npcName+'」へ転送しますか？この操作は取り消し・回収できません。', function() {
             var ok = writeBackMvu(function(statData) {
                 if (!statData) return;
-                var mc = statData.角色 = statData.角色 || {};
-                mc.装备 = mc.装备 || {}; mc.道具 = mc.道具 || {};
-                var rel = statData.关系列表 = statData.关系列表 || {};
+                var mc = statData.キャラ = statData.キャラ || {};
+                mc.装備 = mc.装備 || {}; mc.道具 = mc.道具 || {};
+                var rel = statData.关系リスト = statData.关系リスト || {};
                 var npc = rel[npcName] = rel[npcName] || {};
-                npc.装备 = npc.装备 || {}; npc.道具 = npc.道具 || {};
+                npc.装備 = npc.装備 || {}; npc.道具 = npc.道具 || {};
                 var movedParts = []; // ★ 実際に転送が成功した明細, 配信待ち記録用
                 // 装備: そのままNPCへ複製(0で未装備), キャラクター側は削除
                 eqKeys.forEach(function(key) {
-                    var e = mc.装备[key];
+                    var e = mc.装備[key];
                     if (!e) return;
                     var copy = (_ && _.cloneDeep) ? _.cloneDeep(e) : JSON.parse(JSON.stringify(e));
-                    copy.状态 = 0;
-                    npc.装备[key] = copy;
-                    delete mc.装备[key];
+                    copy.状態 = 0;
+                    npc.装備[key] = copy;
+                    delete mc.装備[key];
                     movedParts.push('装备「' + key + '」');
                 });
                 // アイテム: 数量単位で転送(NPCが既に持つ場合は加算, 無ければ新規作成; キャラクター側は減算し, 0なら削除)
@@ -2932,12 +2954,12 @@
                 });
                 // ★ フロントからNPCへの物資贈与 → 配信待ち記録に登録(今回の書き戻しと同じタイミングで保存, 本文モデルの叙述後に自動クリア)
                 if (movedParts.length) {
-                    shopAppendReceipt(statData, '[赠送][角色] 向「' + npcName + '」转移 ' + movedParts.join('、'));
+                    shopAppendReceipt(statData, '[赠送][キャラ] 向「' + npcName + '」转移 ' + movedParts.join('、'));
                 }
             });
             if (ok) {
                 var cnt = eqKeys.length + bpKeys.length;
-                transferCart = { 装备: {}, 道具: {} };
+                transferCart = { 装備: {}, 道具: {} };
                 transferTarget = null;
                 closeModal();
                 samToast('success', '「'+npcName+'」へ '+cnt+' 件の物資を転送しました');
@@ -2953,26 +2975,26 @@
         if (!n || typeof n !== 'object') return false;
         var hp = safeNum(n.HP, 0);
         if (hp <= 0) return true;
-        var isExplicitlyDead = n.状态 && Object.keys(n.状态).some(function(key) { return key.indexOf('死亡') >= 0; });
+        var isExplicitlyDead = n.状態 && Object.keys(n.状態).some(function(key) { return key.indexOf('死亡') >= 0; });
         return !!isExplicitlyDead;
     }
     var lootTarget = null;
-    var lootCart = { 装备: {}, 道具: {} };
+    var lootCart = { 装備: {}, 道具: {} };
     function openLootModal(npcName) {
         var sd = getStatData();
-        var npc = sd && sd.关系列表 && sd.关系列表[npcName];
+        var npc = sd && sd.关系リスト && sd.关系リスト[npcName];
         if (!npc) { samToast('error', '該当キャラクターが見つかりません'); return; }
         lootTarget = npcName;
-        lootCart = { 装备: {}, 道具: {} };
+        lootCart = { 装備: {}, 道具: {} };
         showModal('「'+npcName+'」から遺物を取得', renderLootList(npc));
     }
     function renderLootList(npc) {
-        var equips = npc.装备 || {};
+        var equips = npc.装備 || {};
         var backpack = npc.道具 || {};
         var eqList = [], bpList = [];
         Object.keys(equips).forEach(function(k) {
             var e = equips[k] || {};
-            if (safeNum(e.类型, 0) === 8) return;
+            if (safeNum(e.タイプ, 0) === 8) return;
             eqList.push({ key: k, val: e });
         });
         Object.keys(backpack).forEach(function(k) {
@@ -2983,7 +3005,7 @@
         var html = '<div class="sam-trf-list">';
         if (eqList.length) {
             html += '<div class="sam-trf-sec">⚔ 装備 · '+eqList.length+'</div>';
-            eqList.forEach(function(it) { html += lootItemCard('装备', it.key, it.val, 1); });
+            eqList.forEach(function(it) { html += lootItemCard('装備', it.key, it.val, 1); });
         }
         if (bpList.length) {
             html += '<div class="sam-trf-sec">🎒 アイテム · '+bpList.length+'</div>';
@@ -2993,7 +3015,7 @@
             html += '<div class="sam-empty">このキャラクターから取得できる物資はありません</div>';
         }
         html += '</div>';
-        var hasSel = Object.keys(lootCart.装备).length + Object.keys(lootCart.道具).length > 0;
+        var hasSel = Object.keys(lootCart.装備).length + Object.keys(lootCart.道具).length > 0;
         html += '<div class="sam-trf-footer">';
         html += '<div class="sam-trf-warn">⚠️ 遺物を取得すると直接キャラクターに帰属し, 返却できません。</div>';
         html += '<div class="sam-trf-actions">';
@@ -3005,10 +3027,10 @@
     function lootItemCard(cat, key, item, maxQty) {
         var sel = lootCart[cat][key] != null;
         var selQty = sel ? lootCart[cat][key] : 0;
-        var q = parseRarity(item.品质);
+        var q = parseRarity(item.品質);
         var isItem = (cat === '道具');
         var corner = sel ? (isItem ? '選択済み ×'+selQty : '選択済み') : '';
-        var typeLabel = isItem ? safeStr(item.类型) : (EQUIP_TYPE_MAP[safeNum(item.类型, 0)] || '');
+        var typeLabel = isItem ? safeStr(item.タイプ) : (EQUIP_TYPE_MAP[safeNum(item.タイプ, 0)] || '');
         var attrs = item.原始属性 || {};
         // 属性表示: 品質の英字はそのまま表示し, 数値は0を非表示( formatStatGrid / 装備カードと同一)
         var attrStr = Object.keys(attrs).filter(function(k) {
@@ -3019,7 +3041,7 @@
             var v = attrs[k];
             return esc(k)+' '+(isStatQuality(v) ? safeStr(v) : safeNum(v, 0));
         }).join(' / ');
-        var desc = safeStr(item.描述) || '';
+        var desc = safeStr(item.説明) || '';
         var inner = '<div class="sam-trf-head"><span class="sam-trf-name">'+esc(key)+'</span><span class="sam-trf-qtag q-'+q+'">'+esc(q)+'</span></div>';
         if (typeLabel) inner += '<div class="sam-trf-sub">'+esc(typeLabel) + (isItem ? ' · 所持 '+maxQty : '') + '</div>';
         if (attrStr) inner += '<div class="sam-trf-attrs">'+attrStr+'</div>';
@@ -3040,7 +3062,7 @@
     }
     function lootAdjustQty(cat, key, dir) {
         var sd = getStatData();
-        var npc = sd && sd.关系列表 && sd.关系列表[lootTarget];
+        var npc = sd && sd.关系リスト && sd.关系リスト[lootTarget];
         if (!npc) return;
         var max = 1;
         if (cat === '道具') max = safeNum(npc.道具[key] && npc.道具[key].数量, 1);
@@ -3052,7 +3074,7 @@
     }
     function lootInputQty(cat, key, val) {
         var sd = getStatData();
-        var npc = sd && sd.关系列表 && sd.关系列表[lootTarget];
+        var npc = sd && sd.关系リスト && sd.关系リスト[lootTarget];
         if (!npc) return;
         var max = 1;
         if (cat === '道具') max = safeNum(npc.道具[key] && npc.道具[key].数量, 1);
@@ -3064,31 +3086,31 @@
         var $body = $('#samsara-modal .sam-modal-body');
         var saved = $body.length ? ($body[0].scrollTop || 0) : 0;
         var sd = getStatData();
-        var npc = sd && sd.关系列表 && sd.关系列表[lootTarget];
+        var npc = sd && sd.关系リスト && sd.关系リスト[lootTarget];
         if (npc) $body.html(renderLootList(npc));
         if ($body.length && saved > 0) { try { $body[0].scrollTop = saved; } catch(e){} }
     }
     function executeLoot() {
-        var eqKeys = Object.keys(lootCart.装备);
+        var eqKeys = Object.keys(lootCart.装備);
         var bpKeys = Object.keys(lootCart.道具);
         if (eqKeys.length + bpKeys.length === 0) return;
         var npcName = lootTarget;
         var ok = writeBackMvu(function(statData) {
             if (!statData) return;
-            var mc = statData.角色 = statData.角色 || {};
-            mc.装备 = mc.装备 || {}; mc.道具 = mc.道具 || {};
-            var rel = statData.关系列表 = statData.关系列表 || {};
+            var mc = statData.キャラ = statData.キャラ || {};
+            mc.装備 = mc.装備 || {}; mc.道具 = mc.道具 || {};
+            var rel = statData.关系リスト = statData.关系リスト || {};
             var npc = rel[npcName] = rel[npcName] || {};
-            npc.装备 = npc.装备 || {}; npc.道具 = npc.道具 || {};
+            npc.装備 = npc.装備 || {}; npc.道具 = npc.道具 || {};
             var lootedParts = []; // ★ 実際に取得が成功した明細, 配信待ち記録用
             // 装備: NPCからキャラクターへ複製(0で未装備), NPC側は削除
             eqKeys.forEach(function(key) {
-                var e = npc.装备[key];
+                var e = npc.装備[key];
                 if (!e) return;
                 var copy = (_ && _.cloneDeep) ? _.cloneDeep(e) : JSON.parse(JSON.stringify(e));
-                copy.状态 = 0;
-                mc.装备[key] = copy;
-                delete npc.装备[key];
+                copy.状態 = 0;
+                mc.装備[key] = copy;
+                delete npc.装備[key];
                 lootedParts.push('装备「' + key + '」');
             });
             // アイテム: 数量単位でNPCからキャラクターへ転送
@@ -3111,12 +3133,12 @@
             });
             // ★ フロントでのNPCからの物資取得 → 配信待ち記録に登録(今回の書き戻しと同じタイミングで保存, 本文モデルの叙述後に自動クリア)
             if (lootedParts.length) {
-                shopAppendReceipt(statData, '[获取][角色] 从「' + npcName + '」处获得 ' + lootedParts.join('、'));
+                shopAppendReceipt(statData, '[获取][キャラ] 从「' + npcName + '」处获得 ' + lootedParts.join('、'));
             }
         });
         if (ok) {
             var cnt = eqKeys.length + bpKeys.length;
-            lootCart = { 装备: {}, 道具: {} };
+            lootCart = { 装備: {}, 道具: {} };
             lootTarget = null;
             closeModal();
             samToast('success', '「'+npcName+'」から '+cnt+' 件の遺物を取得しました');
@@ -3212,7 +3234,7 @@
             if ($(e.target).closest('.sam-tier-infuse-btn').length) return;
             var path = $(this).data('path');
             // ★ 編集モード: NPC カードは許可(キャラクター档案を開いてデータを編集); 他のカードはブロックを維持し,読み取り専用詳細への誤操作を防ぐ
-            var isNpcPath = (typeof path === 'string' && path.indexOf('关系列表.') === 0);
+            var isNpcPath = (typeof path === 'string' && path.indexOf('関係リスト.') === 0);
             if (isEditMode() && !isNpcPath) return;
             var title = $(this).data('title') || '詳細';
             if (path) openDetailModal(path, title);
@@ -3352,10 +3374,10 @@
                 handleRumorClearSection(section);
             });
         });
-        // ★ R21-噂取引: 上部の全噂一括削除 → 传闻.街头巷议/情报交易/布告与檄文を空にする, 確認あり
+        // ★ R21-噂取引: 上部の全噂一括削除 → 传闻.街頭の噂/情报交易/布告与檄文を空にする, 確認あり
         $panel.off('click.samRumorClearAll').on('click.samRumorClearAll', '.sam-rumor-clearall-btn', function(e) {
             e.stopPropagation();
-            samConfirm('全噂を削除', 'すべての噂(街头巷议/情报交易/布告与檄文)を削除しますか？この操作は取り消せません。', function() {
+            samConfirm('全噂を削除', 'すべての噂(街頭の噂/情報取引/布告と檄文)を削除しますか？この操作は取り消せません。', function() {
                 handleRumorClearAll();
             });
         });
@@ -3398,7 +3420,7 @@
             var obj = resolvePath(sd, path);
             if (!obj) return;
             var ed = isEditMode();
-            var html = renderDetailNode(obj, ['真属性'], ['状态', name], ed, ed ? path : '');
+            var html = renderDetailNode(obj, ['真属性'], ['状態', name], ed, ed ? path : '');
             if (!ed) {
                 // 読み取り専用時のフォールバック: 空オブジェクト(真属性のみがマスクされた場合など)にはプレースホルダを表示
                 if (!html || !html.trim()) html = '<div class="sam-empty">表示できる内容がありません</div>';
@@ -3414,28 +3436,28 @@
         $panel.off('click.samSourceInfusion').on('click.samSourceInfusion', '.sam-tier-infuse-btn', function(e) {
             e.preventDefault();
             e.stopPropagation();
-            openSourceInfusion($(this).attr('data-tier-target') || '角色');
+            openSourceInfusion($(this).attr('data-tier-target') || 'キャラ');
         });
         // ★ 進階ボタン(階層プログレスバー中央): 属性の合計ポイントが次階層の下限に達した時のみ表示; 戦闘中はブロック
         //   - 進階申請(進階試練が未完了): "【当前进阶条件已满足，申请进阶试炼】"を入力欄へ送信
-        //   - 進階開始(試練完了): writeBackMvu(角色.层级=nextTier) + renderAll() でプログレスバー/上部階層を更新
+        //   - 進階開始(試練完了): writeBackMvu(角色.階層=nextTier) + renderAll() でプログレスバー/上部階層を更新
         $panel.off('click.samTierAdv').on('click.samTierAdv', '.sam-tier-adv-btn', function(e) {
             e.stopPropagation();
             var $b = $(this);
             var act = $b.attr('data-tier-act') || '';
             var nextTier = $b.attr('data-tier-next') || '';
             var sd = getStatData();
-            if (!sd || !sd.角色) { samToast('error', 'データが未準備です'); return; }
-            var sys = sd.系统状态 || {};
+            if (!sd || !sd.キャラ) { samToast('error', 'データが未準備です'); return; }
+            var sys = sd.システム状態 || {};
             // 戦闘中のブロック: 進階操作は戦闘中に一切実行できない
-            if (sys.是否战斗中 === true) {
+            if (sys.戦闘中 === true) {
                 samToast('warning', '安全なエリアで再度お試しください');
                 return;
             }
             if (act === 'apply') {
-                if (sys.是否可试炼 !== true || sys.试炼已完成 === true) { samToast('warning', '昇格条件が変化しました。更新後にもう一度お試しください'); renderAll(); return; }
+                if (sys.試練可能 !== true || sys.試練完了 === true) { samToast('warning', '昇格条件が変化しました。更新後にもう一度お試しください'); renderAll(); return; }
                 // 進階申請: 入力欄へ一文を書き込む(情報取引の購入可能ボタンと同様, 自動送信はしない)
-                var text = '当前进阶条件已满足，申请【晋升试炼任务】';
+                var text = '当前进阶条件已满足，申请【昇格試練任務】';
                 var ok = sendToInputBox(text, false);
                 if (ok) samToast('success', '入力欄へ送信しました: '+text);
                 else samToast('warning', '入力欄が見つかりません, クリップボードへコピーしました');
@@ -3449,13 +3471,13 @@
                 var ok2 = writeBackMvu(function(statData) {
                     var latestAdvance = validateTrialAdvancement(statData, nextTier);
                     if (latestAdvance.error) throw new Error(latestAdvance.error);
-                    if (statData.角色) {
-                        var oldTier = normalizeLifeTier(statData.角色.层级);
-                        statData.角色.层级 = nextTier;
-                        shopAppendReceipt(statData, '[昇格][角色] 晋升试炼完成：'+oldTier+' → '+nextTier);
+                    if (statData.キャラ) {
+                        var oldTier = normalizeLifeTier(statData.キャラ.階層);
+                        statData.キャラ.階層 = nextTier;
+                        shopAppendReceipt(statData, '[昇格][キャラ] 昇格試練完成：'+oldTier+' → '+nextTier);
                     }
                     // 進階完了後に試練フラグをリセットし, 次の進階フローに備える
-                    if (statData.系统状态) statData.系统状态.试炼已完成 = false;
+                    if (statData.システム状態) statData.システム状態.試練完了 = false;
                 }, { tierPermit: nextTier });
                 if (ok2) {
                     samToast('success', '階層が '+nextTier+' 級に上昇しました');
@@ -3465,10 +3487,10 @@
                 }
             }
         });
-        // ★ 決算任務ボタン: トップバーの入口。インスタンス内かつ非戦闘時に常時表示され、クリックで【结算任务】を入力欄へ送信
+        // ★ 決算任務ボタン: トップバーの入口。インスタンス内かつ非戦闘時に常時表示され、クリックで【決算任務】を入力欄へ送信
         $panel.off('click.samMissionSettle').on('click.samMissionSettle', '[data-mission-settle]', function(e) {
             e.stopPropagation();
-            var text = '【结算任务】';
+            var text = '【決算任務】';
             var ok = sendToInputBox(text, false);
             if (ok) samToast('success', '入力欄へ送信しました: '+text);
             else samToast('warning', '入力欄が見つかりません, クリップボードへコピーしました');
@@ -3493,9 +3515,9 @@
                     // ★ 形态库内の形態を削除する際, その形態がキャラクターの"当前形态"で有効化/参照されている場合は,
                     //   当前形态も同時にリセットする(激活:false, 名称を空に), でなければ削除済み形態への参照が残り,
                     //   以降の血統購入/AI の形態構築時に"既存の形態"と誤読され続け, 拒否やエラーを引き起こす
-                    if (seg.length === 3 && seg[0] === '角色' && seg[1] === '形态库'
-                        && statData.角色 && statData.角色.当前形态) {
-                        var cf = statData.角色.当前形态;
+                    if (seg.length === 3 && seg[0] === 'キャラ' && seg[1] === '形態庫'
+                        && statData.キャラ && statData.キャラ.現在形态) {
+                        var cf = statData.キャラ.現在形态;
                         if (cf && cf.名称 === name) {
                             cf.激活 = false; cf.名称 = '';
                         }
@@ -3509,10 +3531,10 @@
                 }
             });
         });
-        // ★ 世界選択ボタン(トップバー, 主神空間かつ非戦闘時のみ描画): クリックで【选择世界】を入力欄へ送信
+        // ★ 世界選択ボタン(トップバー, 主神空間かつ非戦闘時のみ描画): クリックで【世界選択】を入力欄へ送信
         $panel.off('click.samChooseWorld').on('click.samChooseWorld', '[data-choose-world]', function(e) {
             e.stopPropagation();
-            var text = '【选择世界】';
+            var text = '【世界選択】';
             var ok = sendToInputBox(text, false);
             if (ok) samToast('success', '入力欄へ送信しました: '+text);
             else samToast('warning', '入力欄が見つかりません, クリップボードへコピーしました');
@@ -3530,9 +3552,9 @@
             var content = ''
                 + '属性系统 (底层定义):\n'
                 + '  基礎五維 (判定根拠):\n'
-                + '    力量: 近战/负重/破坏\n'
+                + '    筋力: 近战/负重/破坏\n'
                 + '    敏捷: 平衡/潜行/瞄准\n'
-                + '    体质: 生命/耐性/恢复\n'
+                + '    体力: 生命/耐性/恢复\n'
                 + '    精神: 施法/察觉/意志\n'
                 + '    魅力: 社交/欺骗/威吓\n'
                 + '  资源属性:\n'
@@ -3548,7 +3570,7 @@
                 + '    MDEF: 法术防御\n'
                 + '    AP: 法术强度乘区\n'
                 + '  行动属性 (全局禁止添加):\n'
-                + '    先攻DC: 行动顺序\n'
+                + '    先制DC: 行动顺序\n'
                 + '    防御DC: 被命中难度\n';
             // 世界書の内容を取得する呼び出し
             content += await getWorldBookContent('⚙️生命层级与社会生态'); 
@@ -3656,7 +3678,7 @@
                     var fnd = shopFindItems(cat, slot, name);
                     if (fnd.length) unitPrice = Number(fnd[0].price || 0);
                 }
-                var coinNow = (function(){ var sd = getStatData(); return sd && sd.角色 ? safeNum(sd.角色.スペースコイン, 0) : 0; })();
+                var coinNow = (function(){ var sd = getStatData(); return sd && sd.キャラ ? safeNum(sd.キャラ.スペースコイン, 0) : 0; })();
                 // 残り残高 = 元の残高 - 選択済み合計(本商品の選択済み数量を含む)
                 var remainNow = shopRemain(coinNow) + (cur * unitPrice); // 本商品が占有している枠を除いて初めて、実際に追加可能な残りになる
                 if (remainNow < unitPrice * (cur + 1)) { samToast('warning', 'スペースコイン不足, あと1件追加できません(残り '+remainNow.toLocaleString()+')'); return; }
@@ -3680,7 +3702,7 @@
                 var up = 0;
                 for (var k = 0; k < shopCart.length; k++) { if (shopCart[k].name === name && shopCart[k]._cat === '道具区') { up = Number(shopCart[k].price || 0); break; } }
                 if (!up) { var f = shopFindItems('道具区', '', name); if (f.length) up = Number(f[0].price || 0); }
-                var cn = (function(){ var sd = getStatData(); return sd && sd.角色 ? safeNum(sd.角色.スペースコイン, 0) : 0; })();
+                var cn = (function(){ var sd = getStatData(); return sd && sd.キャラ ? safeNum(sd.キャラ.スペースコイン, 0) : 0; })();
                 // 残り残高 = 元の残高 - 選択済み合計; ただし本商品の選択済み数量は除外する(これは cur から nxtへ変更するため)
                 var curQty = shopGetQty(name, '道具区') || 0;
                 var remainB = shopRemain(cn) + (curQty * up);
@@ -3700,7 +3722,7 @@
                 var upInp = 0;
                 for (var k2 = 0; k2 < shopCart.length; k2++) { if (shopCart[k2].name === name && shopCart[k2]._cat === '道具区') { upInp = Number(shopCart[k2].price || 0); break; } }
                 if (!upInp) { var fInp = shopFindItems('道具区', '', name); if (fInp.length) upInp = Number(fInp[0].price || 0); }
-                var cnInp = (function(){ var sd = getStatData(); return sd && sd.角色 ? safeNum(sd.角色.スペースコイン, 0) : 0; })();
+                var cnInp = (function(){ var sd = getStatData(); return sd && sd.キャラ ? safeNum(sd.キャラ.スペースコイン, 0) : 0; })();
                 var curQtyInp = shopGetQty(name, '道具区') || 0;
                 var remainInp = shopRemain(cnInp) + (curQtyInp * upInp);
                 if (remainInp < upInp * qty) {
@@ -3997,7 +4019,7 @@
             if (!raw) {
                 // 旧 MVU データとの互換: stat_data.設置.API から一度だけ移行を試みる
                 var sd = getStatData();
-                var old = sd && sd.设置 && sd.设置.API;
+                var old = sd && sd.設定 && sd.設定.API;
                 if (old && typeof old === 'object' && (old.apiUrl || old.apiPresets && old.apiPresets.length || old.enabled)) {
                     var migrated = {
                         enabled:    (old.enabled === true),
@@ -4173,9 +4195,9 @@
         var cur = getTheme();
         var editOn = isEditMode();
         var stat = getStatData() || {};
-        var cfg = stat.设置 || {};
-        var superStable = (cfg.世界超稳 === true);
-        var singleWorld = (cfg.单一世界 === true);
+        var cfg = stat.設定 || {};
+        var superStable = (cfg.世界超安定 === true);
+        var singleWorld = (cfg.単一世界 === true);
         var worldEngine = GS_PARENT.Samsara && GS_PARENT.Samsara.worldEngine;
         var worldAdvanceOn = !!(worldEngine && typeof worldEngine.isConfigured === 'function' && worldEngine.isConfigured());
         var worldAdvanceReady = !!(worldEngine && typeof worldEngine.isEnabled === 'function' && worldEngine.isEnabled());
@@ -4192,21 +4214,21 @@
               '<div class="sam-settings-grid">'+themeHtml+'</div>'
             + '<div class="sam-toggle-row"><div><div style="font-weight:bold;">✏️ データ編集</div><div style="font-size:11px;color:var(--sam-sub);">有効にすると任意の数値をクリックしてその場で編集(レイアウトは崩れず),保存でMVUに書き戻し</div></div>'
             + '<div class="sam-toggle-switch '+(editOn?'on':'')+'" data-toggle="edit"><div class="knob"></div></div></div>'
-            + '<div class="sam-toggle-row"><div><div style="font-weight:bold;">🌐 世界超稳</div><div style="font-size:11px;color:var(--sam-sub);">有効にすると世界の安定度が固定され,因果軌道がずれなくなる</div></div>'
-            + '<div class="sam-toggle-switch '+(superStable?'on':'')+'" data-toggle="世界超稳"><div class="knob"></div></div></div>'
-            + '<div class="sam-toggle-row"><div><div style="font-weight:bold;">🪐 单一世界</div><div style="font-size:11px;color:var(--sam-sub);">有効にすると単一の世界だけが存在し,無効にすると複数の世界から選択できる</div></div>'
-            + '<div class="sam-toggle-switch '+(singleWorld?'on':'')+'" data-toggle="单一世界"><div class="knob"></div></div></div>'
+            + '<div class="sam-toggle-row"><div><div style="font-weight:bold;">🌐 世界超安定</div><div style="font-size:11px;color:var(--sam-sub);">有効にすると世界の安定度が固定され,因果軌道がずれなくなる</div></div>'
+            + '<div class="sam-toggle-switch '+(superStable?'on':'')+'" data-toggle="世界超安定"><div class="knob"></div></div></div>'
+            + '<div class="sam-toggle-row"><div><div style="font-weight:bold;">🪐 単一世界</div><div style="font-size:11px;color:var(--sam-sub);">有効にすると単一の世界だけが存在し,無効にすると複数の世界から選択できる</div></div>'
+            + '<div class="sam-toggle-switch '+(singleWorld?'on':'')+'" data-toggle="単一世界"><div class="knob"></div></div></div>'
             + '<div class="sam-toggle-row"><div><div style="font-weight:bold;">🌍 世界進行</div><div id="sam-world-engine-state" style="font-size:11px;color:var(--sam-sub);">'+(worldAdvanceOn?(worldAdvanceReady?'有効 · 独立世界エンジンが引き継ぎ':worldAdvanceWaitingText):'無効 · 元の世界パネルと元のシミュレーションルールを使用')+'</div></div>'
             + '<div class="sam-toggle-switch '+(worldAdvanceOn?'on':'')+'" data-toggle="world-engine"><div class="knob"></div></div></div>');
 
-        var difficulty = ['体验', '正常', '困难', '挑战'].indexOf(cfg.难度) >= 0 ? cfg.难度 : '体验';
+        var difficulty = ['体験', '正常', '困難', '挑戦'].indexOf(cfg.難易度) >= 0 ? cfg.難易度 : '体験';
         var difficultyNotes = {
-            '体验': '血統・スキル・装備・状態・形態は最低でも人物の生命階級と同水準、原始属性の追加上昇なし。',
+            '体験': '血統・スキル・装備・状態・形態は最低でも人物の生命階級と同水準、原始属性の追加上昇なし。',
             '正常': '体験を基準に、原始属性の品質を 2 階級上昇。',
-            '困难': '原始属性の品質を 4 階級上昇、体質は最低 S 保証；血統・スキルは最低でも人物の生命階級と同水準、装備・状態・形態は人物の生命階級より最低 1 階級上。',
-            '挑战': '原始属性の品質を 6 階級上昇、体質は SSS；血統・装備・状態・形態は人物の生命階級より最低 1 階級上、スキルは最低でも人物の生命階級と同水準。'
+            '困難': '原始属性の品質を 4 階級上昇、体質は最低 S 保証；血統・スキルは最低でも人物の生命階級と同水準、装備・状態・形態は人物の生命階級より最低 1 階級上。',
+            '挑戦': '原始属性の品質を 6 階級上昇、体質は SSS；血統・装備・状態・形態は人物の生命階級より最低 1 階級上、スキルは最低でも人物の生命階級と同水準。'
         };
-        html += secBlock('⚔️ 難易度 (実験機能)', '<div id="sam-difficulty-note" aria-live="polite" style="margin-bottom:10px;min-height:3em;font-size:12px;line-height:1.5;color:var(--sam-sub);">'+difficultyNotes[difficulty]+'</div><div role="group" aria-label="難易度選択" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;">' + ['体验', '正常', '困难', '挑战'].map(function(mode) {
+        html += secBlock('⚔️ 難易度 (実験機能)', '<div id="sam-difficulty-note" aria-live="polite" style="margin-bottom:10px;min-height:3em;font-size:12px;line-height:1.5;color:var(--sam-sub);">'+difficultyNotes[difficulty]+'</div><div role="group" aria-label="難易度選択" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;">' + ['体験', '正常', '困難', '挑戦'].map(function(mode) {
             return '<button type="button" class="sam-varmode-btn '+(difficulty===mode?'active':'')+'" data-difficulty="'+mode+'" aria-pressed="'+(difficulty===mode?'true':'false')+'" style="text-align:center;padding:9px 4px;">'+mode+'</button>';
         }).join('') + '</div><div style="margin-top:8px;color:var(--sam-sub);font-size:11px;">以降に新規作成され好感度が負の非チームメイト NPCにのみ影響。各コンポーネントは選択した基準を補うだけで、すでにより高い品質のものは下げない；原始属性は引き続き独立して上昇し、困難/挑戦の体質は固定段階で補う。品質の上限は SSS、生命階級の上限は Ⅸ。</div>');
         var variableMode = getVariableApiMode();
@@ -4309,10 +4331,10 @@
         });
         $('#samsara-modal').off('change.samDifficulty').off('click.samDifficulty').on('click.samDifficulty', 'button[data-difficulty]', function() {
             var mode = $(this).attr('data-difficulty');
-            if (['体验', '正常', '困难', '挑战'].indexOf(mode) < 0) return;
+            if (['体験', '正常', '困難', '挑戦'].indexOf(mode) < 0) return;
             var ok = writeBackMvu(function(statData) {
-                if (!statData.设置) statData.设置 = {};
-                statData.设置.难度 = mode;
+                if (!statData.設定) statData.設定 = {};
+                statData.設定.難易度 = mode;
             });
             if (!ok) { samToast('error', '難易度の保存に失敗'); openSettings(); return; }
             $('#samsara-modal button[data-difficulty]').removeClass('active').attr('aria-pressed', 'false');
@@ -4321,14 +4343,14 @@
             samToast('success', '難易度を'+mode+'に設定しました、以降の新規敵対 NPC に適用されます');
             renderAll();
         });
-        // 世界超稳 / 单一世界 スイッチ( MVU の設定ノードに書き戻す)
-        $('#samsara-modal').off('click.samCfgToggle').on('click.samCfgToggle', '.sam-toggle-switch[data-toggle="世界超稳"], .sam-toggle-switch[data-toggle="单一世界"]', function() {
+        // 世界超稳 / 単一世界 スイッチ( MVU の設定ノードに書き戻す)
+        $('#samsara-modal').off('click.samCfgToggle').on('click.samCfgToggle', '.sam-toggle-switch[data-toggle="世界超安定"], .sam-toggle-switch[data-toggle="単一世界"]', function() {
             var key = $(this).data('toggle');
             var on = !$(this).hasClass('on');
             $(this).toggleClass('on', on);
             writeBackMvu(function(statData) {
-                if (!statData.设置) statData.设置 = {};
-                statData.设置[key] = on;
+                if (!statData.設定) statData.設定 = {};
+                statData.設定[key] = on;
             });
             renderAll();
         });
@@ -4562,7 +4584,7 @@
         } catch(_e) {}
         var statData = getStatData();
         var $panel = $('#samsara-panel');
-        if (!statData || !statData.角色) {
+        if (!statData || !statData.キャラ) {
             // ターミナル未応答: 上部バーには 更新/閉じる ボタンを引き続き表示(更新は.sam-icon-btn.refreshを再利用, イベントは bindUIEventsで委譲済み)
             $panel.html('<div class="sam-topbar"><div class="tl-info"><div class="tl-time" style="color:var(--sam-sub);">ターミナル未応答</div></div><div class="tl-actions"><div class="sam-icon-btn refresh" title="データを更新">🔄</div><div class="sam-icon-btn close" title="閉じる">✕</div></div></div><div class="sam-empty"><div style="font-size:36px;opacity:0.6;animation:samPulse 2s infinite;">📡</div><div style="margin-top:10px;">因果チェーンはまだ接続されていません...</div><div style="font-size:11px;opacity:0.6;">(新しいシナリオの初期化か時間の進行を待つか, 右上の🔄で更新してください)</div></div>');
             $('#samsara-ball').removeClass('combat-mode');
@@ -4576,14 +4598,14 @@
         }
         // データ受信済み: "ターミナル未応答"の自動更新タイマーを解除し, ユーザーのスクロール/操作への影響と無駄な性能消費を避ける
         if (window.samsaraRefreshTimer) { clearInterval(window.samsaraRefreshTimer); window.samsaraRefreshTimer = null; }
-        var p = statData.角色;
-        var sys = statData.系统状态 || {};
+        var p = statData.キャラ;
+        var sys = statData.システム状態 || {};
         var world = statData.世界 || {};
         // 新規開局の検出: 種族が空 + 身分が空配列 + スペースコインが0 (情報取得後に判定)
         // → キャラの立ち絵 + すべてのNPC立ち絵をクリア(前のプレイのアバターが新しいキャラに残るのを防ぐ)
         try {
-            var raceStr = safeStr(p.种族, '');
-            var idArr = Array.isArray(p.身份) ? p.身份 : [];
+            var raceStr = safeStr(p.種族, '');
+            var idArr = Array.isArray(p.身分) ? p.身分 : [];
             var coin = safeNum(p.スペースコイン, 0);
             var freshSig = (raceStr === '' && idArr.length === 0 && coin === 0) ? 'FRESH' : 'PLAY';
             if (freshSig === 'FRESH' && lastReincarnatorSig !== 'FRESH') {
@@ -4591,7 +4613,7 @@
             }
             lastReincarnatorSig = freshSig;
         } catch(e) {}
-        var isCombat = sys.是否战斗中 === true;
+        var isCombat = sys.戦闘中 === true;
         if (isCombat) $('#samsara-ball').addClass('combat-mode');
         else $('#samsara-ball').removeClass('combat-mode');
 
@@ -4632,21 +4654,21 @@
     }
 
     function shouldShowSettlementButton(sd) {
-        var sys = (sd && sd.系统状态) || {};
-        return sys.是否在主神空间 === false && sys.是否战斗中 !== true;
+        var sys = (sd && sd.システム状態) || {};
+        return sys.主神空間滞在中 === false && sys.戦闘中 !== true;
     }
 
     /* ===== 18. 上部バー ===== */
     function renderTopbar(world, sys, editMode, sd) {
-        var time = safeStr(world.时间, '不明な時間');
+        var time = safeStr(world.時間, '不明な時間');
         var place = safeStr(world.地点, '不明な場所');
         if (editMode) {
-            time = editInput('世界.时间', time, 'text');
+            time = editInput('世界.時間', time, 'text');
             place = editInput('世界.地点', place, 'text');
         }
         // 主神空間では「世界選択」を表示；インスタンス内で非戦闘のときは常時「決算任務」を表示し、任務の達成可否は判定しない。
         var worldBtn = '';
-        if (sys && sys.是否在主神空间 === true && sys.是否战斗中 !== true) {
+        if (sys && sys.主神空間滞在中 === true && sys.戦闘中 !== true) {
             worldBtn = '<div class="sam-icon-btn choose-world" title="世界選択" data-choose-world>🌐世界選択</div>';
         }
         var settlementBtn = '';
@@ -4721,7 +4743,7 @@
     }
     // カスタム立ち絵アップロードダイアログ(キャラ/NPC共通; nameが角色のときはSAM_PORTRAIT_KEYに保存, それ以外はNPCキーに保存)
     function openPortraitUpload(name) {
-        var isReincarnator = (!name || name === '角色');
+        var isReincarnator = (!name || name === 'キャラ');
         var title = isReincarnator ? 'カスタムキャラ立ち絵' : ('カスタム立ち絵 · ' + name);
         var body = '<div style="display:flex;gap:8px;margin-bottom:10px;">'
             + '<input type="text" id="sam-portrait-url" placeholder="画像URLを貼り付け..." style="flex:1;font-size:13px;padding:8px;background:var(--sam-input-bg);color:var(--sam-text);border:1px solid var(--sam-border);border-radius:3px;">'
@@ -4750,7 +4772,7 @@
         });
         $('#sam-portrait-clear-btn').off('click.samPt').on('click.samPt', function() { doSave(''); });
     }
-    function openReincarnatorPortraitUp() { openPortraitUpload('角色'); }
+    function openReincarnatorPortraitUp() { openPortraitUpload('キャラ'); }
     function renderReincarnatorBar(p, sys, editMode) {
         var maxHp = safeNum(p.HP_MAX, 1), curHp = safeNum(p.HP, 0), curThp = safeNum(p.THP, 0);
         var maxEp = safeNum(p.EP_MAX, 1), curEp = safeNum(p.EP, 0);
@@ -4760,19 +4782,19 @@
         // 階層表示: 形態が有効かつ形態の階層>自身のときは形態の階層を表示(表示のみ); 編集欄は引き続き実際の自身の階層に束縛し書き戻しの汚染を防ぐ
         var dispRaw = displayTierRaw(p);
         var tier = tierRomanOf(dispRaw); var tierQ = tierQOfClass(dispRaw);
-        var ownTier = tierRomanOf(p.层级);   // 編集モードの入力欄には実際の自身の階層を使う
-        var race = safeStr(p.种族, '人類');
-        var cf = p.当前形态 || {};
+        var ownTier = tierRomanOf(p.階層);   // 編集モードの入力欄には実際の自身の階層を使う
+        var race = safeStr(p.種族, '人類');
+        var cf = p.現在形態 || {};
         var formActive = (cf.激活 === true && safeStr(cf.名称));
-        // 戦闘状態バッジ: 通常は非表示, 戦闘突入時(系统状态.是否战斗中)に表示, 現在のラウンド数を付記
+        // 戦闘状態バッジ: 通常は非表示, 戦闘突入時(システム状態.戦闘中)に表示, 現在のラウンド数を付記
         var combatBadge = '';
-        if (sys && sys.是否战斗中 === true) {
-            var combatRound = safeNum(sys.当前轮次, 0);
+        if (sys && sys.戦闘中 === true) {
+            var combatRound = safeNum(sys.現在ラウンド, 0);
             combatBadge = '<div class="sam-reincarnator-combat">⚔️ 戦闘中'+(combatRound > 0 ? ' · 第'+combatRound+'ラウンド' : '')+'</div>';
         }
         // 上部レイアウト: 縦四行 戦闘バッジ(戦闘時) / 階層 / 種族 / 形態ラベル(有効時)
-        var tierField = (editMode && !isReadonlyPath('角色.层级')) ? editInput('角色.层级', ownTier, 'text') : '<span class="sam-reincarnator-tier-num">'+esc(tier)+'</span><span class="sam-reincarnator-tier-suf">級</span>';
-        var raceField = editMode ? editInput('角色.种族', race, 'text') : esc(race);
+        var tierField = (editMode && !isReadonlyPath('キャラ.階層')) ? editInput('キャラ.階層', ownTier, 'text') : '<span class="sam-reincarnator-tier-num">'+esc(tier)+'</span><span class="sam-reincarnator-tier-suf">級</span>';
+        var raceField = editMode ? editInput('キャラ.種族', race, 'text') : esc(race);
         var formField = '';
         if (formActive) {
             // 現在の形態は能力パネルの"有効化ボタン"が一括管理するため, 変更モードでも名前は手動編集できない
@@ -4790,9 +4812,9 @@
                 + '</div>';
         }
         // HP/EP/THP の三列(編集モードでは数値を変更可能,HP_MAX/EP_MAXは読み取り専用)
-        var hpNum = editMode ? editInput('角色.HP', curHp, 'number') : (curHp + ' / ' + maxHp);
-        var epNum = editMode ? editInput('角色.EP', curEp, 'number') : (curEp + ' / ' + maxEp);
-        var thpNum = editMode ? editInput('角色.THP', curThp, 'number') : curThp;
+        var hpNum = editMode ? editInput('キャラ.HP', curHp, 'number') : (curHp + ' / ' + maxHp);
+        var epNum = editMode ? editInput('キャラ.EP', curEp, 'number') : (curEp + ' / ' + maxEp);
+        var thpNum = editMode ? editInput('キャラ.THP', curThp, 'number') : curThp;
         return '<div class="sam-reincarnator">'
             + '<div class="sam-reincarnator-left">'+avatarHtml
             + '<div class="sam-reincarnator-text">'+combatBadge
@@ -4808,16 +4830,16 @@
 
     /* ===== 20. 状態ボタン列(状態名+持続時間, クリックで二次詳細を表示) ===== */
     function renderBuffRail(p, editMode) {
-        var buffs = p.状态 || {};
+        var buffs = p.状態 || {};
         var keys = Object.keys(buffs);
         // 状態がないときはプレースホルダーを描画せず, そのまま空を返す
         if (keys.length === 0) return '';
         var chips = '';
         keys.forEach(function(k) {
             var b = buffs[k] || {};
-            var type = safeStr(b.类型, '增益');
-            var dur = safeStr(b.持续, '');
-            var path = '角色.状态.'+k;
+            var type = safeStr(b.タイプ, 'バフ');
+            var dur = safeStr(b.持続, '');
+            var path = 'キャラ.状態.'+k;
             // ボタン表示: 状態名 + 持続時間(あれば)
             var durHtml = dur ? '<span class="sam-buff-dur">⏳ '+esc(dur)+'</span>' : '';
             var label = (editMode ? '📝 ' : '') + esc(k);
@@ -4909,10 +4931,10 @@
         return '★★★★★★'.slice(0, n);
     }
     function renderMissionTab(sd) {
-        var m = sd.任务 || {};
-        var list = m.列表 || {};
-        var kills = m.击杀 || {};
-        var isSingleWorld = (sd.设置 && sd.设置.单一世界 === true);
+        var m = sd.任務 || {};
+        var list = m.リスト || {};
+        var kills = m.撃破 || {};
+        var isSingleWorld = (sd.設定 && sd.設定.単一世界 === true);
         var editMode = isEditMode();
         var html = '';
         // 任務一覧
@@ -4925,29 +4947,29 @@
             tHtml += '<div class="sam-list-1col">';
             listKeys.forEach(function(k) {
                 var q = list[k] || {};
-                var path = '任务.列表.'+k;
+                var path = '任務.リスト.'+k;
                 // 難易度バッジ(任務カードのタイトル右端に表示): 品質のカラーパレットを使い, sam-fc-q スタイルを再利用; 難易度がないときは描画しない
-                var diffRaw = safeStr(q.难度, '');
+                var diffRaw = safeStr(q.難易度, '');
                 var diffQ = parseRarity(diffRaw);
                 var diffBadge = diffRaw ? '<div class="sam-fc-q q-'+diffQ+'" title="難易度">'+esc(diffQ)+'</div>' : '';
                 // 編集モード: タイトル部に削除ボタンを追加( data-del-pathを付け, 汎用の削除イベントを再利用)
                 var delBtn = editMode ? samDelBtn(path, editMode, 'この任務を削除') : '';
                 var headExtra = delBtn + diffBadge;
                 // 状態行: editSelect/editInput はHTMLを返すので, fcRowを通してはいけない(二重エスケープで文字化けする)
-                var statusVal = safeStr(q.状态, '进行中');
-                if (statusVal === '可交付' || statusVal === '可结算') taskDoneCnt++;
+                var statusVal = safeStr(q.状態, '進行中');
+                if (statusVal === '提出可能' || statusVal === '決算可能') taskDoneCnt++;
                 else if (statusVal === '失败') taskFailCnt++;
                 var statusCell = editMode
-                    ? editSelect(path+'.状态', ['进行中','可交付','可结算','失败'], statusVal)
+                    ? editSelect(path+'.状態', ['進行中','提出可能','決算可能','失败'], statusVal)
                     : esc(statusVal);
                 var statusRow = '<div class="sam-row"><span class="k">状態</span><span class="v">'+statusCell+'</span></div>';
                 var rows = '';
-                rows += fcRow('依頼主', q.委托方, path+'.委托方', editMode);
+                rows += fcRow('依頼主', q.依頼元, path+'.依頼元', editMode);
                 rows += statusRow;
-                rows += fcRow('目標', q.目标, path+'.目标', editMode);
-                rows += fcRow('報酬', q.奖励, path+'.奖励', editMode);
-                rows += fcRow('納品', q.交付, path+'.交付', editMode);
-                var body = fcRow('ペナルティ', q.惩罚, path+'.惩罚', editMode);
+                rows += fcRow('目標', q.目標, path+'.目標', editMode);
+                rows += fcRow('報酬', q.報酬, path+'.報酬', editMode);
+                rows += fcRow('納品', q.納品, path+'.納品', editMode);
+                var body = fcRow('ペナルティ', q.罰則, path+'.罰則', editMode);
                 tHtml += fullCard('', k, rows, body, headExtra);
             });
             tHtml += '</div>';
@@ -4955,14 +4977,14 @@
         var taskTitle = '📜 任務一覧 (達成 '+taskDoneCnt+'/'+listKeys.length+')';
         if (taskFailCnt > 0) taskTitle += ' · 失敗 '+taskFailCnt;
         html += secBlock(taskTitle, tHtml, listKeys.length > 0);
-        // 单一世界では副本実績を完全に非表示；マルチワールドモードでは通常どおり表示し、初回達成報酬を即時付与する
+        // 単一世界では副本実績を完全に非表示；マルチワールドモードでは通常どおり表示し、初回達成報酬を即時付与する
         if (!isSingleWorld) {
-            var ach = m.副本成就 || {};
+            var ach = m.インスタンス実績 || {};
             var achKeys = Object.keys(ach);
             var achDoneCnt = 0;
             achKeys.forEach(function(k) {
-                var st = safeStr(ach[k] && ach[k].状态);
-                if (st === '已达成') achDoneCnt++;
+                var st = safeStr(ach[k] && ach[k].状態);
+                if (st === '達成済み') achDoneCnt++;
             });
             var aHtml = '';
             if (achKeys.length === 0) {
@@ -4971,9 +4993,9 @@
                 aHtml += '<div class="sam-list-1col">';
                 achKeys.forEach(function(k) {
                     var a = ach[k] || {};
-                    var path = '任务.副本成就.'+k;
-                    var statusVal = safeStr(a.状态, '未达成') || '未达成';
-                    var done = statusVal === '已达成';
+                    var path = '任務.インスタンス実績.'+k;
+                    var statusVal = safeStr(a.状態, '未達成') || '未達成';
+                    var done = statusVal === '達成済み';
                     // 編集モード: タイトル部に削除ボタンを追加( data-del-pathを付け, 汎用の削除イベントを再利用)
                     var delBtn = editMode ? samDelBtn(path, editMode, 'この実績を削除') : '';
                     // 達成済み: ヘッダーに金色の✓バッジ + カードに金の枠線(達成状況が一目でわかる)
@@ -4981,19 +5003,19 @@
                     var headExtra = delBtn + doneChip;
                     // 状態行: editSelect はHTMLを返すので, fcRowを通してはいけない(二重エスケープで文字化けする)
                     var statusCell = editMode
-                        ? editSelect(path+'.状态', ['未达成','已达成'], statusVal)
+                        ? editSelect(path+'.状態', ['未達成','達成済み'], statusVal)
                         : esc(statusVal);
                     var statusRow = '<div class="sam-row"><span class="k">状態</span><span class="v">'+statusCell+'</span></div>';
                     var rows = '';
                     rows += statusRow;
                     // 難易度: ★~★★★★★★ の六段階ドロップダウンに固定(編集時は★の数を書き戻す), 表示は★の数を強制
-                    var diffVal = achDiffStars(a.难度);
+                    var diffVal = achDiffStars(a.難易度);
                     var diffCell = editMode
-                        ? editSelect(path+'.难度', ['★','★★','★★★','★★★★','★★★★★','★★★★★★'], diffVal)
+                        ? editSelect(path+'.難易度', ['★','★★','★★★','★★★★','★★★★★','★★★★★★'], diffVal)
                         : esc(diffVal);
                     rows += '<div class="sam-row"><span class="k">難易度</span><span class="v">'+diffCell+'</span></div>';
-                    rows += fcRow('報酬', a.奖励, path+'.奖励', editMode);
-                    var body = fcRow('説明', a.说明, path+'.说明', editMode);
+                    rows += fcRow('報酬', a.報酬, path+'.報酬', editMode);
+                    var body = fcRow('説明', a.説明, path+'.説明', editMode);
                     aHtml += '<div class="sam-ach-item'+(done?' done':'')+'">'+fullCard('', k, rows, body, headExtra)+'</div>';
                 });
                 aHtml += '</div>';
@@ -5004,7 +5026,7 @@
         var kHtml = '<div class="sam-grid">';
         ['Ⅰ','Ⅱ','Ⅲ','Ⅳ','Ⅴ','Ⅵ','Ⅶ','Ⅷ','Ⅸ'].forEach(function(q) {
             var v = safeNum(kills[q], 0);
-            var path = '任务.击杀.'+q;
+            var path = '任務.撃破.'+q;
             var qc = tierQOfClass(q);       // ローマ数字→品質文字(F~SSS)をCSSの着色クラスに使用
             kHtml += '<div class="sam-card q-'+qc+'"><div class="sam-card-title">'+q+'</div><div class="sam-card-meta">'+(editMode ? editInput(path, v, 'number') : v)+' 撃破</div></div>';
         });
@@ -5024,11 +5046,11 @@
 
     /* 階層プログレスバー: 通常昇格はキャラクター自身の階層のみを参照する；段位累計が24以上になると試練か源力注入の二経路を選べる。 */
     function validateTrialAdvancement(sd, expectedNext) {
-        if (!sd || !sd.角色) return {error:'キャラクターデータが未準備です'};
-        var sys = sd.系统状态 || {};
-        if (sys.是否战斗中 === true) return {error:'戦闘中は昇格できません'};
-        if (sys.试炼已完成 !== true) return {error:'試練がまだ決算完了していないか、今回の昇格資格はすでに使用済みです'};
-        var current = normalizeLifeTier(sd.角色.层级);
+        if (!sd || !sd.キャラ) return {error:'キャラクターデータが未準備です'};
+        var sys = sd.システム状態 || {};
+        if (sys.戦闘中 === true) return {error:'戦闘中は昇格できません'};
+        if (sys.試練完了 !== true) return {error:'試練がまだ決算完了していないか、今回の昇格資格はすでに使用済みです'};
+        var current = normalizeLifeTier(sd.キャラ.階層);
         var index = TIER_ROMAN.indexOf(current);
         if (index < 0 || index >= TIER_ROMAN.length - 1) return {error:'現在の階層ではこれ以上昇格できません'};
         var next = TIER_ROMAN[index + 1];
@@ -5036,9 +5058,9 @@
         return {currentTier:current,nextTier:next};
     }
     function renderTierProgressBar(p, fa, sys) {
-        var lifeTier = normalizeLifeTier(p && p.层级);
+        var lifeTier = normalizeLifeTier(p && p.階層);
         var curTier = tierQOfClass(lifeTier);
-        var attrs = fa || p.最终属性 || {};
+        var attrs = fa || p.最終属性 || {};
         var score = calcTrialScore(attrs, lifeTier);
         var idx = TIER_ROMAN.indexOf(lifeTier);
         if (idx < 0) idx = 0;
@@ -5053,7 +5075,7 @@
         } else if (!isMax && canTrial) {
             advBtnHtml = '<div class="sam-tier-actions">'
                 + '<button type="button" class="sam-tier-adv-btn apply" data-tier-act="apply" data-tier-next="'+esc(TIER_ROMAN[idx+1])+'">☠ 昇格申請</button>'
-                + '<button type="button" class="sam-tier-infuse-btn" data-tier-target="角色">✧ 源力注入</button>'
+                + '<button type="button" class="sam-tier-infuse-btn" data-tier-target="キャラ">✧ 源力注入</button>'
                 + '</div>';
         }
         var leftHtml = '<div class="sam-tier-side q-'+curTier+'">'+esc(TIER_ROMAN[idx])+'</div>';
@@ -5070,12 +5092,12 @@
 
     /* 仲間の段位累計：24ポイント到達で源力注入を提供する。NPC専用の試練状態は作成しない。 */
     function renderNpcTierProgressBar(n, name) {
-        if (!n || n.是否队友 !== true) return '';
-        var lifeTier = normalizeLifeTier(n.层级);
+        if (!n || n.仲間 !== true) return '';
+        var lifeTier = normalizeLifeTier(n.階層);
         var idx = TIER_ROMAN.indexOf(lifeTier);
         if (idx < 0) idx = 0;
         var isMax = (idx >= TIER_ROMAN.length - 1);
-        var score = calcTrialScore(n.最终属性 || {}, lifeTier);
+        var score = calcTrialScore(n.最終属性 || {}, lifeTier);
         var pct = isMax ? 100 : Math.max(0, Math.min(100, Math.floor((score / TRIAL_SCORE_THRESHOLD) * 100)));
         var btn = (!isMax && score >= TRIAL_SCORE_THRESHOLD)
             ? '<button type="button" class="sam-tier-infuse-btn" data-tier-target="'+esc(name)+'">✧ 源力注入</button>'
@@ -5094,13 +5116,13 @@
 
     /* ===== 24. Tab: 情報(キャラクター詳細) ===== */
     function renderInfoTab(sd) {
-        var p = sd.角色 || {};
+        var p = sd.キャラ || {};
         var editMode = isEditMode();
         var html = '';
         // キャラクター情報
         var infoHtml = '';
         var fields = [
-            {k:'身分', path:'角色.身份', type:'text', arr:true}
+            {k:'身分', path:'キャラ.身分', type:'text', arr:true}
         ];
         fields.forEach(function(f) {
             var v = resolvePath(sd, f.path);
@@ -5118,21 +5140,21 @@
         // ★ 職業: 記録オブジェクト {职业名:{类型,特性[],来源}}に変更; 表示時は折りたたみパネル, 編集時は構造化エディタ
         html += secBlock('📋 キャラクター情報', infoHtml);
         {
-            var occ = resolvePath(sd, '角色.职业');
-            if (editMode && !isReadonlyPath('角色.职业')) {
-                html += secBlock('🎖 職業', occupationEditHtml(occ, '角色.职业'));
+            var occ = resolvePath(sd, 'キャラ.職業');
+            if (editMode && !isReadonlyPath('キャラ.職業')) {
+                html += secBlock('🎖 職業', occupationEditHtml(occ, 'キャラ.職業'));
             } else if (occupationNames(occ).length) {
                 html += occupationCardsHtml(occ);
             }
         }
         // 最終属性 - 基础属性/補正値/衍生属性の三パネルに分割(読み取り専用,システム計算)
-        var fa = p.最终属性 || {};
+        var fa = p.最終属性 || {};
         var lifeTier = displayTierRaw(p); // 段位表示階層: 形態が発動中で形態階層がより高い場合は形態階層を, そうでなければ自身の階層を取得
         // 1.基础属性(6項目) - 各数値の右側に現在階層の段位バッジを付加(F~SSS, 現在階層の範囲を9等分して判定)
         var baseHtml = '<div class="sam-grid-2">';
-        ['力量','敏捷','体质','精神','魅力'].forEach(function(an) {
+        ['筋力','敏捷','体力','精神','魅力'].forEach(function(an) {
             var v = safeNum(fa[an], 0);
-            var path = '角色.最终属性.'+an;
+            var path = 'キャラ.最終属性.'+an;
             var valCell = (editMode && !isReadonlyPath(path) ? editInput(path, v, 'number') : '<span class="sam-edit-readonly">'+v+'</span>');
             // 段位バッジ: 現在階層における単一属性値の段位スコア→品質文字(F~SSS)を取得し, sam-fc-q の配色スタイルを再利用
             var score = attrTierScore(v, lifeTier);
@@ -5141,14 +5163,14 @@
             baseHtml += '<div class="sam-row"><span class="k">'+esc(an)+'</span><span class="v">'+valCell+tierBadge+'</span></div>';
         });
         baseHtml += '</div>';
-        // 階層プログレスバー: 現在階層(角色.层级由来,読み取り専用) → 次階層; 中央に基础属性の合計ポイントと進捗を表示
-        html += renderTierProgressBar(p, fa, sd.系统状态 || {});
+        // 階層プログレスバー: 現在階層(角色.階層由来,読み取り専用) → 次階層; 中央に基础属性の合計ポイントと進捗を表示
+        html += renderTierProgressBar(p, fa, sd.システム状態 || {});
         html += secBlock('💪 基础属性', baseHtml);
         // 2.補正値(6項目)
         var modHtml = '<div class="sam-grid-2">';
         ['力量修正','敏捷修正','体质修正','精神修正','魅力修正'].forEach(function(an) {
             var v = safeNum(fa[an], 0);
-            var path = '角色.最终属性.'+an;
+            var path = 'キャラ.最終属性.'+an;
             modHtml += '<div class="sam-row"><span class="k">'+esc(an)+'</span><span class="v">'+(editMode && !isReadonlyPath(path) ? editInput(path, v, 'number') : '<span class="sam-edit-readonly">'+v+'</span>')+'</span></div>';
         });
         modHtml += '</div>';
@@ -5159,17 +5181,17 @@
         var derList = [
             {key:'DEF', label:'DEF(物理防御)'},
             {key:'MDEF', label:'MDEF(魔法防御)'},
-            {key:'物理减伤率', label:'物理軽減率'},
-            {key:'魔法减伤率', label:'魔法軽減率'},
+            {key:'物理軽減率', label:'物理軽減率'},
+            {key:'魔法軽減率', label:'魔法軽減率'},
             {key:'AP', label:'AP(魔法増幅)'},
-            {key:'先攻DC', label:'先制DC'},
+            {key:'先制DC', label:'先制DC'},
             {key:'防御DC', label:'防御DC'}
         ];
         derList.forEach(function(item) {
             var key = item.key, label = item.label;
             var v = safeNum(fa[key], 0);
             var unit = (key === 'AP' || key.indexOf('减伤率')>=0) ? '%' : '';
-            var path = '角色.最终属性.'+key;
+            var path = 'キャラ.最終属性.'+key;
             derHtml += '<div class="sam-row"><span class="k">'+esc(label)+'</span><span class="v">'+(editMode && !isReadonlyPath(path) ? editInput(path, v, 'number') : '<span class="sam-edit-readonly">'+v+unit+'</span>')+'</span></div>';
         });
         derHtml += '</div>';
@@ -5199,22 +5221,22 @@
     /* 戦術パネル装備スロット情報バー: 装備(status=1)のタイプ別装着数 + アイテム(status=1)数を集計し, 現在/上限を表示
        超過(現在>上限)は赤; 満杯(現在==上限かつ上限>0)は青; 特殊(タイプ8)は上限なしで 現在/X を表示 */
     function renderEquipSlotsBar(p) {
-        var equips = p.装备 || {};
+        var equips = p.装備 || {};
         var items = p.道具 || {};
         // 装備タイプと上限はモジュール定数 EQUIP_SLOTS由来; アイテム上限は ITEM_SLOT_CAP 由来
         // タイプ別の装着済み数を集計
         var counts = {};
         Object.keys(equips).forEach(function(k) {
             var e = equips[k] || {};
-            if (Number(e.状态) === 1) {
-                var t = Number(e.类型);
+            if (Number(e.状態) === 1) {
+                var t = Number(e.タイプ);
                 counts[t] = (counts[t] || 0) + 1;
             }
         });
         // アイテム装着済み数
         var itemCount = 0;
         Object.keys(items).forEach(function(k) {
-            if (Number(items[k].状态) === 1) itemCount++;
+            if (Number(items[k].状態) === 1) itemCount++;
         });
         var html = '<div class="sam-slots-bar">';
         EQUIP_SLOTS.forEach(function(s) {
@@ -5250,18 +5272,18 @@
     /* 項目の分類ラベルを取得: 装備はタイプ数値→スロット名(EQUIP_SLOTS); アイテムは文字列タイプフィールド(空→未分類) */
     function holdEntryTypeLabel(val, isEquip) {
         if (isEquip) {
-            var t = Number(val && val.类型);
+            var t = Number(val && val.タイプ);
             for (var i = 0; i < EQUIP_SLOTS.length; i++) { if (EQUIP_SLOTS[i].type === t) return EQUIP_SLOTS[i].label; }
             return '不明';
         }
-        var s = safeStr(val && val.类型).trim();
+        var s = safeStr(val && val.タイプ).trim();
         return s || '未分類';
     }
     /* 現在のサブTabにある項目のタイプ別件数を収集(そのTabに対応する状態で絞り込み)
        戻り値 {counts:{タイプ:件数}, order:[タイプ...]} —— 装備タイプは EQUIP_SLOTS 順が先, アイテムタイプは初出順が後 */
     function holdCollectTypes(sd) {
-        var p = sd.角色 || {};
-        var equips = p.装备 || {}, items = p.道具 || {};
+        var p = sd.キャラ || {};
+        var equips = p.装備 || {}, items = p.道具 || {};
         var statuses, useEquip, useItem;
         if (holdActiveTab === 'tactical')      { statuses = [1]; useEquip = true;  useItem = true;  }
         else if (holdActiveTab === 'equip')    { statuses = [0]; useEquip = true;  useItem = false; }
@@ -5274,14 +5296,14 @@
         }
         if (useEquip) Object.keys(equips).forEach(function(k) {
             var e = equips[k] || {};
-            if (statuses.indexOf(Number(e.状态)) < 0) return;
+            if (statuses.indexOf(Number(e.状態)) < 0) return;
             var label = holdEntryTypeLabel(e, true), w = 99;
             for (var i = 0; i < EQUIP_SLOTS.length; i++) { if (EQUIP_SLOTS[i].label === label) { w = i; break; } }
             add(label, w);
         });
         if (useItem) Object.keys(items).forEach(function(k) {
             var it = items[k] || {};
-            if (statuses.indexOf(Number(it.状态)) < 0) return;
+            if (statuses.indexOf(Number(it.状態)) < 0) return;
             add(holdEntryTypeLabel(it, false), 1000 + Object.keys(seen).length);
         });
         var order = Object.keys(seen).sort(function(a, b) { return seen[a].w - seen[b].w; });
@@ -5314,15 +5336,15 @@
         return out;
     }
     function renderHoldTab(sd) {
-        var p = sd.角色 || {};
+        var p = sd.キャラ || {};
         var editMode = isEditMode();
-        var equips = p.装备 || {};
+        var equips = p.装備 || {};
         var items = p.道具 || {};
         // 辞書内で 状态 が statuses に一致する項目数を集計(サブTabバッジの件数用)
         function countByStatus(dict, statuses) {
             var n = 0;
             Object.keys(dict || {}).forEach(function(k) {
-                var st = Number((dict[k] || {}).状态);
+                var st = Number((dict[k] || {}).状態);
                 if (statuses.indexOf(st) >= 0) n++;
             });
             return n;
@@ -5364,10 +5386,10 @@
     /* 所持パネル内容領域: 現在の holdActiveTab に応じた状態のカード一覧 + 戦闘時の可視性ヒントを描画
        Tab列から独立し, サブTab切替時の部分更新に使用(Tab列DOMの再構築を起こさず, ガタつきを解消) */
     function renderHoldBody(sd) {
-        var p = sd.角色 || {};
+        var p = sd.キャラ || {};
         var editMode = isEditMode();
         // タイプ絞り込み: holdTypeFilter が非空なら一致タイプの項目のみ残す(元辞書に対する浅いコピーで絞り込み)
-        var equips = holdFilterByType(p.装备 || {}, true);
+        var equips = holdFilterByType(p.装備 || {}, true);
         var items = holdFilterByType(p.道具 || {}, false);
         // [なし]プレースホルダを除去し, 実際のカードHTMLのみ残す(空プレースホルダがgridのセルとして扱われ空白に見えるのを防ぐ)
         function stripEmpty(s){ return (s||'').replace(/<div class="sam-empty">\[なし\]<\/div>/g,'').trim(); }
@@ -5381,29 +5403,29 @@
         if (holdActiveTab === 'tactical') {
             // 戦術パネル: 装着済みの装備(status=1) + 装着済みのアイテム(status=1)
             content = mergeList(
-                renderEquipFullList(equips, '角色.装备', editMode, [1]),
-                renderItemFullList(items, '角色.道具', editMode, [1]),
+                renderEquipFullList(equips, 'キャラ.装備', editMode, [1]),
+                renderItemFullList(items, 'キャラ.道具', editMode, [1]),
                 '戦術パネルに何も装備していません'
             );
         } else if (holdActiveTab === 'equip') {
             // 装備バッグ: status=0
             content = mergeList(
-                renderEquipFullList(equips, '角色.装备', editMode, [0]),
+                renderEquipFullList(equips, 'キャラ.装備', editMode, [0]),
                 '', '装備バッグは空です'
             );
             hint = '戦闘中は AI に不可視';
         } else if (holdActiveTab === 'item') {
             // アイテムバッグ: status=0
             content = mergeList(
-                renderItemFullList(items, '角色.道具', editMode, [0]),
+                renderItemFullList(items, 'キャラ.道具', editMode, [0]),
                 '', 'アイテムバッグは空です'
             );
             hint = '戦闘中は AI に不可視';
         } else {
             // 倉庫: 装備status=2 + アイテムstatus=2
             content = mergeList(
-                renderEquipFullList(equips, '角色.装备', editMode, [2]),
-                renderItemFullList(items, '角色.道具', editMode, [2]),
+                renderEquipFullList(equips, 'キャラ.装備', editMode, [2]),
+                renderItemFullList(items, 'キャラ.道具', editMode, [2]),
                 '倉庫には何も保管されていません'
             );
             hint = 'AI に不可視';
@@ -5416,7 +5438,7 @@
         var filtered = [];
         Object.keys(equips).forEach(function(k) {
             var e = equips[k] || {};
-            var st = Number(e.状态);
+            var st = Number(e.状態);
             if (statuses.indexOf(st) >= 0) filtered.push({key:k, val:e});
         });
         if (filtered.length === 0) return '<div class="sam-empty">[なし]</div>';
@@ -5424,28 +5446,28 @@
         var html = '';
         filtered.forEach(function(it) {
             var e = it.val;
-            var st = Number(e.状态);
+            var st = Number(e.状態);
             var path = basePath+'.'+it.key;
-            var q = parseRarity(e.品质);
-            var typeStr = typeMap[e.类型] || '不明';
+            var q = parseRarity(e.品質);
+            var typeStr = typeMap[e.タイプ] || '不明';
             var rows = '';
-            rows += fcRow('タイプ', typeStr, path+'.类型', false); // 类型は数値列挙, 編集不可
-            if (!isCostEmpty(e.消耗)) rows += fcRow('コスト', e.消耗, path+'.消耗', editMode);
+            rows += fcRow('タイプ', typeStr, path+'.タイプ', false); // 类型は数値列挙, 編集不可
+            if (!isCostEmpty(e.消費)) rows += fcRow('コスト', e.消費, path+'.消費', editMode);
             var body = '<div class="sam-fc-body">';
-            if (editMode || (Array.isArray(e.标签) && e.标签.length > 0)) body += fcBody('タグ', formatTags(e.标签, path+'.标签', editMode), 'sam-fc-tags');
+            if (editMode || (Array.isArray(e.タグ) && e.タグ.length > 0)) body += fcBody('タグ', formatTags(e.タグ, path+'.タグ', editMode), 'sam-fc-tags');
             if (e.原始属性 && typeof e.原始属性 === 'object' && Object.keys(e.原始属性).length > 0) {
                 body += fcBodyCollapsible('原始属性', formatStatGrid(e.原始属性, 3), 'sam-fc-stats', false);
             }
-            body += fcBody('効果', formatEffects(e.效果, path+'.效果', editMode), 'sam-fc-effects');
+            body += fcBody('効果', formatEffects(e.効果, path+'.効果', editMode), 'sam-fc-effects');
             var descContent;
-            if (editMode && !isReadonlyPath(path+'.描述')) {
-                descContent = editInput(path+'.描述', safeStr(e.描述), 'textarea');
+            if (editMode && !isReadonlyPath(path+'.説明')) {
+                descContent = editInput(path+'.説明', safeStr(e.説明), 'textarea');
             } else {
-                descContent = esc(safeStr(e.描述));
+                descContent = esc(safeStr(e.説明));
             }
             body += fcBody('説明', descContent);
             // 操作ボタン(タイプ8の特殊装備はボタンなし・制限なし); 削除ボタンは編集モードのみ表示
-            var btns = equipActionButtons(path, st, Number(e.类型), editMode);
+            var btns = equipActionButtons(path, st, Number(e.タイプ), editMode);
             if (btns) body += fcBody('操作', btns, 'sam-fc-actions');
             body += '</div>';
             html += fullCard(q, it.key, rows, body, '');
@@ -5457,28 +5479,28 @@
         var filtered = [];
         Object.keys(items).forEach(function(k) {
             var it = items[k] || {};
-            var st = Number(it.状态);
+            var st = Number(it.状態);
             if (statuses.indexOf(st) >= 0) filtered.push({key:k, val:it});
         });
         if (filtered.length === 0) return '<div class="sam-empty">[なし]</div>';
         var html = '';
         filtered.forEach(function(it) {
             var v = it.val;
-            var st = Number(v.状态);
+            var st = Number(v.状態);
             var path = basePath+'.'+it.key;
-            var q = parseRarity(v.品质);
+            var q = parseRarity(v.品質);
             var qty = safeNum(v.数量, 1);
             var rows = '';
-            rows += fcRow('タイプ', v.类型, path+'.类型', editMode);
+            rows += fcRow('タイプ', v.タイプ, path+'.タイプ', editMode);
             rows += fcRow('数量', qty, path+'.数量', editMode, 'number');
             var body = '<div class="sam-fc-body">';
-            if (editMode || (Array.isArray(v.标签) && v.标签.length > 0)) body += fcBody('タグ', formatTags(v.标签, path+'.标签', editMode), 'sam-fc-tags');
-            body += fcBody('効果', formatEffects(v.效果, path+'.效果', editMode), 'sam-fc-effects');
+            if (editMode || (Array.isArray(v.タグ) && v.タグ.length > 0)) body += fcBody('タグ', formatTags(v.タグ, path+'.タグ', editMode), 'sam-fc-tags');
+            body += fcBody('効果', formatEffects(v.効果, path+'.効果', editMode), 'sam-fc-effects');
             var descContent;
-            if (editMode && !isReadonlyPath(path+'.描述')) {
-                descContent = editInput(path+'.描述', safeStr(v.描述), 'textarea');
+            if (editMode && !isReadonlyPath(path+'.説明')) {
+                descContent = editInput(path+'.説明', safeStr(v.説明), 'textarea');
             } else {
-                descContent = esc(safeStr(v.描述));
+                descContent = esc(safeStr(v.説明));
             }
             body += fcBody('説明', descContent);
             body += fcBody('操作', itemActionButtons(path, st, editMode), 'sam-fc-actions');
@@ -5500,7 +5522,7 @@
             var list = [];
             Object.keys(skills).forEach(function(k) {
                 var s = skills[k] || {};
-                if (Number(s.类型) === cat.idx) list.push({key:k, val:s});
+                if (Number(s.タイプ) === cat.idx) list.push({key:k, val:s});
             });
             // ★ そのカテゴリの件数が 0 → 欄ごと非表示(空の折りたたみ欄を描画しない), アビリティパネル/形態カード/NPC詳細で共用
             if (list.length === 0) return;
@@ -5511,17 +5533,17 @@
             list.forEach(function(it) {
                 var s = it.val;
                 var path = basePath+'.'+it.key;
-                var q = parseRarity(s.品质);
+                var q = parseRarity(s.品質);
                 var rows = '';
-                if (!isCostEmpty(s.消耗)) rows += fcRow('コスト', s.消耗, path+'.消耗', editMode);
+                if (!isCostEmpty(s.消費)) rows += fcRow('コスト', s.消費, path+'.消費', editMode);
                 var body = '<div class="sam-fc-body">';
-                if (editMode || (Array.isArray(s.标签) && s.标签.length > 0)) body += fcBody('タグ', formatTags(s.标签, path+'.标签', editMode), 'sam-fc-tags');
-                body += fcBody('効果', formatEffects(s.效果, path+'.效果', editMode), 'sam-fc-effects');
+                if (editMode || (Array.isArray(s.タグ) && s.タグ.length > 0)) body += fcBody('タグ', formatTags(s.タグ, path+'.タグ', editMode), 'sam-fc-tags');
+                body += fcBody('効果', formatEffects(s.効果, path+'.効果', editMode), 'sam-fc-effects');
                 var descContent;
-                if (editMode && !isReadonlyPath(path+'.描述')) {
-                    descContent = editInput(path+'.描述', safeStr(s.描述), 'textarea');
+                if (editMode && !isReadonlyPath(path+'.説明')) {
+                    descContent = editInput(path+'.説明', safeStr(s.説明), 'textarea');
                 } else {
-                    descContent = esc(safeStr(s.描述));
+                    descContent = esc(safeStr(s.説明));
                 }
                 body += fcBody('説明', descContent);
                 body += '</div>';
@@ -5535,8 +5557,8 @@
 
     /* ===== 26. Tab: 血統(血統/形態ライブラリ/スキル) ===== */
     function renderBloodTab(sd) {
-        var p = sd.角色 || {};
-        var bl = p.血统 || {};
+        var p = sd.キャラ || {};
+        var bl = p.血統 || {};
         var editMode = isEditMode();
         var keys = Object.keys(bl);
         // 血統数の上限: トップの定数 BLOODLINE_CAP(既定3)を使用し, 欄タイトルとショップの上限判定に用いる
@@ -5549,20 +5571,20 @@
             blHtml += '<div class="sam-card-list sam-card-list-1col">';
             keys.forEach(function(k) {
                 var b = bl[k] || {};
-                var path = '角色.血统.'+k;
-                var q = parseRarity(b.品质);
+                var path = 'キャラ.血統.'+k;
+                var q = parseRarity(b.品質);
                 var rows = '';
                 var body = '<div class="sam-fc-body">';
-                if (editMode || (Array.isArray(b.标签) && b.标签.length > 0)) body += fcBody('タグ', formatTags(b.标签, path+'.标签', editMode), 'sam-fc-tags');
+                if (editMode || (Array.isArray(b.タグ) && b.タグ.length > 0)) body += fcBody('タグ', formatTags(b.タグ, path+'.タグ', editMode), 'sam-fc-tags');
                 if (b.原始属性 && typeof b.原始属性 === 'object' && Object.keys(b.原始属性).length > 0) {
                     body += fcBodyCollapsible('原始属性', formatStatGrid(b.原始属性, 3), 'sam-fc-stats', false);
                 }
-                body += fcBody('効果', formatEffects(b.效果, path+'.效果', editMode), 'sam-fc-effects');
+                body += fcBody('効果', formatEffects(b.効果, path+'.効果', editMode), 'sam-fc-effects');
                 var descContent;
-                if (editMode && !isReadonlyPath(path+'.描述')) {
-                    descContent = editInput(path+'.描述', safeStr(b.描述), 'textarea');
+                if (editMode && !isReadonlyPath(path+'.説明')) {
+                    descContent = editInput(path+'.説明', safeStr(b.説明), 'textarea');
                 } else {
-                    descContent = esc(safeStr(b.描述));
+                    descContent = esc(safeStr(b.説明));
                 }
                 body += fcBody('説明', descContent);
                 body += '</div>';
@@ -5576,7 +5598,7 @@
         }
         html += secBlock('🧬 血統 ('+keys.length+'/'+bloodLimit+')', blHtml, false);  // 既定は折りたたみ; 折りたたみ記憶を優先して上書き
         // 形態ライブラリ
-        var forms = p.形态库 || {};
+        var forms = p.形態庫 || {};
         var fkeys = Object.keys(forms);
         var fHtml = '';
         if (fkeys.length === 0) fHtml += '<div class="sam-empty">[形態なし]</div>';
@@ -5584,25 +5606,25 @@
             fHtml += '<div class="sam-card-list sam-card-list-1col">';
             fkeys.forEach(function(k) {
                 var f = forms[k] || {};
-                var path = '角色.形态库.'+k;
+                var path = 'キャラ.形態庫.'+k;
                 // 形態は階層(Ⅰ~Ⅸ): バッジはローマ数字を表示し, 色階は対応する品質文字(q-class)を使用; 旧品質文字データとも互換
-                var _fTierRaw = f.层级 != null ? f.层级 : f.品质;
+                var _fTierRaw = f.階層 != null ? f.階層 : f.品質;
                 var q = { label: tierRomanOf(_fTierRaw), cls: tierQOfClass(_fTierRaw) };
                 var rows = '';
-                rows += fcRow('状態', f.状态, path+'.状态', editMode);
-                if (!isCostEmpty(f.消耗)) rows += fcRow('コスト', f.消耗, path+'.消耗', editMode);
+                rows += fcRow('状態', f.状態, path+'.状態', editMode);
+                if (!isCostEmpty(f.消費)) rows += fcRow('コスト', f.消費, path+'.消費', editMode);
                 // 注: クールダウンは fcRow では表示せず, 発動ボタン(⏳ Nターン)で一元表示し, 重複を避ける
                 var body = '<div class="sam-fc-body">';
-                if (editMode || (Array.isArray(f.标签) && f.标签.length > 0)) body += fcBody('タグ', formatTags(f.标签, path+'.标签', editMode), 'sam-fc-tags');
+                if (editMode || (Array.isArray(f.タグ) && f.タグ.length > 0)) body += fcBody('タグ', formatTags(f.タグ, path+'.タグ', editMode), 'sam-fc-tags');
                 if (f.原始属性 && typeof f.原始属性 === 'object' && Object.keys(f.原始属性).length > 0) {
                     body += fcBodyCollapsible('原始属性', formatStatGrid(f.原始属性, 3), 'sam-fc-stats', false);
                 }
-                body += fcBody('効果', formatEffects(f.效果, path+'.效果', editMode), 'sam-fc-effects');
+                body += fcBody('効果', formatEffects(f.効果, path+'.効果', editMode), 'sam-fc-effects');
                 var descContent;
-                if (editMode && !isReadonlyPath(path+'.描述')) {
-                    descContent = editInput(path+'.描述', safeStr(f.描述), 'textarea');
+                if (editMode && !isReadonlyPath(path+'.説明')) {
+                    descContent = editInput(path+'.説明', safeStr(f.説明), 'textarea');
                 } else {
-                    descContent = esc(safeStr(f.描述));
+                    descContent = esc(safeStr(f.説明));
                 }
                 body += fcBody('説明', descContent);
                 // 形態が持つスキル子テーブル
@@ -5611,7 +5633,7 @@
                     body += fcBody('スキル', renderSkillFullList(formSkills, path+'.技能', editMode), 'sam-fc-skills');
                 }
                 // 発動/解除ボタン: 品質バッジの左側(headExtra)に配置; 発動中→✕解除(クリック可), クールダウン中→⏳無効, ゼロ→⚡発動
-                var cf = p.当前形态 || {};
+                var cf = p.現在形態 || {};
                 var isThisActive = (cf.激活 === true && safeStr(cf.名称) === k);
                 var cdCur = 0;
                 var cdM = safeStr(f.冷却).match(/^(\d+)\s*\/\s*(\d+)/);
@@ -5635,7 +5657,7 @@
         }
         // スキル(アクティブ/パッシブ/特殊の各折りたたみ欄を直接列挙し, 外側の"メインスキル欄"section)
         var skills = p.技能 || {};
-        html += renderSkillFullList(skills, '角色.技能', editMode);
+        html += renderSkillFullList(skills, 'キャラ.技能', editMode);
         return html;
     }
 
@@ -5643,15 +5665,15 @@
     /* 関係パネルで現在アクティブなサブTab(すべて/在席/不在/チーム)を記憶し, renderAll 後に"すべて"へ戻るのを防ぐ */
     var relationActiveSub = 'all';
     function renderRelationTab(sd) {
-        var rel = sd.关系列表 || {};
+        var rel = sd.关系リスト || {};
         var editMode = isEditMode();
         var all = [], present = [], absent = [], team = [];
         Object.keys(rel).forEach(function(k) {
             var n = rel[k] || {};
             var item = {key:k, val:n};
             all.push(item);
-            if (n.在场 === true) present.push(item); else absent.push(item);
-            if (n.是否队友 === true) team.push(item);
+            if (n.登場 === true) present.push(item); else absent.push(item);
+            if (n.仲間 === true) team.push(item);
         });
         // 記憶したサブTab状態を使用(無効なら'all'へフォールバック)
         var activeSub = relationActiveSub;
@@ -5691,7 +5713,7 @@
         var html = '<div class="sam-list-1col">';
         list.forEach(function(it) {
             var n = it.val;
-            var path = '关系列表.'+it.key;
+            var path = '関係リスト.'+it.key;
             // 階層表示: 形態が発動中で形態階層>自身の場合は形態階層を表示(表示のみ, 書き戻しなし)
             var _dispRaw = displayTierRaw(n);
             var tierRoman = tierRomanOf(_dispRaw); var q = tierQOfClass(_dispRaw);
@@ -5699,27 +5721,27 @@
             var ep = safeNum(n.EP,0), epmax = safeNum(n.EP_MAX,1);
             var thp = safeNum(n.THP,0);
             var favor = safeNum(n.好感度,0);
-            var race = safeStr(n.种族) || '-';
+            var race = safeStr(n.種族) || '-';
             // 陣営の身分は既定で非表示(AIのみ可視); ただしチームメンバーか好感度>60の場合は隠さない
-            var rawIdArr = Array.isArray(n.身份) ? n.身份 : [];
-            var showAllIdentity = (n.是否队友 === true) || (favor > 60);
+            var rawIdArr = Array.isArray(n.身分) ? n.身分 : [];
+            var showAllIdentity = (n.仲間 === true) || (favor > 60);
             var idArr = showAllIdentity ? rawIdArr : filterHiddenIdentity(rawIdArr);
             var idStr = idArr.length ? idArr.join(' / ') : '-';
-            var jobStrHtml = occupationInlineHtml(n.职业) || '<span class="sam-ed-ph">-</span>';
-            var looks = safeStr(n.外貌) || '';
-            var dress = safeStr(n.着装) || '';
+            var jobStrHtml = occupationInlineHtml(n.職業) || '<span class="sam-ed-ph">-</span>';
+            var looks = safeStr(n.外見) || '';
+            var dress = safeStr(n.服装) || '';
             var persona = safeStr(n.性格) || '';
-            var likes = safeStr(n.喜爱) || '';
-            var mind = safeStr(n.态度) || '';
-            var bg = safeStr(n.背景故事) || '';
-            var presentTxt = (n.在场 === true) ? 'はい' : 'いいえ';
+            var likes = safeStr(n.好み) || '';
+            var mind = safeStr(n.態度) || '';
+            var bg = safeStr(n.背景) || '';
+            var presentTxt = (n.登場 === true) ? 'はい' : 'いいえ';
             // 在席カードはクリックで詳細を表示(すべて/不在と同様)
             var cls = 'sam-card sam-npc-card q-'+q;
             var card = '<div class="'+cls+'" data-path="'+esc(path)+'" data-title="'+esc(it.key)+'">';
             // 編集モード: 右上の削除ボタン
             if (editMode) card += '<button type="button" class="sam-npc-del" data-del-npc="'+esc(it.key)+'" title="このNPCを削除">✕</button>';
             // 在席カード: 右上に転送ボタン(在席時のみ表示; 編集モードでは削除ボタンを避けて左へ)
-            if (mode === 'present' && n.在场 === true) {
+            if (mode === 'present' && n.登場 === true) {
                 var trfPos = editMode ? 'right:30px;' : 'right:4px;';
                 card += '<button type="button" class="sam-npc-transfer" data-transfer-npc="'+esc(it.key)+'" style="'+trfPos+'" title="このキャラクターへ物資を転送">📦 転送</button>';
                 // 回収ボタン: 死亡したNPCのみ表示
@@ -5739,7 +5761,7 @@
                 card += '<button type="button" class="sam-npc-portrait-btn" data-name="'+esc(it.key)+'" title="立ち絵を設定">📷 立ち絵</button>';
             }
             // NPC 変身形態: 当前形态.激活===true かつ名称がある場合, 名前の右側に形態名を表示
-            var npcCf = n.当前形态 || {};
+            var npcCf = n.現在形態 || {};
             var npcFormName = (npcCf.激活 === true && safeStr(npcCf.名称)) ? safeStr(npcCf.名称) : '';
             var npcFormTag = npcFormName ? '<span class="sam-npc-form-tag">🌀 '+esc(npcFormName)+'</span>' : '';
             card += '<div class="sam-npc-head-info"><div class="sam-npc-head-name">'+esc(it.key)+npcFormTag+'</div></div>';
@@ -5772,7 +5794,7 @@
                 grid += npcRow('階層', tierRoman, 'sam-npc-tier q-'+q);
                 grid += npcRow('好感度', favor);
                 card += '<div class="sam-npc-grid">'+grid+'</div>';
-                if (n.是否队友 === true) card += renderNpcTierProgressBar(n, it.key);
+                if (n.仲間 === true) card += renderNpcTierProgressBar(n, it.key);
                 // プログレスバー HP/EP/THP
                 card += '<div class="sam-npc-sec"></div>';
                 card += npcBar('HP', hp, hpmax, 'var(--sam-hp)');
@@ -5880,7 +5902,7 @@
     }
     // 建設段階 → 色クラス
     function assetStageClass(stage) {
-        var map = { '基础':'s1', '进阶':'s2', '专业':'s3', '顶尖':'s4', '禁忌':'s5' };
+        var map = { '基礎':'s1', '上級':'s2', '専門':'s3', '最上級':'s4', '禁忌':'s5' };
         return map[stage] || 's1';
     }
     // スカラー: 編集時は編集コンポーネント, それ以外はプレーンテキスト
@@ -5896,7 +5918,7 @@
     }
     // 規模ドット(1-10); 編集時は入力欄に切替
     function assetScaleDots(scale, path, editMode) {
-        if (editMode) return editInput(path + '.主体规模', scale, 'number');
+        if (editMode) return editInput(path + '.主体規模', scale, 'number');
         var dots = '';
         for (var i = 1; i <= 10; i++) {
             dots += '<span class="sam-asset-dot' + (i <= scale ? ' on' : '') + '"></span>';
@@ -5909,12 +5931,12 @@
     }
     /* 単一資産の折りたたみ欄(既定は展開, 展開すると全情報を表示) */
     function renderAssetBlock(name, a, path, editMode) {
-        var type = safeStr(a.类型, '固定地产');
-        var integ = safeNum(a.完整度, 100);
-        var scale = safeNum(a.主体规模, 1);
+        var type = safeStr(a.タイプ, '固定地产');
+        var integ = safeNum(a.完全度, 100);
+        var scale = safeNum(a.主体規模, 1);
         var integCls = assetIntegClass(integ);
         var integW = Math.max(0, Math.min(100, integ));
-        var owners = normalizeAssetOwnersUi(a.所属对象);
+        var owners = normalizeAssetOwnersUi(a.所属対象);
         var ownerHead = owners.length === 0 ? '无主' : (owners.length === 1 ? displayPlayerIdentity(owners[0]) : '共同管理 ' + owners.length);
 
         // ヘッダー: アイコン + 名前 + タイプバッジ + 完全度 + (編集モード)削除ボタン
@@ -5935,7 +5957,7 @@
             + '<div class="sam-asset-ov-row">'
             +   '<span class="sam-asset-ov-lbl">完全度</span>'
             +   '<div class="sam-asset-bar"><div class="sam-asset-bar-fill ' + integCls + '" style="width:' + integW + '%;"></div></div>'
-            +   '<span class="sam-asset-ov-val">' + (editMode ? editInput(path + '.完整度', integ, 'number') : integ + '%') + '</span>'
+            +   '<span class="sam-asset-ov-val">' + (editMode ? editInput(path + '.完全度', integ, 'number') : integ + '%') + '</span>'
             + '</div>'
             + '<div class="sam-asset-ov-row">'
             +   '<span class="sam-asset-ov-lbl">本体規模</span>'
@@ -5943,54 +5965,54 @@
             + '</div>'
             + '<div class="sam-asset-ov-row">'
             +   '<span class="sam-asset-ov-lbl">タイプ</span>'
-            +   '<span class="sam-asset-ov-val">' + (editMode ? editSelect(path + '.类型', ['固定地产', '大型载具与要塞', '便携式据点'], type) : esc(type)) + '</span>'
+            +   '<span class="sam-asset-ov-val">' + (editMode ? editSelect(path + '.タイプ', ['固定地产', '大型载具与要塞', '便携式据点'], type) : esc(type)) + '</span>'
             + '</div>'
             + '<div class="sam-asset-ov-row">'
             +   '<span class="sam-asset-ov-lbl">所属対象</span>'
-            +   '<span class="sam-asset-ov-val">' + (editMode ? editInput(path + '.所属对象', owners, 'tags') : assetOwnerChips(owners)) + '</span>'
+            +   '<span class="sam-asset-ov-val">' + (editMode ? editInput(path + '.所属対象', owners, 'tags') : assetOwnerChips(owners)) + '</span>'
             + '</div>'
             + '</div>';
 
         // 状態(長文)
-        var status = safeStr(a.状态, '');
+        var status = safeStr(a.状態, '');
         body += '<div class="sam-asset-sec">'
             + '<div class="sam-asset-sec-t">📋 状態</div>'
-            + '<div class="sam-asset-text">' + (editMode ? editInput(path + '.状态', status, 'textarea') : (status ? esc(status) : '<span class="sam-asset-none">なし</span>')) + '</div>'
+            + '<div class="sam-asset-text">' + (editMode ? editInput(path + '.状態', status, 'textarea') : (status ? esc(status) : '<span class="sam-asset-none">なし</span>')) + '</div>'
             + '</div>';
 
         // エネルギー(任意)
-        var energy = a.能源;
-        if (energy && typeof energy === 'object' && (safeStr(energy.类型) || safeNum(energy.上限) > 0 || safeStr(energy.描述))) {
-            var eCur = safeNum(energy.当前, 0);
+        var energy = a.エネルギー;
+        if (energy && typeof energy === 'object' && (safeStr(energy.タイプ) || safeNum(energy.上限) > 0 || safeStr(energy.説明))) {
+            var eCur = safeNum(energy.現在, 0);
             var eMax = safeNum(energy.上限, 0);
             var ePct = eMax > 0 ? Math.max(0, Math.min(100, Math.round(eCur / eMax * 100))) : 0;
             body += '<div class="sam-asset-sec">'
-                + '<div class="sam-asset-sec-t">⚡ エネルギー · ' + esc(safeStr(energy.类型, '-')) + '</div>'
+                + '<div class="sam-asset-sec-t">⚡ エネルギー · ' + esc(safeStr(energy.タイプ, '-')) + '</div>'
                 + '<div class="sam-asset-energy">'
                 +   '<div class="sam-asset-bar"><div class="sam-asset-bar-fill energy" style="width:' + ePct + '%;"></div></div>'
-                +   '<span class="sam-asset-energy-num">' + (editMode ? editInput(path + '.能源.当前', eCur, 'number') : eCur) + ' / ' + (editMode ? editInput(path + '.能源.上限', eMax, 'number') : eMax) + '</span>'
+                +   '<span class="sam-asset-energy-num">' + (editMode ? editInput(path + '.エネルギー.現在', eCur, 'number') : eCur) + ' / ' + (editMode ? editInput(path + '.能源.上限', eMax, 'number') : eMax) + '</span>'
                 + '</div>';
-            var eDesc = safeStr(energy.描述, '');
+            var eDesc = safeStr(energy.説明, '');
             if (eDesc || editMode) {
-                body += '<div class="sam-asset-text">' + (editMode ? editInput(path + '.能源.描述', eDesc, 'textarea') : esc(eDesc)) + '</div>';
+                body += '<div class="sam-asset-text">' + (editMode ? editInput(path + '.エネルギー.説明', eDesc, 'textarea') : esc(eDesc)) + '</div>';
             }
             body += '</div>';
         }
 
         // 消耗ユニット(任意)
-        var units = a.消耗单元 || {};
+        var units = a.消耗ユニット || {};
         var uKeys = Object.keys(units);
         if (uKeys.length > 0) {
             body += '<div class="sam-asset-sec"><div class="sam-asset-sec-t">🔋 消耗ユニット (' + uKeys.length + ')</div>';
             uKeys.forEach(function(uk) {
                 var u = units[uk] || {};
-                var upath = path + '.消耗单元.' + uk;
-                var rem = safeNum(u.余量, 0);
+                var upath = path + '.消耗ユニット.' + uk;
+                var rem = safeNum(u.残量, 0);
                 var cap = safeNum(u.上限, 0);
                 var upct = cap > 0 ? Math.max(0, Math.min(100, Math.round(rem / cap * 100))) : 0;
                 body += '<div class="sam-asset-unit">'
                     + '<div class="sam-asset-unit-head"><span class="sam-asset-unit-name">' + esc(uk) + '</span>'
-                    +   '<span class="sam-asset-unit-num">' + (editMode ? editInput(upath + '.余量', rem, 'number') : rem) + ' / ' + (editMode ? editInput(upath + '.上限', cap, 'number') : cap) + '</span></div>'
+                    +   '<span class="sam-asset-unit-num">' + (editMode ? editInput(upath + '.残量', rem, 'number') : rem) + ' / ' + (editMode ? editInput(upath + '.上限', cap, 'number') : cap) + '</span></div>'
                     + '<div class="sam-asset-bar"><div class="sam-asset-bar-fill" style="width:' + upct + '%;"></div></div>'
                     + (Array.isArray(u.加成) && u.加成.length ? '<div class="sam-asset-unit-bonus">' + assetTagChips(u.加成) + '</div>' : '')
                     + '</div>';
@@ -5999,14 +6021,14 @@
         }
 
         // 建設シーケンス(任意)
-        var seqs = a.建设序列 || {};
+        var seqs = a.建設シーケンス || {};
         var sKeys = Object.keys(seqs);
         if (sKeys.length > 0) {
             body += '<div class="sam-asset-sec"><div class="sam-asset-sec-t">🏗️ 建設シーケンス (' + sKeys.length + ')</div>';
             sKeys.forEach(function(sk) {
                 var s = seqs[sk] || {};
-                var spath = path + '.建设序列.' + sk;
-                var stage = safeStr(s.阶段, '基础');
+                var spath = path + '.建設シーケンス.' + sk;
+                var stage = safeStr(s.段階, '基礎');
                 var seqDelBtn = editMode ? '<button type="button" class="sam-fc-del-btn sam-asset-seq-del" data-asset-seq-del="' + esc(spath) + '" title="この建設シーケンスを削除">✕</button>' : '';
                 body += '<div class="sam-asset-seq">'
                     + '<div class="sam-asset-seq-head">'
@@ -6015,13 +6037,13 @@
                     +   seqDelBtn
                     + '</div>'
                     + '<div class="sam-asset-seq-rows">'
-                    +   assetKvRow('機能', assetScalar(spath + '.功能', safeStr(s.功能), 'text', editMode))
+                    +   assetKvRow('機能', assetScalar(spath + '.機能', safeStr(s.機能), 'text', editMode))
                     +   (function() {
-                            var cv = safeStr(s.产出);
+                            var cv = safeStr(s.産出);
                             // 生産が空または"无"の場合はこのフィールドと次回生産日を非表示(編集モードでは入力用に保持)
                             if (!editMode && (!cv || cv === '无')) return '';
-                            return assetKvRow('生産', assetScalar(spath + '.产出', cv, 'text', editMode))
-                                + assetKvRow('次回生産日', assetScalar(spath + '.下次产出日期', safeStr(s.下次产出日期, '无'), 'text', editMode));
+                            return assetKvRow('生産', assetScalar(spath + '.産出', cv, 'text', editMode))
+                                + assetKvRow('次回生産日', assetScalar(spath + '.次回産出日', safeStr(s.次回産出日, '无'), 'text', editMode));
                         })()
                     + '</div>'
                     + (Array.isArray(s.加成) && s.加成.length ? '<div class="sam-asset-seq-bonus">' + assetTagChips(s.加成) + '</div>' : '')
@@ -6031,7 +6053,7 @@
         }
 
         // 駐在人員(任意)
-        var staff = a.驻扎人员 || {};
+        var staff = a.駐留人員 || {};
         var stKeys = Object.keys(staff);
         if (stKeys.length > 0) {
             body += '<div class="sam-asset-sec"><div class="sam-asset-sec-t">👥 駐在人員 (' + stKeys.length + ')</div>'
@@ -6043,7 +6065,7 @@
         }
 
         // 未処理イベント(任意) —— 非編集モードでは行全体がクリック可能で, クリックするとそのテキストを入力欄へ入れる
-        var todo = a.待办事件;
+        var todo = a.待機イベント;
         if (Array.isArray(todo) && todo.length > 0) {
             body += '<div class="sam-asset-sec"><div class="sam-asset-sec-t">📌 未処理イベント (' + todo.length + ')</div>'
                 + '<div class="sam-asset-todo">';
@@ -6065,20 +6087,20 @@
         return '<details class="sam-asset" open>' + head + body + '</details>';
     }
 
-    /* ===== 29. Tab: 噂(すべてを一画面に表示; 変数に応じて全件表示, 情报交易.真实内幕を除く) =====
+    /* ===== 29. Tab: 噂(すべてを一画面に表示; 変数に応じて全件表示, 情报交易.真の内幕を除く) =====
        R21-噂取引: 创世状态栏.txt から移植
          - トップツールバー: すべての噂を一括削除(確認あり)
          - 各カテゴリのタイトル右側: 一括クリア(そのカテゴリのみ, 確認あり)
-         - 情報取引カード: 要求価格の数字の隣に"取引可"ボタンを追加し, クリックでテキストを入力欄へ送信(找{卖家}购买情报「{名}」)
+         - 情報取引カード: 要求価格の数字の隣に"取引可"ボタンを追加し, クリックでテキストを入力欄へ送信(找{売り手}购买情报「{名}」)
          - 各噂の名前の右端: 単件削除ボタン
     */
     function renderRumorTab(sd) {
-        var r = sd.传闻 || {};
+        var r = sd.噂 || {};
         var editMode = isEditMode();
         var html = '';
-        var street = r.街头巷议 || {};
-        var intel = r.情报交易 || {};
-        var notice = r.布告与檄文 || {};
+        var street = r.街頭の噂 || {};
+        var intel = r.情報取引 || {};
+        var notice = r.布告と檄文 || {};
         // トップツールバー: すべての噂を一括削除(噂が実際にある場合のみ表示)
         var total = Object.keys(street).length + Object.keys(intel).length + Object.keys(notice).length;
         if (total > 0) {
@@ -6096,32 +6118,32 @@
         var nNotice = Object.keys(notice).length;
         // 巷の噂
         html += secBlock('🗣️ 巷の噂 ('+nStreet+')',
-            renderRumorFullList(street, '传闻.街头巷议', editMode, [
-                {k:'情報源', f:'来源', type:'text'},
-                {k:'信頼度', f:'可信度', type:'select', options:['酒话','可疑','或许可信']},
+            renderRumorFullList(street, '噂.街頭の噂', editMode, [
+                {k:'情報源', f:'出典', type:'text'},
+                {k:'信頼度', f:'信頼度', type:'select', options:['酒話','疑わしい','信頼できるかも']},
                 {k:'内容', f:'内容', type:'textarea', block:true}
-            ], '街头巷议'), nStreet > 0, clearBtn('街头巷议', nStreet));
+            ], '街頭の噂'), nStreet > 0, clearBtn('街頭の噂', nStreet));
         // 情報取引: 要价 フィールドに tradeable:trueを付けて, 取引ボタンを発火
         html += secBlock('💎 情報取引 ('+nIntel+')',
-            renderRumorFullList(intel, '传闻.情报交易', editMode, [
-                {k:'売り手', f:'卖家', type:'text'},
-                {k:'情報評価', f:'情报评级', type:'select', options:['F','E','D','C','B','A','S','SS','SSS','日常','战略']},
+            renderRumorFullList(intel, '噂.情報取引', editMode, [
+                {k:'売り手', f:'売り手', type:'text'},
+                {k:'情報評価', f:'情報評価', type:'select', options:['F','E','D','C','B','A','S','SS','SSS','日常','戦略']},
                 // ★ 要价 フィールドは世界書の規則により文字列("50万日元"のような通貨単位付き)であり, number 型へ強制変換してはならない
-                {k:'要求価格', f:'要价', type:'text', tradeable:true},
-                {k:'要約', f:'摘要', type:'textarea', block:true}
-            ], '情报交易'), nIntel > 0, clearBtn('情报交易', nIntel));
+                {k:'要求価格', f:'要求価格', type:'text', tradeable:true},
+                {k:'要約', f:'要約', type:'textarea', block:true}
+            ], '情報取引'), nIntel > 0, clearBtn('情報取引', nIntel));
         // 布告と檄文
         html += secBlock('📜 布告と檄文 ('+nNotice+')',
-            renderRumorFullList(notice, '传闻.布告与檄文', editMode, [
-                {k:'発布者', f:'发布者', type:'text'},
-                {k:'掲示場所', f:'张贴位置', type:'text'},
+            renderRumorFullList(notice, '噂.布告と檄文', editMode, [
+                {k:'発布者', f:'発布者', type:'text'},
+                {k:'掲示場所', f:'掲示位置', type:'text'},
                 {k:'内容', f:'内容', type:'textarea', block:true}
-            ], '布告与檄文'), nNotice > 0, clearBtn('布告与檄文', nNotice));
+            ], '布告と檄文'), nNotice > 0, clearBtn('布告と檄文', nNotice));
         return html;
     }
     /* 噂/布告など汎用の全フィールド一覧(schemaのフィールドを全量表示, 長文フィールドは一行を独占)
-       sectionKey: 現在の分類 key(街头巷议/情报交易/布告与檄文), 単件削除ボタンの書き戻しパスに使用
-       fd.tradeable=true のフィールド, つまり値の隣に"取引可"ボタンを追加(情报交易.要价のみ)
+       sectionKey: 現在の分類 key(街頭の噂/情報取引/布告と檄文), 単件削除ボタンの書き戻しパスに使用
+       fd.tradeable=true のフィールド, つまり値の隣に"取引可"ボタンを追加(情報取引.要求価格のみ)
     */
     function renderRumorFullList(obj, basePath, editMode, fields, sectionKey) {
         var keys = Object.keys(obj);
@@ -6159,9 +6181,9 @@
                     } else {
                         display = editMode && !isReadonly ? editInput(fpath, safeStr(val), 'text') : (isReadonly ? '<span class="sam-edit-readonly">'+esc(safeStr(val))+'</span>' : esc(safeStr(val) || '-'));
                     }
-                    // ★ 取引可ボタン: 要求価格の数字のすぐ右側(情报交易.要价 フィールドのみ)
+                    // ★ 取引可ボタン: 要求価格の数字のすぐ右側(情报交易.要求価格 フィールドのみ)
                     if (fd.tradeable) {
-                        var seller = safeStr(it.卖家) || '不明';
+                        var seller = safeStr(it.売り手) || '不明';
                         // ★ 要价 は通貨単位付きの文字列("50万日元"など)であり, 元の値をそのままボタンの data-rumor-priceへ渡す,
                         //   number へ強制変換すると非数値文字列がゼロ化される(ボタンも0になる)
                         var priceStr = safeStr(val) || '0';
@@ -6187,22 +6209,22 @@
     /* ===== 30. Tab: 世界(全画面一括表示) ===== */
     function renderWorldTab(sd) {
         var w = sd.世界 || {};
-        var isSingleWorld = (sd.设置 && sd.设置.单一世界 === true);
-        var isInHub = (sd.系统状态 && sd.系统状态.是否在主神空间 === true);
+        var isSingleWorld = (sd.設定 && sd.設定.単一世界 === true);
+        var isInHub = (sd.システム状態 && sd.システム状態.主神空間滞在中 === true);
         var editMode = isEditMode();
         var html = '';
-        var alienRadar = w.异端雷达 || {};
-        var alienRoster = alienRadar.名单 && typeof alienRadar.名单 === 'object' && !Array.isArray(alienRadar.名单) ? alienRadar.名单 : {};
+        var alienRadar = w.異端レーダー || {};
+        var alienRoster = alienRadar.名簿 && typeof alienRadar.名簿 === 'object' && !Array.isArray(alienRadar.名簿) ? alienRadar.名簿 : {};
         var alienNames = Object.keys(alienRoster);
         var alienAliveCount = alienNames.filter(function(name) {
-            return safeStr((alienRoster[name] || {}).状态) !== '死亡';
+            return safeStr((alienRoster[name] || {}).状態) !== '死亡';
         }).length;
         // 世界紹介(時間/場所は上部 topbar に表示済み, ここでは繰り返さない)
         var introFields = [
             {k:'名称', path:'世界.名称', type:'text'},
             {k:'位格', path:'世界.位格', type:'text'},
-            {k:'難易度', path:'世界.难度', type:'text'},
-            {k:'モード', path:'世界.异端雷达.当前模式', type:'text', hideOnSingle:true}
+            {k:'難易度', path:'世界.難易度', type:'text'},
+            {k:'モード', path:'世界.異端レーダー.現在模式', type:'text', hideOnSingle:true}
         ];
         var introHtml = '';
         introFields.forEach(function(f) {
@@ -6214,7 +6236,7 @@
             else display = esc(safeStr(v));
             introHtml += '<div class="sam-row"><span class="k">'+esc(f.k)+'</span><span class="v">'+display+'</span></div>';
         });
-        var stabilityValue = Math.max(0, Math.min(120, safeNum(w.稳定, 100)));
+        var stabilityValue = Math.max(0, Math.min(120, safeNum(w.安定, 100)));
         var stabilityPct = Math.max(0, Math.min(100, (stabilityValue / 120) * 100));
         var stabilityOverClass = stabilityValue > 100 ? ' over' : '';
         introHtml += '<div class="sam-world-stability">'
@@ -6232,44 +6254,44 @@
             var alienHtml = '<div class="sam-alien-list">';
             alienNames.forEach(function(name) {
                 var alien = alienRoster[name] || {};
-                var status = safeStr(alien.状态) === '死亡' ? '死亡' : '活跃';
+                var status = safeStr(alien.状態) === '死亡' ? '死亡' : '活動中';
                 var stateClass = status === '死亡' ? 'dead' : 'active';
-                var sourceText = alien.来源 ? (alien.来源 === '原创' ? '原创' : '《' + alien.来源 + '》') : '';
-                var meta = [sourceText, alien.阵营, alien.职业, alien.层级 ? alien.层级 + '級' : ''].filter(Boolean).join(' · ');
+                var sourceText = alien.出典 ? ((alien.出典 === 'オリジナル' || alien.出典 === '原创') ? 'オリジナル' : '《' + alien.出典 + '》') : '';
+                var meta = [sourceText, alien.陣営, alien.職業, alien.階層 ? alien.階層 + '級' : ''].filter(Boolean).join(' · ');
                 alienHtml += '<div class="sam-alien-item"><div class="sam-alien-main"><div class="sam-alien-name">'+esc(name)+'</div>'
                     + (meta ? '<div class="sam-alien-meta">'+esc(meta)+'</div>' : '')
-                    + (alien.经历 ? '<div class="sam-alien-meta">経歴 · '+esc(alien.经历)+'</div>' : '')
+                    + (alien.経歴 ? '<div class="sam-alien-meta">経歴 · '+esc(alien.経歴)+'</div>' : '')
                     + '</div><span class="sam-alien-state '+stateClass+'">'+esc(status)+'</span></div>';
             });
             alienHtml += '</div>';
             html += secBlock('☄️ 異端名簿 · ' + alienAliveCount + '/' + alienNames.length, alienHtml, false);
         }
         // 法則(世界紹介の下へ移動)
-        var laws = Array.isArray(w.法则) ? w.法则 : [];
+        var laws = Array.isArray(w.法則) ? w.法則 : [];
         var lawHtml = '';
         if (laws.length === 0) lawHtml += '<div class="sam-empty">[法則なし]</div>';
-        else laws.forEach(function(law, i) { lawHtml += '<div class="sam-row"><span class="k">法則'+(i+1)+'</span><span class="v">'+(editMode ? editInput('世界.法则.'+i, safeStr(law), 'text') : esc(law))+'</span></div>'; });
+        else laws.forEach(function(law, i) { lawHtml += '<div class="sam-row"><span class="k">法則'+(i+1)+'</span><span class="v">'+(editMode ? editInput('世界.法則.'+i, safeStr(law), 'text') : esc(law))+'</span></div>'; });
         html += secBlock('📜 法則', lawHtml);
         // 通貨
-        var cur = w.货币 || {};
+        var cur = w.通貨 || {};
         var curHtml = '';
-        curHtml += '<div class="sam-row"><span class="k">体系</span><span class="v">'+(editMode ? editInput('世界.货币.体系', safeStr(cur.体系), 'text') : esc(cur.体系||'-'))+'</span></div>';
-        curHtml += '<div class="sam-row"><span class="k">購買力</span><span class="v">'+(editMode ? editInput('世界.货币.购买力基准', safeStr(cur.购买力基准), 'text') : esc(cur.购买力基准||'-'))+'</span></div>';
-        curHtml += '<div class="sam-row"><span class="k">経済変動</span><span class="v">'+(editMode ? editInput('世界.货币.经济波动', safeStr(cur.经济波动), 'text') : esc(cur.经济波动||'-'))+'</span></div>';
+        curHtml += '<div class="sam-row"><span class="k">体系</span><span class="v">'+(editMode ? editInput('世界.通貨.体系', safeStr(cur.体系), 'text') : esc(cur.体系||'-'))+'</span></div>';
+        curHtml += '<div class="sam-row"><span class="k">購買力</span><span class="v">'+(editMode ? editInput('世界.通貨.購買力基準', safeStr(cur.購買力基準), 'text') : esc(cur.購買力基準||'-'))+'</span></div>';
+        curHtml += '<div class="sam-row"><span class="k">経済変動</span><span class="v">'+(editMode ? editInput('世界.通貨.経済変動', safeStr(cur.経済変動), 'text') : esc(cur.経済変動||'-'))+'</span></div>';
         html += secBlock('💰 通貨', curHtml);
         // 因果軌道(通貨の下、探索ポイントの上へ移動)
-        var ko = w.因果轨道 || {};
+        var ko = w.因果軌道 || {};
         var koHtml = '';
-        koHtml += '<div class="sam-row"><span class="k">現在フェーズ</span><span class="v">'+(editMode ? editInput('世界.因果轨道.当前阶段', safeStr(ko.当前阶段), 'text') : esc(ko.当前阶段||'-'))+'</span></div>';
-        koHtml += '<div class="sam-row"><span class="k">ストーリーライン</span><span class="v">'+(editMode ? editInput('世界.因果轨道.故事线', safeStr(ko.故事线), 'text') : esc(ko.故事线||'-'))+'</span></div>';
-        koHtml += '<div class="sam-row"><span class="k">次のノード</span><span class="v">'+(editMode ? editInput('世界.因果轨道.下一节点', safeStr(ko.下一节点), 'text') : esc(ko.下一节点||'-'))+'</span></div>';
-        var off = ko.偏移记录 || {};
+        koHtml += '<div class="sam-row"><span class="k">現在フェーズ</span><span class="v">'+(editMode ? editInput('世界.因果軌道.現在段階', safeStr(ko.現在段階), 'text') : esc(ko.現在段階||'-'))+'</span></div>';
+        koHtml += '<div class="sam-row"><span class="k">ストーリーライン</span><span class="v">'+(editMode ? editInput('世界.因果軌道.ストーリーライン', safeStr(ko.ストーリーライン), 'text') : esc(ko.ストーリーライン||'-'))+'</span></div>';
+        koHtml += '<div class="sam-row"><span class="k">次のノード</span><span class="v">'+(editMode ? editInput('世界.因果軌道.次ノード', safeStr(ko.次ノード), 'text') : esc(ko.次ノード||'-'))+'</span></div>';
+        var off = ko.偏移記録 || {};
         var okeys = Object.keys(off);
         var offHtml = '';
         okeys.forEach(function(k) {
             var o = off[k] || {};
-            var path = '世界.因果轨道.偏移记录.'+k;
-            offHtml += '<div class="sam-row"><span class="k">'+esc(k)+'</span><span class="v">'+(editMode ? editInput(path+'.描述', safeStr(o.描述), 'text') : esc(o.描述||'-'))+'</span></div>';
+            var path = '世界.因果軌道.偏移記録.'+k;
+            offHtml += '<div class="sam-row"><span class="k">'+esc(k)+'</span><span class="v">'+(editMode ? editInput(path+'.説明', safeStr(o.説明), 'text') : esc(o.説明||'-'))+'</span></div>';
         });
         if (okeys.length > 0) {
             koHtml += '<details class="sam-sec" style="margin-top:6px;">'
@@ -6291,57 +6313,57 @@
         else ekeys.forEach(function(k) {
             var e = exp[k] || {};
             var path = '世界.探索.'+k;
-            var q = e.风险 ? parseRarity(e.风险) : '';
+            var q = e.リスク ? parseRarity(e.リスク) : '';
             var rows = fcRow('探索度', safeNum(e.探索度,0)+'%', path+'.探索度', editMode, 'number');
-            var body = fcRow('説明', e.描述, path+'.描述', editMode);
+            var body = fcRow('説明', e.説明, path+'.説明', editMode);
             expHtml += fullCard(q, k, rows, body, worldDelBtn(path));
         });
         html += secBlock('🧭 探索ポイント ('+Object.keys(w.探索||{}).length+')', expHtml, Object.keys(w.探索||{}).length > 0);
         // 勢力
-        var forces = w.势力 || {};
+        var forces = w.勢力 || {};
         var fkeys = Object.keys(forces);
         var forceHtml = '';
         if (fkeys.length === 0) forceHtml += '<div class="sam-empty">[勢力なし]</div>';
         else fkeys.forEach(function(k) {
             var f = forces[k] || {};
-            var path = '世界.势力.'+k;
-            var q = f.实力 ? parseRarity(f.实力) : '';
+            var path = '世界.勢力.'+k;
+            var q = f.実力 ? parseRarity(f.実力) : '';
             var rows = '';
             rows += fcRow('声望', safeNum(f.声望,0), path+'.声望', editMode, 'number');
-            var body = fcRow('説明', f.描述, path+'.描述', editMode);
+            var body = fcRow('説明', f.説明, path+'.説明', editMode);
             forceHtml += fullCard(q, k, rows, body, worldDelBtn(path));
         });
-        html += secBlock('⚔️ 勢力 ('+Object.keys(w.势力||{}).length+')', forceHtml, Object.keys(w.势力||{}).length > 0);
+        html += secBlock('⚔️ 勢力 ('+Object.keys(w.勢力||{}).length+')', forceHtml, Object.keys(w.勢力||{}).length > 0);
         return html;
     }
 
     /* ===== 30b. Tab: ショップ(主神空間の取引端末) =====
-       - 上部のコンパクト残高バー: 現在のスペースコイン(角色.スペースコイン, 読み取り専用, システムの決算で付与)を表示
+       - 上部のコンパクト残高バー: 現在のスペースコイン(キャラ.スペースコイン, 読み取り専用, システムの決算で付与)を表示
        - ステータス通知バー: 戦闘中/任務世界/主神空間 の三態, ショップ入口欄の上に配置
        - 取引ルール欄(折りたたみ): 二重経済/物価アンカーなど, ショップ入口の上に配置
        - ショップ入口欄: 要望入力欄(左) + 商品更新ボタン(右); 主神空間外/戦闘中は無効化
          商品更新ボタン: 本文AI generateRaw を呼び商品ライブラリを生成 → stat_data.商城 へ書き戻し → renderAll
      */
     function renderShopTab(sd) {
-        var p = sd.角色 || {};
-        var sys = sd.系统状态 || {};
+        var p = sd.キャラ || {};
+        var sys = sd.システム状態 || {};
         var editMode = isEditMode();
         var coin = safeNum(p.スペースコイン, 0);
-        var inHub = (sys.是否在主神空间 === true);
-        var isCombat = (sys.是否战斗中 === true);
+        var inHub = (sys.主神空間滞在中 === true);
+        var isCombat = (sys.戦闘中 === true);
         // ★ 複数キャラのショップ: shopCurrentActor(現在のNPCが退場済みなら角色へフォールバック)を補正, 現在のキャラクターオブジェクトを解決
         shopEnsureActorValid(sd);
         var actorCtx = shopResolveCharacter(sd, shopCurrentActor);
         var curCharacter = actorCtx.character;
         // 血統数の上限判定: 現在選択中キャラクターの血統数を基準にする(ショップ血統エリアのグレー表示に使用)
-        shopBloodCount = Object.keys(curCharacter.血统 || {}).length;
+        shopBloodCount = Object.keys(curCharacter.血統 || {}).length;
         shopBloodLimit = BLOODLINE_CAP;
-        var isSingleWorld = (sd && sd.设置 && sd.设置.单一世界 === true);
+        var isSingleWorld = (sd && sd.設定 && sd.設定.単一世界 === true);
         var html = '';
         // 上部コンパクト残高バー(スペースコインはシステムの決算で付与, 残高は読み取り専用表示; 編集モードはフォールバックのみ)
-        var coinDisplay = editMode ? editInput('角色.スペースコイン', coin, 'number') : esc(String(coin));
+        var coinDisplay = editMode ? editInput('キャラ.スペースコイン', coin, 'number') : esc(String(coin));
         html += '<div class="sam-shop-coin-mini"><span class="lbl">💰 残高</span><span class="val">' + coinDisplay + '</span><span class="lbl">スペースコイン</span></div>';
-        var credentialLedger = p.权限凭证 || {};
+        var credentialLedger = p.権限証憑 || {};
         var credentialChips = [];
         for (var _uiCi = 0; _uiCi < SHOP_PERMISSION_QUALITY_ORDER.length; _uiCi++) {
             var _uiGrade = SHOP_PERMISSION_QUALITY_ORDER[_uiCi];
@@ -6430,7 +6452,7 @@
             }
         }
         html += secBlock('🛒 ショップ入口', entryHtml, true);
-        var receiptText = safeStr(sys.待播报记录, '').trim();
+        var receiptText = safeStr(sys.配信待ち記録, '').trim();
         var receiptHtml = receiptText
             ? '<div style="white-space:pre-wrap;word-break:break-word;font-size:11px;line-height:1.55;color:var(--sam-text)">'+esc(receiptText)+'</div>'
                 + '<div style="display:flex;justify-content:flex-end;margin-top:8px"><button type="button" class="sam-confirm-btn cancel" data-receipt-clear>レシートを削除</button></div>'
@@ -6490,14 +6512,14 @@
 
     /* ===== 31. 詳細ポップアップ(カードをクリック) ===== */
     // キャラクターからは見えない機密フィールド(角色には見せない)
-    var HIDDEN_FIELDS = ['隐藏真相', '真实内幕', '态度', '真属性'];
+    var HIDDEN_FIELDS = ['隠された真実', '真の内幕', '態度', '真属性'];
     function openDetailModal(path, title) {
         var sd = getStatData();
         if (!sd) return;
         var obj = resolvePath(sd, path);
         if (obj == null) { showModal(title, '<div class="sam-empty">データが存在しない</div>'); return; }
         // NPC詳細: 専用のキャラクター・プロフィールパネルを使用(セクション別の整形レイアウト, 空値は非表示, 技術フィールドを露出しない)
-        var isNpc = (typeof path === 'string' && path.indexOf('关系列表.') === 0);
+        var isNpc = (typeof path === 'string' && path.indexOf('関係リスト.') === 0);
         if (isNpc) {
             // ★ 編集モード: NPCプロフィールに編集可能フィールドを埋め込み(種族/身分/好感度/戦闘数値/プロフィール本文), 下部に保存ボタンを追加
             var editMode = isEditMode();
@@ -6520,7 +6542,7 @@
     function renderNpcDetail(n, name, editMode, npcPath) {
         if (!n || typeof n !== 'object') return '<div class="sam-empty">データが存在しない</div>';
         editMode = !!editMode;
-        npcPath = npcPath || ('关系列表.' + name);
+        npcPath = npcPath || ('関係リスト.' + name);
         // 階層表示: 形態が発動中で形態階層>自身の場合は形態階層を表示(表示のみ, 書き戻しなし)
         var _dispRaw = displayTierRaw(n);
         var tierRoman = tierRomanOf(_dispRaw); var q = tierQOfClass(_dispRaw);
@@ -6528,9 +6550,9 @@
         var ep = safeNum(n.EP,0), epmax = safeNum(n.EP_MAX,0);
         var thp = safeNum(n.THP,0);
         var favor = safeNum(n.好感度,0);
-        var race = safeStr(n.种族) || '';
-        var rawIdArr = Array.isArray(n.身份) ? n.身份 : [];
-        var showAllId = (n.是否队友 === true) || (favor > 60);
+        var race = safeStr(n.種族) || '';
+        var rawIdArr = Array.isArray(n.身分) ? n.身分 : [];
+        var showAllId = (n.仲間 === true) || (favor > 60);
         var idArr = showAllId ? rawIdArr : filterHiddenIdentity(rawIdArr);
         // 編集状態のフィールド値取得補助: 値セル(編集可=editInput, 読み取り専用/非編集=プレーンテキスト)
         var edCell = function(field, val, type) {
@@ -6547,19 +6569,19 @@
             if (editMode && !isReadonlyPath(p)) return editToggle(p, val);
             return (val === true) ? 'はい' : 'いいえ';
         };
-        var cf = n.当前形态 || {};
+        var cf = n.現在形態 || {};
         var formName = (cf.激活 === true && safeStr(cf.名称)) ? safeStr(cf.名称) : '';
-        var attrs = n.最终属性 || {};
+        var attrs = n.最終属性 || {};
         var html = '';
         // ① ヘッダー: 名前 + 形態タグ + 階層バッジ + 在场/チームメイトバッジ
         html += '<div class="sam-nd-head"><div class="sam-nd-name">'+esc(name||'')+(formName?'<span class="sam-nd-form">🌀 '+esc(formName)+'</span>':'')+'</div>';
         html += '<div class="sam-nd-badges"><span class="sam-nd-tier q-'+q+'">'+esc(tierRoman)+'</span>';
-        if (n.在场 === true) html += '<span class="sam-nd-badge present">在席</span>';
-        if (n.是否队友 === true) html += '<span class="sam-nd-badge team">チームメイト</span>';
+        if (n.登場 === true) html += '<span class="sam-nd-badge present">在席</span>';
+        if (n.仲間 === true) html += '<span class="sam-nd-badge team">チームメイト</span>';
         // 編集モード: ヘッダーのバッジ領域に 在场/チームメイト のトグルを追加(クリックで切替, 保存時に書き戻し)
         if (editMode) {
-            html += '<span class="sam-nd-badge edit-toggle">在席 '+editToggle(npcPath+'.在场', n.在场 === true)+'</span>';
-            html += '<span class="sam-nd-badge edit-toggle">チームメイト '+editToggle(npcPath+'.是否队友', n.是否队友 === true)+'</span>';
+            html += '<span class="sam-nd-badge edit-toggle">在席 '+editToggle(npcPath+'.登場', n.登場 === true)+'</span>';
+            html += '<span class="sam-nd-badge edit-toggle">チームメイト '+editToggle(npcPath+'.仲間', n.仲間 === true)+'</span>';
         }
         html += '</div></div>';
         // ② 好感度の双方向バー (中線=0, 正は右へ緑, 負は左へ赤); 編集モードでは数値部分が編集可能
@@ -6577,9 +6599,9 @@
         // ③ 基本情報グリッド (編集モードでは常に編集行を描画; 読み取り専用時は値がある場合のみ)
         var grid = '';
         if (editMode) {
-            grid += ndEditRow('種族', edCell('种族', race));
+            grid += ndEditRow('種族', edCell('種族', race));
             // ★ 身分の編集には元の配列を使用(非表示の陣営身分をフィルタしない), 保存時に非表示身分が消えるのを防ぐ; flushStagedDisplay は .身份 を自動で配列に分割する
-            grid += ndEditRow('身分', edCell('身份', rawIdArr.join(',')));
+            grid += ndEditRow('身分', edCell('身分', rawIdArr.join(',')));
             var npcQty2 = safeNum(n.数量, 1);
             grid += ndEditRow('数量', edCell('数量', npcQty2, 'number'));
         } else {
@@ -6590,19 +6612,19 @@
         }
         if (grid) html += '<div class="sam-nd-grid">'+grid+'</div>';
         // ★ 職業: 編集モード→構造化エディタ(キャラクターパネルと同一); 読み取り専用→折りたたみパネル(🎖 タイトル付き)
-        if (editMode && !isReadonlyPath(npcPath+'.职业')) {
-            html += occupationEditHtml(n.职业, npcPath+'.职业');
+        if (editMode && !isReadonlyPath(npcPath+'.職業')) {
+            html += occupationEditHtml(n.職業, npcPath+'.職業');
         } else {
-            var occHtml = occupationCardsHtml(n.职业);
+            var occHtml = occupationCardsHtml(n.職業);
             if (occHtml) html += occHtml;
         }
         // ④ 態度 (編集モード: 全幅の編集可能ブロック(textarea は 2 列グリッドでは狭すぎるため, 独立レンダリング); 読み取り専用: 値があるときのみ引用として表示)
         if (editMode) {
-            if (!isReadonlyPath(npcPath+'.态度')) {
-                html += '<div class="sam-nd-block"><div class="sam-nd-block-lbl">態度</div><div class="sam-nd-block-ct">'+editInput(npcPath+'.态度', safeStr(n.态度), 'textarea')+'</div></div>';
+            if (!isReadonlyPath(npcPath+'.態度')) {
+                html += '<div class="sam-nd-block"><div class="sam-nd-block-lbl">態度</div><div class="sam-nd-block-ct">'+editInput(npcPath+'.態度', safeStr(n.態度), 'textarea')+'</div></div>';
             }
-        } else if (safeStr(n.态度)) {
-            html += '<div class="sam-nd-quote">💬 '+esc(safeStr(n.态度))+'</div>';
+        } else if (safeStr(n.態度)) {
+            html += '<div class="sam-nd-quote">💬 '+esc(safeStr(n.態度))+'</div>';
         }
         // ⑤ 戦闘属性バー (HP_MAX/EP_MAX/THP のいずれかが>0 のときのみ表示; 編集モード: HP/EP/THP の現在値は編集可, 上限は読み取り専用)
         if (editMode || hpmax > 0 || epmax > 0 || thp > 0) {
@@ -6622,11 +6644,11 @@
         // ⑤ 最終属性 (非ゼロ項目のみ, 武器オブジェクトは除外) + 武器攻撃(最終属性に統合, ATK/MATKを二段に分ける)
         // 固定順: 五維 → 力量修正など(修正) → DEF/MDEF/AP → 武器 → 軽減率 → 判定
         var ATTR_ORDER = [
-            '力量','敏捷','体质','精神','魅力',
+            '筋力','敏捷','体力','精神','魅力',
             '力量修正','敏捷修正','体质修正','精神修正','魅力修正',
             'DEF','MDEF','AP',
-            '物理减伤率','魔法减伤率',
-            '先攻DC','防御DC'
+            '物理軽減率','魔法軽減率',
+            '先制DC','防御DC'
         ];
         var attrKeys = ATTR_ORDER.filter(function(k){
             return Object.prototype.hasOwnProperty.call(attrs, k) && k !== '武器' && safeNum(attrs[k],0) !== 0;
@@ -6657,7 +6679,7 @@
         }
         // ⑥ 人物プロフィール (外貌/着装/性格/喜爱/背景故事, 値があるときのみ; 編集モード→編集可能テキストブロック, 常に描画)
         var profile = '';
-        var profileFields = ['外貌','着装','性格','喜爱','背景故事'];
+        var profileFields = ['外見','服装','性格','好み','背景'];
         if (editMode) {
             profileFields.forEach(function(f) {
                 var p = npcPath + '.' + f;
@@ -6666,26 +6688,26 @@
                 profile += '<div class="sam-nd-block"><div class="sam-nd-block-lbl">'+esc(f)+'</div><div class="sam-nd-block-ct">'+editInput(p, v, 'textarea')+'</div></div>';
             });
         } else {
-            if (safeStr(n.外貌)) profile += ndBlock('外見', n.外貌);
-            if (safeStr(n.着装)) profile += ndBlock('服装', n.着装);
+            if (safeStr(n.外見)) profile += ndBlock('外見', n.外見);
+            if (safeStr(n.服装)) profile += ndBlock('服装', n.服装);
             if (safeStr(n.性格)) profile += ndBlock('性格', n.性格);
-            if (safeStr(n.喜爱)) profile += ndBlock('好み', n.喜爱);
-            if (safeStr(n.背景故事)) profile += ndBlock('背景', n.背景故事);
+            if (safeStr(n.好み)) profile += ndBlock('好み', n.好み);
+            if (safeStr(n.背景)) profile += ndBlock('背景', n.背景);
         }
         if (profile) html += '<details class="sam-nd-sub" '+(editMode?'open':'')+'><summary>👤 人物プロフィール</summary><div class="sam-nd-sub-body">'+profile+'</div></details>';
         // ⑨ サブシステム (装備/スキル/血統/形態ライブラリ/状態, 空でないときのみ折りたたみ表示)
-        var subs = [{k:'状态',d:n.状态},{k:'血统',d:n.血统},{k:'形态库',d:n.形态库},{k:'技能',d:n.技能},{k:'装备',d:n.装备},{k:'道具',d:n.道具}];
+        var subs = [{k:'状態',d:n.状態},{k:'血統',d:n.血統},{k:'形態庫',d:n.形態庫},{k:'技能',d:n.技能},{k:'装備',d:n.装備},{k:'道具',d:n.道具}];
         subs.forEach(function(s) {
             var d = s.d || {};
             var ks = Object.keys(d);
             // ★ 編集モード: サブシステム(状态/血统/技能/装备/形态库/道具)内の全エントリを再帰的にその場で編集
             if (editMode && ks.length > 0 && !isReadonlyPath(npcPath+'.'+s.k)) {
-                var subEdHtml = renderDetailNode(d, ['隐藏真相','真实内幕','真属性'], [s.k], true, npcPath+'.'+s.k);
+                var subEdHtml = renderDetailNode(d, ['隠された真実','真の内幕','真属性'], [s.k], true, npcPath+'.'+s.k);
                 html += '<details class="sam-nd-sub" open><summary>✎ '+esc(s.k)+' ('+ks.length+')</summary><div class="sam-nd-sub-body">'+subEdHtml+'</div></details>';
                 return;
             }
             if (ks.length === 0) return;
-            var subHtml = renderDetailNode(d, ['隐藏真相','真实内幕','真属性'], [s.k]);
+            var subHtml = renderDetailNode(d, ['隠された真実','真の内幕','真属性'], [s.k]);
             html += '<details class="sam-nd-sub"><summary>'+esc(s.k)+' ('+ks.length+')</summary><div class="sam-nd-sub-body">'+subHtml+'</div></details>';
         });
         return html;
@@ -6711,7 +6733,7 @@
         return '<div class="sam-nd-block"><div class="sam-nd-block-lbl">'+esc(label)+'</div><div class="sam-nd-block-ct">'+esc(safeStr(content))+'</div></div>';
     }
     /* 整形された再帰レンダリング: スカラーは短い値(グリッド行)/長文(ブロック)に分ける; 子オブジェクト/配列は伸縮可能なdetails; 文字列配列は tag chips */
-    var DETAIL_LONG_FIELDS = ['描述','外貌','着装','性格','喜爱','态度','背景故事','内容','状态','效果','摘要','真实内幕','隐藏真相'];
+    var DETAIL_LONG_FIELDS = ['説明','外見','服装','性格','好み','態度','背景','内容','状態','効果','要約','真の内幕','隠された真実'];
     function isLongField(k, v) {
         if (DETAIL_LONG_FIELDS.indexOf(k) >= 0) return true;
         if (typeof v === 'string' && v.length > 30) return true;
@@ -6722,7 +6744,7 @@
     var EQUIP_STATUS_MAP = ['未装備','装備済み','倉庫'];
     var SKILL_TYPE_MAP = ['アクティブ','パッシブ','特殊'];
     // 親コンテナのキー -> 列挙フィールドの判定
-    var ENUM_PARENTS = { 装备: { 类型: EQUIP_TYPE_MAP, 状态: EQUIP_STATUS_MAP }, 道具: { 状态: EQUIP_STATUS_MAP }, 技能: { 类型: SKILL_TYPE_MAP }, 形态: { 状态: EQUIP_STATUS_MAP } };
+    var ENUM_PARENTS = { 装備: { タイプ: EQUIP_TYPE_MAP, 状態: EQUIP_STATUS_MAP }, 道具: { 状態: EQUIP_STATUS_MAP }, 技能: { タイプ: SKILL_TYPE_MAP }, 形态: { 状態: EQUIP_STATUS_MAP } };
     function translateEnum(field, value, ancestors) {
         if (!ancestors || ancestors.length < 2) return null;
         // ancestors: [..., コンテナキー(装备/技能/道具/形态), エントリ名, field]
@@ -6754,7 +6776,7 @@
         return false;
     }
     /* ★ 汎用の再帰詳細レンダリング(世界エントリ/NPCサブシステムなど): editMode+basePath のときスカラー/タグ/数値グリッドをその場で編集
-       - basePath は MVU の完全なパス接頭辞( 关系列表.李三.技能), 再帰的に階層ごとに連結
+       - basePath は MVU の完全なパス接頭辞( 関係リスト.李三.技能), 再帰的に階層ごとに連結
        - isReadonlyPath の保護下; 真属性/隐藏真相等の hidden フィールドは描画せず編集も不可 */
     function renderDetailNode(node, hidden, ancestors, editMode, basePath) {
         ancestors = ancestors || [];
@@ -6780,11 +6802,11 @@
             if (v == null) return;
             if (v === '' && !ed) return; // ★ 編集モードは空文字列フィールドを保持(内容を入力可能), 読み取り専用時は非表示
             // ★ 消耗 フィールド: 无/0/0MP など"無消耗と等価"な形式は一律非表示
-            if (k === '消耗' && isCostEmpty(v)) return;
+            if (k === '消費' && isCostEmpty(v)) return;
             // 身份 配列: AIのみに表示されるキーワードを除外(守护者/篡夺者/织梦者/残魂/穿越者)
-            if (k === '身份' && Array.isArray(v)) {
+            if (k === '身分' && Array.isArray(v)) {
                 // チームメンバーまたは好感度>60のときは陣営身分を隠さない
-                var _showAllId = (node.是否队友 === true) || (safeNum(node.好感度,0) > 60);
+                var _showAllId = (node.仲間 === true) || (safeNum(node.好感度,0) > 60);
                 if (!_showAllId) v = filterHiddenIdentity(v);
                 if (v.length === 0) return;
             }
@@ -6958,8 +6980,8 @@
         var html = '<span class="sam-occ-inline">';
         names.forEach(function(nm) {
             var e = (rec && rec[nm]) ? rec[nm] : {};
-            var t = safeStr(e.类型) || '辅助';
-            if (['战斗','生活','辅助'].indexOf(t) < 0) t = '辅助';
+            var t = safeStr(e.タイプ) || '支援';
+            if (['戦闘','生活','支援'].indexOf(t) < 0) t = '支援';
             html += '<span class="sam-occ-chip">'+esc(nm)+'<span class="sam-occ-sumtype '+esc(t)+'">'+esc(t)+'</span></span>';
         });
         html += '</span>';
@@ -6970,7 +6992,7 @@
         var names = occupationNames(occ);
         if (names.length === 0) return '';
         var rec = (occ && typeof occ === 'object' && !Array.isArray(occ)) ? occ : null;
-        function typeOf(e) { var t = safeStr(e.类型) || '辅助'; return (['战斗','生活','辅助'].indexOf(t) < 0) ? '辅助' : t; }
+        function typeOf(e) { var t = safeStr(e.タイプ) || '支援'; return (['戦闘','生活','支援'].indexOf(t) < 0) ? '支援' : t; }
         // summary 行: 職業名 + タイプの小バッジ
         var sumRow = '';
         names.forEach(function(nm) {
@@ -6988,7 +7010,7 @@
             var entry = (rec && rec[nm]) ? rec[nm] : {};
             var type = typeOf(entry);
             var tags = Array.isArray(entry.特性) ? entry.特性 : [];
-            var src = safeStr(entry.来源) || '';
+            var src = safeStr(entry.出典) || '';
             html += '<div class="sam-occ-card">'
                 + '<div class="sam-occ-head"><span class="sam-occ-name">'+esc(nm)+'</span>'
                 + '<span class="sam-occ-type '+esc(type)+'">'+esc(type)+'</span></div>';
@@ -6997,7 +7019,7 @@
                 tags.forEach(function(t) { html += '<span class="sam-occ-tag">'+esc(safeStr(t))+'</span>'; });
                 html += '</div>';
             }
-            if (src) html += '<div class="sam-occ-src">📍 来源: '+esc(src)+'</div>';
+            if (src) html += '<div class="sam-occ-src">📍 出典: '+esc(src)+'</div>';
             html += '</div>';
         });
         html += '</div></details>';
@@ -7010,28 +7032,28 @@
         var rec = (occ && typeof occ === 'object' && !Array.isArray(occ)) ? occ : null;
         return names.map(function(nm) {
             var entry = (rec && rec[nm]) ? rec[nm] : {};
-            var type = safeStr(entry.类型) || '辅助';
+            var type = safeStr(entry.タイプ) || '支援';
             var tags = Array.isArray(entry.特性) ? entry.特性 : [];
-            var src = safeStr(entry.来源) || '';
+            var src = safeStr(entry.出典) || '';
             var parts = [nm + '[' + type + ']'];
             if (tags.length) parts.push(tags.join('/'));
-            if (src) parts.push('来源:' + src);
+            if (src) parts.push('出典:' + src);
             return parts.join(' ');
         }).join(', ');
     }
     /* ★ 職業の構造化エディタ(編集モード): 職業ごとのカード(職業名/タイプドロップダウン/特性カンマ入力/来源入力)+削除ボタン+"職業を追加"ボタン
        オブジェクト全体をひとつのスナップショットとして pendingEdits[path]に一時保存; 入力のフォーカス喪失/変更→occReassemble で再構成し一時保存; 削除/追加→DOM変更後に再構成.
-       data-occ-field の値: key(職業名)/类型/特性/来源 */
+       data-occ-field の値: key(職業名)/タイプ/特性/出典 */
     function occupationEditHtml(occ, basePath) {
         var names = occupationNames(occ);
         var rec = (occ && typeof occ === 'object' && !Array.isArray(occ)) ? occ : null;
         var html = '<div class="sam-occ-edit" data-occ-path="'+esc(basePath)+'">';
         names.forEach(function(nm) {
             var e = (rec && rec[nm]) ? rec[nm] : {};
-            var type = safeStr(e.类型) || '辅助';
-            if (['战斗','生活','辅助'].indexOf(type) < 0) type = '辅助';
+            var type = safeStr(e.タイプ) || '支援';
+            if (['戦闘','生活','支援'].indexOf(type) < 0) type = '支援';
             var tags = Array.isArray(e.特性) ? e.特性 : [];
-            var src = safeStr(e.来源) || '';
+            var src = safeStr(e.出典) || '';
             html += occupationEditCardHtml(nm, type, tags, src);
         });
         html += '</div>';
@@ -7040,25 +7062,25 @@
     }
     // 職業編集カード一枚分( occupationEditHtml と"追加"ボタンで共用)
     function occupationEditCardHtml(name, type, tags, src) {
-        type = type || '辅助';
-        if (['战斗','生活','辅助'].indexOf(type) < 0) type = '辅助';
+        type = type || '支援';
+        if (['戦闘','生活','支援'].indexOf(type) < 0) type = '支援';
         var tagsStr = Array.isArray(tags) ? tags.join(',') : safeStr(tags);
         var nameVal = (name === undefined || name === null) ? '' : String(name);
         // タイプのドロップダウン選択肢
-        var typeOpts = ['战斗','生活','辅助'].map(function(t) {
+        var typeOpts = ['戦闘','生活','支援'].map(function(t) {
             return '<option value="'+esc(t)+'"'+(t === type ? ' selected' : '')+'>'+esc(t)+'</option>';
         }).join('');
         // sam-occ-field クラスを使用( sam-edit-input/sam-edit-activeではない), flushStagedDisplay/saveEdits が既定で"クリック即編集"ロジックを通るのを避ける
         return '<div class="sam-occ-edit-card" data-occ-key="'+esc(nameVal)+'">'
             + '<div class="sam-occ-edit-head">'
               + '<input class="sam-occ-field sam-occ-edit-name" data-occ-field="key" type="text" value="'+esc(nameVal)+'" placeholder="職業名" />'
-              + '<select class="sam-occ-field sam-occ-edit-type" data-occ-field="类型">'+typeOpts+'</select>'
+              + '<select class="sam-occ-field sam-occ-edit-type" data-occ-field="タイプ">'+typeOpts+'</select>'
               + '<button type="button" class="sam-occ-del-btn" title="この職業を削除">✕</button>'
             + '</div>'
             + '<div class="sam-occ-edit-row"><span class="k">特性</span>'
               + '<input class="sam-occ-field sam-occ-edit-tags" data-occ-field="特性" type="text" value="'+esc(tagsStr)+'" placeholder="カンマ区切り, 例: 剣術,受け" /></div>'
-            + '<div class="sam-occ-edit-row"><span class="k">来源</span>'
-              + '<input class="sam-occ-field sam-occ-edit-src" data-occ-field="来源" type="text" value="'+esc(src)+'" placeholder="来源(任意)" /></div>'
+            + '<div class="sam-occ-edit-row"><span class="k">出典</span>'
+              + '<input class="sam-occ-field sam-occ-edit-src" data-occ-field="出典" type="text" value="'+esc(src)+'" placeholder="出典(任意)" /></div>'
             + '</div>';
     }
     /* 職業エディタ: 現在のコンテナの全カードをオブジェクトに再構成し pendingEdits[path] に一時保存 */
@@ -7071,18 +7093,18 @@
         $container.find('.sam-occ-edit-card').each(function(idx) {
             var $c = $(this);
             var name = String($c.find('[data-occ-field="key"]').val() || '').trim();
-            var type = String($c.find('[data-occ-field="类型"]').val() || '辅助');
-            if (['战斗','生活','辅助'].indexOf(type) < 0) type = '辅助';
+            var type = String($c.find('[data-occ-field="タイプ"]').val() || '支援');
+            if (['戦闘','生活','支援'].indexOf(type) < 0) type = '支援';
             var tagsStr = String($c.find('[data-occ-field="特性"]').val() || '');
             var tags = tagsStr.split(/[\/,，]/).map(function(s){return String(s).trim();}).filter(Boolean);
-            var src = String($c.find('[data-occ-field="来源"]').val() || '').trim();
+            var src = String($c.find('[data-occ-field="出典"]').val() || '').trim();
             // 職業名が空 → プレースホルダキー "新职业<i>" で上書きを回避, 保存時に ZOD が検証する
             var key = name || ('新职业' + (idx + 1));
             // キーの重複排除: 同名なら連番を付与
             var k = key, n = 2;
             while (usedKeys[k]) { k = key + '_' + (n++); }
             usedKeys[k] = true;
-            out[k] = { 类型: type, 特性: tags, 来源: src };
+            out[k] = { タイプ: type, 特性: tags, 出典: src };
         });
         stageEdit(path, out, 'object');
     }
@@ -7098,7 +7120,7 @@
         // filter で属性により照合, パスにセレクタの特殊文字が含まれるのを避ける
         var $container = $('.sam-occ-edit').filter(function(){ return $(this).attr('data-occ-path') === path; });
         if (!$container.length) return;
-        $container.append(occupationEditCardHtml('', '辅助', [], ''));
+        $container.append(occupationEditCardHtml('', '支援', [], ''));
         occReassemble($container);
     }
     /* 編集モードでは入力ボックスを直接描画しない; 代わりに"クリック即編集":
@@ -7153,7 +7175,7 @@
         return Object.prototype.hasOwnProperty.call(STAT_QUALITY_SET, v.toUpperCase().trim());
     }
     /* 属性値の正規化: 品質アルファベット(F~SSS)は文字列として保持, それ以外は parseFloat で数値化(非数値→0)
-       ショップ/角色 の 原始属性 {力量:'B', ATK:5} を解析する際にアルファベットと数値の混在表記に対応するために使用 */
+       ショップ/キャラ の 原始属性 {筋力:'B', ATK:5} を解析する際にアルファベットと数値の混在表記に対応するために使用 */
     function attrMapVal(raw) {
         if (raw == null) return 0;
         if (typeof raw === 'string' && STAT_QUALITY_SET.hasOwnProperty(raw.trim().toUpperCase())) {
@@ -7163,7 +7185,7 @@
         return isFinite(n) ? n : 0;
     }
     /* 数値属性グリッド: 値が0の属性は非表示(装備/血統/形態/状態詳細などで共用; 装備は非0項目のみ書き込み)
-       ★ 状態の五維両対応: 品質アルファベット(例 力量:'B')はそのまま表示, 数値(例 ATK:15 / 力量:-5)は元の数値ロジックを通す
+       ★ 状態の五維両対応: 品質アルファベット(例 筋力:'B')はそのまま表示, 数値(例 ATK:15 / 力量:-5)は元の数値ロジックを通す
        ★ editMode: 各セルの数値をその場で編集(0値を含む全量レンダリング); path が空のときは読み取り専用グリッドへ退化する */
     function formatStatGrid(stats, cols, editMode, path) {
         if (!stats || typeof stats !== 'object') return '';
@@ -7245,8 +7267,8 @@
     function deleteNpc(name) {
         if (!name) return;
         var ok = writeBackMvu(function(statData) {
-            if (statData && statData.关系列表 && statData.关系列表[name]) {
-                delete statData.关系列表[name];
+            if (statData && statData.关系リスト && statData.关系リスト[name]) {
+                delete statData.关系リスト[name];
                 try { console.log('%c[主神端末] ✅ NPCを削除しました: '+name, 'color:#86efac'); } catch(e){}
             }
         });
@@ -7254,8 +7276,8 @@
     }
 
     /* ===== 32b2. 世界エントリの削除(探索ポイント/勢力など, MVUへ書き戻し) =====
-       fullKey: 完全なパス 例 "世界.探索.城镇废墟" / "世界.势力.黑鹰团"
-       parentPath: 親オブジェクトのパス 例 "世界.探索" / "世界.势力"
+       fullKey: 完全なパス 例 "世界.探索.城镇废墟" / "世界.勢力.黑鹰团"
+       parentPath: 親オブジェクトのパス 例 "世界.探索" / "世界.勢力"
        key: 末尾セグメント名, 通知に使用
     */
     function deleteWorldEntry(fullKey, parentPath, key) {
@@ -7356,7 +7378,7 @@
         for (var i = 0; i < arguments.length; i++) add(arguments[i]);
         return tags;
     }
-    // フォールバック: ショップ商品のタグに出所キーワード(主神/系统/手工)が無い場合, "主神空间"タグを強制注入
+    // フォールバック: ショップ商品のタグに出所キーワード(主神/系统/手工)が無い場合, "主神空間"タグを強制注入
     // 理由: ショップは主神空間で稼働しており, 売却された商品は天然に合法資産; AIが出所タグを書き漏らした場合のフォールバックで, 適応圧縮の免除を受けられるようにする
     var SHOP_SOURCE_KEYWORDS = ['主神', '系统', '手工'];
     function shopEnsureSourceTag(rawTags) {
@@ -7364,7 +7386,7 @@
         var hasSource = arr.some(function(t) {
             return SHOP_SOURCE_KEYWORDS.some(function(kw) { return String(t).indexOf(kw) >= 0; });
         });
-        if (!hasSource) arr.push('主神空间');
+        if (!hasSource) arr.push('主神空間');
         return arr;
     }
     function shopNormalizeDamageAttr(value) {
@@ -7422,8 +7444,8 @@
         return out;
     }
     function shopNormalizeSkill(raw) {
-        var rawCat = shopPick(raw, '类型','category');
-        // 元の数値を保持(キャラクター側 skill_item.类型: clampNum(0,0,2))
+        var rawCat = shopPick(raw, 'タイプ','category');
+        // 元の数値を保持(キャラクター側 skill_item.タイプ: clampNum(0,0,2))
         var catNum = (typeof rawCat === 'number') ? rawCat
             : (typeof rawCat === 'string' && /^\d+$/.test(String(rawCat))) ? parseInt(String(rawCat), 10)
             : 0;
@@ -7431,46 +7453,46 @@
         var item = {
             name:        shopPick(raw, 'name','名称','技能名','技能名称') || '名称未設定',
             level:       shopPickNum(raw, 'level','等级','数值等级'),
-            rating:      shopPick(raw, 'rating','品级','品质','评级'),
-            price:       parseInt(String(shopPick(raw, 'price','价格','售价','价钱') || '0').replace(/[^0-9]/g,''), 10) || 0,
+            rating:      shopPick(raw, 'rating','品级','品質','评级'),
+            price:       parseInt(String(shopPick(raw, 'price','価格','售价','价钱') || '0').replace(/[^0-9]/g,''), 10) || 0,
             category_num: catNum,
             category:    category,                          // タイプlabel(アクティブ/パッシブ/特殊)
-            cost:        shopPick(raw, '消耗','mp_cost','MP消耗','法力消耗','mp','MP'),  // 新構造: '8MP' のような文字列
-            effects:     shopPick(raw, '效果','effect','技能效果'),  // 新構造: オブジェクト {主动:'単体に3d6の火炎ダメージを与える'}
-            description: shopPick(raw, 'description','描述','技能描述','说明'),
-            tags:        shopEnsureSourceTag(shopPick(raw, 'tags','标签'))
+            cost:        shopPick(raw, '消費','mp_cost','MP消耗','法力消耗','mp','MP'),  // 新構造: '8MP' のような文字列
+            effects:     shopPick(raw, '効果','effect','技能效果'),  // 新構造: オブジェクト {主动:'単体に3d6の火炎ダメージを与える'}
+            description: shopPick(raw, 'description','説明','技能描述','説明'),
+            tags:        shopEnsureSourceTag(shopPick(raw, 'tags','タグ'))
         };
         return item;
     }
     function shopNormalizeBloodline(raw) {
         var rawAttrs = shopPick(raw, '原始属性','基础属性','属性');  // 新構造: オブジェクト {力量:4, 体质:4}
-        var rawEffects = shopPick(raw, '效果','特殊效果','特效');    // 新構造: オブジェクト {被动:'毎ターン5%HP回復'}
+        var rawEffects = shopPick(raw, '効果','特殊效果','特效');    // 新構造: オブジェクト {被动:'毎ターン5%HP回復'}
         var item = {
             name:       shopPick(raw, 'name','名称','血统名','血统名称') || '名称未設定',
             level:      shopPickNum(raw, 'level','等级','数值等级'),
-            rating:     shopPick(raw, 'rating','品级','品质','评级'),
-            price:      parseInt(String(shopPick(raw, 'price','价格','售价','价钱') || '0').replace(/[^0-9]/g,''), 10) || 0,
+            rating:     shopPick(raw, 'rating','品级','品質','评级'),
+            price:      parseInt(String(shopPick(raw, 'price','価格','售价','价钱') || '0').replace(/[^0-9]/g,''), 10) || 0,
             raw_attrs:  rawAttrs,
             effects:    rawEffects,
-            description: shopPick(raw, 'description','描述','血统描述','说明','效果'),
-            tags:        shopEnsureSourceTag(shopPick(raw, 'tags','标签'))
+            description: shopPick(raw, 'description','説明','血统描述','説明','効果'),
+            tags:        shopEnsureSourceTag(shopPick(raw, 'tags','タグ'))
         };
         return item;
     }
     // 形態リストの正規化: キャラクター側の 形态库 エントリ構造 {层级, 消耗, 状态, 标签, 原始属性, 效果, 技能, 描述} に合わせる
     //   スキル子リストはキャラクター側 skill_item と一致するよう正規化: {品质, 类型(0-2), 标签, 效果, 描述, 消耗}
     function shopNormalizeFormSkill(raw) {
-        var rawType = shopPick(raw, '类型','type');
+        var rawType = shopPick(raw, 'タイプ','type');
         var catNum = (typeof rawType === 'number') ? rawType
             : (typeof rawType === 'string' && /^\d+$/.test(String(rawType))) ? parseInt(String(rawType), 10) : 0;
         return {
             name:    shopPick(raw, 'name','名称','技能名','技能名称') || '',
-            品质:    shopPick(raw, 'rating','品质','品级','评级') || '',
-            类型:    catNum,
-            标签:    shopEnsureSourceTag(shopPick(raw, 'tags','标签')),
-            效果:    shopPick(raw, '效果','effect','技能效果') || {},
-            描述:    shopPick(raw, 'description','描述','技能描述','说明') || '',
-            消耗:    shopPick(raw, '消耗','mp_cost','MP消耗','法力消耗','mp','MP') || '无'
+            品質:    shopPick(raw, 'rating','品質','品级','评级') || '',
+            タイプ:    catNum,
+            タグ:    shopEnsureSourceTag(shopPick(raw, 'tags','タグ')),
+            効果:    shopPick(raw, '効果','effect','技能效果') || {},
+            説明:    shopPick(raw, 'description','説明','技能描述','説明') || '',
+            消費:    shopPick(raw, '消費','mp_cost','MP消耗','法力消耗','mp','MP') || '无'
         };
     }
     function shopNormalizeForm(raw) {
@@ -7482,35 +7504,35 @@
             }
         }
         // 层级 フィールドが"品质"に取って代わった; AI が依然 品质 フィールドを出力する場合の互換フォールバック
-        var tier = shopPick(raw, '层级','level','tier');
-        if (tier == null || tier === '') tier = shopPick(raw, 'rating','品质','品级','评级') || '';
+        var tier = shopPick(raw, '階層','level','tier');
+        if (tier == null || tier === '') tier = shopPick(raw, 'rating','品質','品级','评级') || '';
         // ローマ数字(Ⅰ~Ⅸ)へ正規化; AI が品質文字(F~SSS)を出力する可能性 → 対応するローマ数字へ変換し, 元の文字は保存しない
         if (tier !== '') tier = tierRomanOf(tier);
         return {
             name:          shopPick(raw, 'name','名称','形态名','形态名称') || '名称未設定',
-            price:         parseInt(String(shopPick(raw, 'price','价格','售价','价钱') || '0').replace(/[^0-9]/g,''), 10) || 0,
+            price:         parseInt(String(shopPick(raw, 'price','価格','售价','价钱') || '0').replace(/[^0-9]/g,''), 10) || 0,
             tier:          String(tier),
-            cost:          shopPick(raw, '消耗','mp_cost','MP消耗','法力消耗','mp','MP') || '',
-            status:        shopPick(raw, 'status','状态') || '完好',
+            cost:          shopPick(raw, '消費','mp_cost','MP消耗','法力消耗','mp','MP') || '',
+            status:        shopPick(raw, 'status','状態') || '完好',
             raw_attrs:     shopPick(raw, '原始属性','基础属性','属性') || {},
-            effects:       shopPick(raw, '效果','特效','特殊效果') || {},
+            effects:       shopPick(raw, '効果','特效','特殊效果') || {},
             skills:        skills,
-            description:   shopPick(raw, 'description','描述','说明') || '',
-            tags:          shopEnsureSourceTag(shopPick(raw, 'tags','标签'))
+            description:   shopPick(raw, 'description','説明','説明') || '',
+            tags:          shopEnsureSourceTag(shopPick(raw, 'tags','タグ'))
         };
     }
     // アップグレードリストの正規化: 所属大分類(血統/スキル/装備/形態)ごとに元の構造 + 置換対象を保持
     function shopNormalizeUpgrade(raw) {
-        var rawType = shopPick(raw, '类型','type');
+        var rawType = shopPick(raw, 'タイプ','type');
         var typeNum = (typeof rawType === 'number') ? rawType
             : (typeof rawType === 'string' && /^\d+$/.test(String(rawType))) ? parseInt(String(rawType), 10) : 0;
-        var rawCat = shopPick(raw, '所属大类','category') || '';
+        var rawCat = shopPick(raw, '所属カテゴリ','category') || '';
         // 形態アップグレード: 层级(ローマ数字) が 品质 文字に取って代わる, カード右上と保存に使用
-        var formTier = (rawCat === '形态') ? tierRomanOf(shopPick(raw, '层级','level','tier','rating','品质','品级','评级') || 'Ⅰ') : '';
+        var formTier = (rawCat === '形态') ? tierRomanOf(shopPick(raw, '階層','level','tier','rating','品質','品级','评级') || 'Ⅰ') : '';
         // 形態アップグレード: 技能 子配列 + 状态 フィールドを正規化( shopBuildUpgradeCard のスキルブロック描画, shopToFormVar の保存に供する)
         var formSkills = [], formStatus = '完好';
         if (rawCat === '形态') {
-            formStatus = shopPick(raw, 'status','状态') || '完好';
+            formStatus = shopPick(raw, 'status','状態') || '完好';
             var rawSkills = shopPick(raw, '技能','skills');
             if (Array.isArray(rawSkills)) {
                 for (var si = 0; si < rawSkills.length; si++) {
@@ -7521,27 +7543,27 @@
         return {
             name:           shopPick(raw, 'name','名称') || '名称未設定',
             level:          shopPickNum(raw, 'level','等级','数值等级'),
-            rating:         shopPick(raw, 'rating','品级','品质','评级'),
+            rating:         shopPick(raw, 'rating','品级','品質','评级'),
             tier:           formTier,
             category:       rawCat,
-            price:          parseInt(String(shopPick(raw, 'price','价格','售价','价钱') || '0').replace(/[^0-9]/g,''), 10) || 0,
-            replace_target: shopPick(raw, 'replace_target','替换目标') || '',
+            price:          parseInt(String(shopPick(raw, 'price','価格','售价','价钱') || '0').replace(/[^0-9]/g,''), 10) || 0,
+            replace_target: shopPick(raw, 'replace_target','置換対象') || '',
             category_num:   typeNum,
             slot_type:      shopEquipTypeLabel(typeNum),
             slot_type_num:  typeNum,
-            cost:           shopPick(raw, '消耗','mp_cost','MP消耗','法力消耗','mp','MP') || '',
+            cost:           shopPick(raw, '消費','mp_cost','MP消耗','法力消耗','mp','MP') || '',
             raw_attrs:      shopPick(raw, '原始属性','基础属性','属性'),
-            effects:        shopPick(raw, '效果','特效','特殊效果'),
-            description:    shopPick(raw, 'description','描述','说明'),
-            '描述':         shopPick(raw, 'description','描述','说明'),
-            tags:           shopEnsureSourceTag(shopPick(raw, 'tags','标签')),
+            effects:        shopPick(raw, '効果','特效','特殊效果'),
+            description:    shopPick(raw, 'description','説明','説明'),
+            '説明':         shopPick(raw, 'description','説明','説明'),
+            tags:           shopEnsureSourceTag(shopPick(raw, 'tags','タグ')),
             skills:         formSkills,
             status:         formStatus
         };
     }
     function shopNormalizeEquip(raw) {
-        var rawType = shopPick(raw, '类型','type','槽位','部位','slot_type');
-        // 元の数値を保持(キャラクター側 equip_item.类型: clampNum(0,0,8))
+        var rawType = shopPick(raw, 'タイプ','type','槽位','部位','slot_type');
+        // 元の数値を保持(キャラクター側 equip_item.タイプ: clampNum(0,0,8))
         var typeNum = (typeof rawType === 'number') ? rawType
             : (typeof rawType === 'string' && /^\d+$/.test(String(rawType))) ? parseInt(String(rawType), 10)
             : 0;
@@ -7549,15 +7571,15 @@
         var item = {
             name:      shopPick(raw, 'name','名称','装备名','装备名称') || '名称未設定',
             level:     shopPickNum(raw, 'level','等级','数值等级'),
-            rating:    shopPick(raw, 'rating','品级','品质','评级'),
-            price:     parseInt(String(shopPick(raw, 'price','价格','售价','价钱') || '0').replace(/[^0-9]/g,''), 10) || 0,
+            rating:    shopPick(raw, 'rating','品级','品質','评级'),
+            price:     parseInt(String(shopPick(raw, 'price','価格','售价','价钱') || '0').replace(/[^0-9]/g,''), 10) || 0,
             slot_type: slotType,
             slot_type_num: typeNum,
             raw_attrs: shopPick(raw, '原始属性','基础属性','属性'),  // 新構造: オブジェクト {力量:1, 体质:2}
-            effects:   shopPick(raw, '效果','特效','special_effect','特殊效果','特性'),  // 新構造: オブジェクト {被动:'物理防御+3'}
-            cost:      shopPick(raw, '消耗','mp_cost','MP消耗','法力消耗','mp','MP') || '',
-            '描述':    shopPick(raw, '描述','description','说明'),
-            tags:      shopEnsureSourceTag(shopPick(raw, 'tags','标签'))
+            effects:   shopPick(raw, '効果','特效','special_effect','特殊效果','特性'),  // 新構造: オブジェクト {被动:'物理防御+3'}
+            cost:      shopPick(raw, '消費','mp_cost','MP消耗','法力消耗','mp','MP') || '',
+            '説明':    shopPick(raw, '説明','description','説明'),
+            tags:      shopEnsureSourceTag(shopPick(raw, 'tags','タグ'))
         };
         return item;
     }
@@ -7565,23 +7587,23 @@
         return {
             name:            shopPick(raw, 'name','名称','道具名','物品名') || '名称未設定',
             level:           shopPickNum(raw, 'level','等级','数值等级'),
-            rating:          shopPick(raw, 'rating','品级','品质','评级'),
-            price:           parseInt(String(shopPick(raw, 'price','价格','售价','价钱') || '0').replace(/[^0-9]/g,''), 10) || 0,
-            consumable_type: shopPick(raw, 'consumable_type','类型','道具类型','分类') || '道具',
+            rating:          shopPick(raw, 'rating','品级','品質','评级'),
+            price:           parseInt(String(shopPick(raw, 'price','価格','售价','价钱') || '0').replace(/[^0-9]/g,''), 10) || 0,
+            consumable_type: shopPick(raw, 'consumable_type','タイプ','道具类型','分类') || '道具',
             charges:         shopPickNum(raw, 'charges','数量','次数','使用次数'),
-            effects:         shopPick(raw, '效果','usage','使用效果'),  // 新構造: オブジェクト {使用:'恢复2d4+2HP'}
-            description:     shopPick(raw, 'description','描述','说明'),
-            tags:            shopEnsureSourceTag(shopPick(raw, 'tags','标签'))
+            effects:         shopPick(raw, '効果','usage','使用效果'),  // 新構造: オブジェクト {使用:'恢复2d4+2HP'}
+            description:     shopPick(raw, 'description','説明','説明'),
+            tags:            shopEnsureSourceTag(shopPick(raw, 'tags','タグ'))
         };
     }
     // ショップデータ全体を標準化: { 装备区:{typeLabel:[...]}, 技能区:{typeLabel:[...]}, 道具区:{typeLabel:[...]}, 血统区:[] } を産出
-    // 新構造: 商城.装备列表/技能列表/血统列表/道具列表 はいずれもフラット配列
+    // 新構造: 商城.装備リスト/技能列表/血统列表/道具列表 はいずれもフラット配列
     // 装備/スキル/アイテムは「类型」ごとに子オブジェクトへグループ化し, 左navのタイプ切替に供する; 血統は純粋な配列
     function shopNormalizeMarketData(raw) {
         var out = { 装备区:{}, 道具区:{}, 技能区:{}, 血统区:[], 升级区:[], 形态区:[] };
         if (!raw || typeof raw !== 'object') return out;
         // 装备列表(フラット配列) → 类型(数値0-8)ごとに {スロットlabel: [...]} へグループ化
-        var equips = raw['装备列表'];
+        var equips = raw['装備リスト'];
         if (Array.isArray(equips)) {
             for (var i = 0; i < equips.length; i++) {
                 if (!equips[i] || typeof equips[i] !== 'object') continue;
@@ -7592,7 +7614,7 @@
             }
         }
         // 技能列表(フラット配列) → 类型(数値0-2)ごとに {タイプlabel: [...]} へグループ化
-        var skills = raw['技能列表'];
+        var skills = raw['技能リスト'];
         if (Array.isArray(skills)) {
             for (var j = 0; j < skills.length; j++) {
                 if (!skills[j] || typeof skills[j] !== 'object') continue;
@@ -7603,7 +7625,7 @@
             }
         }
         // 道具列表(フラット配列) → 类型(文字列, 恢复/战术/特殊など)ごとに {タイプlabel: [...]} へグループ化
-        var consumables = raw['道具列表'];
+        var consumables = raw['道具リスト'];
         if (Array.isArray(consumables)) {
             for (var ci = 0; ci < consumables.length; ci++) {
                 if (!consumables[ci] || typeof consumables[ci] !== 'object') continue;
@@ -7614,14 +7636,14 @@
             }
         }
         // 血统列表(フラット配列)
-        var bloods = raw['血统列表'];
+        var bloods = raw['血統リスト'];
         if (Array.isArray(bloods)) {
             for (var bi = 0; bi < bloods.length; bi++) {
                 if (bloods[bi] && typeof bloods[bi] === 'object') out.血统区.push(shopNormalizeBloodline(bloods[bi]));
             }
         }
         // 升级列表(フラット配列, 子グループ無し)
-        var upgrades = raw['升级列表'];
+        var upgrades = raw['升級リスト'];
         if (Array.isArray(upgrades)) {
             for (var ui = 0; ui < upgrades.length; ui++) {
                 if (upgrades[ui] && typeof upgrades[ui] === 'object') out.升级区.push(shopNormalizeUpgrade(upgrades[ui]));
@@ -7647,51 +7669,51 @@
     function shopToSkillVar(item) {
         var out = {
             等级: item.level,
-            品质: item.rating,
-            类型: item.category_num != null ? item.category_num : 0,
-            消耗: item.cost || '',
-            效果: item.effects || {},
-            描述: item.description || ''
+            品質: item.rating,
+            タイプ: item.category_num != null ? item.category_num : 0,
+            消費: item.cost || '',
+            効果: item.effects || {},
+            説明: item.description || ''
         };
-        if (item.tags && item.tags.length) out.标签 = item.tags;
+        if (item.tags && item.tags.length) out.タグ = item.tags;
         return out;
     }
     // 正規化商品 → キャラクター側変数へ変換(血統: 原始属性/效果はいずれもオブジェクト)
     function shopToBloodlineVar(item) {
         var out = {
             等级: item.level,
-            品质: item.rating,
+            品質: item.rating,
             原始属性: item.raw_attrs || {},
-            效果: item.effects || {},
-            描述: item.description || ''
+            効果: item.effects || {},
+            説明: item.description || ''
         };
-        if (item.tags && item.tags.length) out.标签 = item.tags;
+        if (item.tags && item.tags.length) out.タグ = item.tags;
         return out;
     }
     // 正規化商品 → キャラクター側変数へ変換(装備: 类型は数値0-8を出力しequip_itemに一致, 状态の既定は未装備=0)
     function shopToEquipVar(item, slot) {
         var out = {
-            类型: item.slot_type_num != null ? item.slot_type_num : 0,
-            状态: 0,
-            品质: item.rating,
-            标签: (item.tags && item.tags.length) ? item.tags : [],
+            タイプ: item.slot_type_num != null ? item.slot_type_num : 0,
+            状態: 0,
+            品質: item.rating,
+            タグ: (item.tags && item.tags.length) ? item.tags : [],
             原始属性: item.raw_attrs || {},
-            效果: item.effects || {},
-            描述: item['描述'] || '',
-            消耗: item.cost || ''
+            効果: item.effects || {},
+            説明: item['説明'] || '',
+            消費: item.cost || ''
         };
         return out;
     }
     // 正規化商品 → キャラクター側変数へ変換(アイテム: 类型 は文字列, 数量 は併合, 效果 はオブジェクト)
     function shopToConsumeVar(item, qty) {
         var out = {
-            品质: item.rating,
-            类型: item.consumable_type || '道具',
+            品質: item.rating,
+            タイプ: item.consumable_type || '道具',
             数量: qty,
-            标签: (item.tags && item.tags.length) ? item.tags : [],
-            效果: item.effects || {},
-            描述: item.description || '',
-            状态: 0
+            タグ: (item.tags && item.tags.length) ? item.tags : [],
+            効果: item.effects || {},
+            説明: item.description || '',
+            状態: 0
         };
         return out;
     }
@@ -7705,23 +7727,23 @@
             var sk = srcSkills[i] || {};
             var skName = shopPick(sk, 'name','名称') || ('技能' + (i + 1));
             skillsOut[skName] = {
-                品质: sk.品质 || '',
-                类型: (sk.类型 != null) ? sk.类型 : 0,
-                标签: (sk.标签 && sk.标签.length) ? sk.标签 : [],
-                效果: sk.效果 || {},
-                描述: sk.描述 || '',
-                消耗: sk.消耗 || '无'
+                品質: sk.品質 || '',
+                タイプ: (sk.タイプ != null) ? sk.タイプ : 0,
+                タグ: (sk.タグ && sk.タグ.length) ? sk.タグ : [],
+                効果: sk.効果 || {},
+                説明: sk.説明 || '',
+                消費: sk.消費 || '无'
             };
         }
         return {
-            层级:     (item.tier != null && item.tier !== '') ? tierRomanOf(item.tier) : '',
-            消耗:     item.cost || '',
-            状态:     item.status || '完好',
-            标签:     (item.tags && item.tags.length) ? item.tags : [],
+            階層:     (item.tier != null && item.tier !== '') ? tierRomanOf(item.tier) : '',
+            消費:     item.cost || '',
+            状態:     item.status || '完好',
+            タグ:     (item.tags && item.tags.length) ? item.tags : [],
             原始属性: item.raw_attrs || {},
-            效果:     item.effects || {},
+            効果:     item.effects || {},
             技能:     skillsOut,
-            描述:     item.description || ''
+            説明:     item.description || ''
         };
     }
     // 派生属性を再計算(体力/精神 + 血統パッシブ + 装備済みDEF/MDEF)
@@ -7734,7 +7756,7 @@
         var hpRatio = Math.min(1, Math.max(0, Number(old.HP || 0) / oldHpMax));
         var mpRatio = Math.min(1, Math.max(0, Number(old.MP || 0) / oldMpMax));
         var bonus = { HP加成:0, MP加成:0, ATK加成:0, DEF加成:0, 法术ATK加成:0, 法术强度加成:0, MDEF加成:0, 豁免加成:0 };
-        var bloods = character.血统 || {};
+        var bloods = character.血統 || {};
         for (var bn in bloods) {
             if (!bloods.hasOwnProperty(bn)) continue;
             var ps = bloods[bn] ? bloods[bn].被动属性 : null;
@@ -7746,11 +7768,11 @@
             }
         }
         var equipDef = 0, equipMdef = 0;
-        var eqs = character.装备 || {};
+        var eqs = character.装備 || {};
         for (var en in eqs) {
             if (!eqs.hasOwnProperty(en)) continue;
             var eq = eqs[en];
-            if (!eq || eq.状态 !== '已装备') continue;
+            if (!eq || eq.状態 !== '已装备') continue;
             equipDef  += Number(eq.DEF || 0);
             equipMdef += Number(eq.MDEF || 0);
         }
@@ -7762,7 +7784,7 @@
         derived.HP = Math.max(1, Math.min(hpMax, Math.round(hpMax * hpRatio)));
         derived.MP上限 = mpMax;
         derived.MP = Math.max(0, Math.min(mpMax, Math.round(mpMax * mpRatio)));
-        derived.ATK = Math.floor(Number(base.力量 || 0) / 5) + bonus.ATK加成;
+        derived.ATK = Math.floor(Number(base.筋力 || 0) / 5) + bonus.ATK加成;
         derived.DEF = equipDef + bonus.DEF加成;
         derived.MDEF = equipMdef + bonus.MDEF加成;
         derived.法术ATK = Math.floor(Number(base.智力 || 0) / 5) + bonus.法术ATK加成;
@@ -7781,17 +7803,17 @@
     var shopRefreshEpoch = 0;      // 更新ラウンドのカウンタ: handleShopRefresh ごとに +1, 旧 Promise のコールバックはラウンド不一致時に結果を破棄("更新を停止"でハングしたリクエストを中断可能)
     var shopReqText = '';          // 要望入力欄の内容(モジュール級, 更新を跨いで保持: 更新後 renderAll がDOMを再構築するため, value 属性で再設定して失われないようにする; 不満なら元の要望を基に再更新可能)
     // ★ 複数キャラのショップ: 現在選択中の購入対象。'角色' はキャラクター自身, それ以外は 关系列表 内の NPC 名
-    var shopCurrentActor = '角色';
-    // キャラクター固有のショップ商品ライブラリの保存名: 商城.成员商库 = { '<角色名键>': { 血统列表:[...], 技能列表:[...], 装备列表:[...], 道具列表:[...], 升级列表:[...] } }
+    var shopCurrentActor = 'キャラ';
+    // キャラクター固有のショップ商品ライブラリの保存名: 商城.メンバー商品庫 = { '<角色名键>': { 血统列表:[...], 技能列表:[...], 装备列表:[...], 道具列表:[...], 升级列表:[...] } }
     // '角色'キー はキャラクター自身のショップ商品に対応(旧来の stat_data.商城 トップレベル構造と互換); NPC キー はその NPC のショップ商品に対応
-    var SHOP_ACTOR_LIB_KEY = '成员商库';  // 商城 の下で複数キャラの商品ライブラリを格納する子キー名
-    var SHOP_ACTOR_REINCARNATOR = '角色';          // 角色 キー名の定数
+    var SHOP_ACTOR_LIB_KEY = 'メンバー商品庫';  // 商城 の下で複数キャラの商品ライブラリを格納する子キー名
+    var SHOP_ACTOR_REINCARNATOR = 'キャラ';          // 角色 キー名の定数
     // ===== ★ 複数キャラのショップ: 角色 切替と商品ライブラリ分離の補助 =====
     // 選択可能なキャラクターのドロップダウン項目を取得: 角色 自身 + 关系列表 内で 在场=true かつ 是否队友=true の NPC
     // [{name, label}]を返す, name='角色' または NPC名; label はドロップダウン表示に使用
     function shopBuildActorOptions(sd) {
-        var list = [{ name: SHOP_ACTOR_REINCARNATOR, label: '角色(自身)' }];
-        var relations = (sd && sd.关系列表) ? sd.关系列表 : null;
+        var list = [{ name: SHOP_ACTOR_REINCARNATOR, label: 'キャラ(自身)' }];
+        var relations = (sd && sd.关系リスト) ? sd.关系リスト : null;
         if (relations && typeof relations === 'object') {
             var allNpc = Object.keys(relations);
             allNpc.sort();
@@ -7799,8 +7821,8 @@
                 var nm = allNpc[i];
                 var npc = relations[nm];
                 if (!npc || typeof npc !== 'object') continue;
-                if (npc.在场 !== true) continue;
-                if (npc.是否队友 !== true) continue;
+                if (npc.登場 !== true) continue;
+                if (npc.仲間 !== true) continue;
                 list.push({ name: nm, label: nm });
             }
         }
@@ -7810,10 +7832,10 @@
     function shopResolveCharacter(sd, actorName) {
         actorName = actorName || shopCurrentActor || SHOP_ACTOR_REINCARNATOR;
         if (actorName === SHOP_ACTOR_REINCARNATOR) {
-            return { character: (sd && sd.角色) || {}, path: '角色', isReincarnator: true, name: SHOP_ACTOR_REINCARNATOR };
+            return { character: (sd && sd.キャラ) || {}, path: 'キャラ', isReincarnator: true, name: SHOP_ACTOR_REINCARNATOR };
         }
-        var npc = (sd && sd.关系列表 && sd.关系列表[actorName]) ? sd.关系列表[actorName] : null;
-        return { character: npc || {}, path: '关系列表.' + actorName, isReincarnator: false, name: actorName };
+        var npc = (sd && sd.关系リスト && sd.关系リスト[actorName]) ? sd.关系リスト[actorName] : null;
+        return { character: npc || {}, path: '関係リスト.' + actorName, isReincarnator: false, name: actorName };
     }
 // SHOP_PERMISSION_GUARD_START
 var SHOP_PERMISSION_QUALITY_ORDER = ['F','E','D','C','B','A','S','SS','SSS'];
@@ -7844,7 +7866,7 @@ function shopPermissionCredentialRank(credentials) {
     return best;
 }
 function shopPermissionCapRank(character, credentials) {
-    var tierRank = shopPermissionRank(character && character.层级);
+    var tierRank = shopPermissionRank(character && character.階層);
     if (tierRank < 0) tierRank = 0;
     var baseRank = Math.min(SHOP_PERMISSION_QUALITY_ORDER.length - 1, tierRank + 1);
     var credentialRank = shopPermissionCredentialRank(credentials || {});
@@ -7879,7 +7901,7 @@ function shopPermissionMessage(decision, item) {
  * - 複数階級を跨ぐ場合も最終的な対象品質のみを見る；血統融合の結果自体はこの関数を通らない。
  */
 function shopCredentialRequirement(character, item) {
-    var actorRank = shopPermissionRank(character && character.层级);
+    var actorRank = shopPermissionRank(character && character.階層);
     if (actorRank < 0) actorRank = 0;
     var targetRank = shopPermissionItemRank(item);
     var required = targetRank >= SHOP_CREDENTIAL_SPEND_MIN_RANK && targetRank > actorRank;
@@ -7977,8 +7999,8 @@ function shopCredentialRefund(credentials, requirements) {
         }
         if (actorName === SHOP_ACTOR_REINCARNATOR) {
             // 旧データ互換: トップレベルに 血统列表/技能列表... があれば 角色 の商庫として扱う
-            if (Array.isArray(rawMarket.血统列表) || Array.isArray(rawMarket.技能列表)
-                || Array.isArray(rawMarket.装备列表) || Array.isArray(rawMarket.道具列表) || Array.isArray(rawMarket.升级列表) || Array.isArray(rawMarket.形态列表)) {
+            if (Array.isArray(rawMarket.血統リスト) || Array.isArray(rawMarket.技能リスト)
+                || Array.isArray(rawMarket.装備リスト) || Array.isArray(rawMarket.道具リスト) || Array.isArray(rawMarket.升級リスト) || Array.isArray(rawMarket.形态列表)) {
                 return rawMarket;
             }
         }
@@ -8004,7 +8026,7 @@ function shopCredentialRefund(credentials, requirements) {
     function shopRefreshMarket() {
         shopPreserveScroll(function() {
             var $market = $('#samsara-panel .sam-shop-market');
-            if ($market.length) { var sd = getStatData(); var coin = sd && sd.角色 ? safeNum(sd.角色.スペースコイン, 0) : 0; $market.html(shopRenderTabs() + shopRenderContent(coin) + shopRenderFooter(coin)); }
+            if ($market.length) { var sd = getStatData(); var coin = sd && sd.キャラ ? safeNum(sd.キャラ.スペースコイン, 0) : 0; $market.html(shopRenderTabs() + shopRenderContent(coin) + shopRenderFooter(coin)); }
             else renderAll();
         });
     }
@@ -8045,7 +8067,7 @@ function shopCredentialRefund(credentials, requirements) {
         } else {
             var permissionSd = getStatData() || {};
             var permissionCtx = shopResolveCharacter(permissionSd, shopCurrentActor);
-            var permission = shopPermissionDecision(permissionCtx.character || {}, item, permissionSd.角色 && permissionSd.角色.权限凭证);
+            var permission = shopPermissionDecision(permissionCtx.character || {}, item, permissionSd.キャラ && permissionSd.キャラ.権限証憑);
             if (!permission.allowed) { samToast('warning', shopPermissionMessage(permission, item)); return; }
             // ★ 血統区の単一選択: 新しい血統を選ぶ前に, カート内の既存の他の血統エントリを除去する(複数血統の混入を回避),
             //   入口で選択される血統を必ず 1 件にし, 後続の shopHandleExec で追加の収束を不要にする
@@ -8216,7 +8238,7 @@ function shopCredentialRefund(credentials, requirements) {
         var attrs = '';
         if (item.cost) attrs += shopChip('消費', item.cost);
         attrs += shopObjChips(item.raw_attrs) + shopTagChips(item.tags);
-        var details = shopObjDetails('効果', item.effects) + shopDescription(item['描述']);
+        var details = shopObjDetails('効果', item.effects) + shopDescription(item['説明']);
         return shopCardHead(item) + shopAttrsBlock(attrs) + details + shopCardFoot(item, false);
     }
     function shopBuildUpgradeCard(item) {
@@ -8242,18 +8264,18 @@ function shopCredentialRefund(credentials, requirements) {
             var sk = skills[i] || {};
             var skName = shopPick(sk, 'name','名称','技能名','技能名称') || ('技能' + (i + 1));
             var fields = '';
-            if (sk.品质) fields += shopDetail('品質', sk.品质);
-            fields += shopDetail('タイプ', shopSkillTypeLabel(sk.类型 != null ? sk.类型 : 0));
-            if (sk.消耗 && sk.消耗 !== '无') fields += shopDetail('消費', sk.消耗);
-            var skTags = (sk.标签 && sk.标签.length) ? sk.标签.join('、') : '';
+            if (sk.品質) fields += shopDetail('品質', sk.品質);
+            fields += shopDetail('タイプ', shopSkillTypeLabel(sk.タイプ != null ? sk.タイプ : 0));
+            if (sk.消費 && sk.消費 !== '无') fields += shopDetail('消費', sk.消費);
+            var skTags = (sk.タグ && sk.タグ.length) ? sk.タグ.join('、') : '';
             if (skTags) fields += shopDetail('タグ', skTags);
-            var skEf = sk.效果;
+            var skEf = sk.効果;
             if (skEf && typeof skEf === 'object' && Object.keys(skEf).length) {
                 var efParts = [];
                 for (var ek in skEf) { if (skEf.hasOwnProperty(ek)) efParts.push(ek + ':' + String(skEf[ek])); }
                 fields += shopDetail('効果', efParts.join('；'));
             }
-            if (sk.描述) fields += shopDetail('説明', sk.描述);
+            if (sk.説明) fields += shopDetail('説明', sk.説明);
             // 各スキルを個別の折りたたみブロック(<details>)とし, 見出しはスキル名, 既定は折りたたみ
             rows += fcBodyCollapsible(skName, fields, 'sam-shop-sk-item', false);
         }
@@ -8355,7 +8377,7 @@ function shopCredentialRefund(credentials, requirements) {
         var isSelected = shopIsSelected(item.name, cat, slot);
         var sel = isSelected ? ' selected' : '';
         var permissionSd = getStatData() || {};
-        var permission = shopPermissionDecision(permissionCharacter || {}, item, permissionSd.角色 && permissionSd.角色.权限凭证);
+        var permission = shopPermissionDecision(permissionCharacter || {}, item, permissionSd.キャラ && permissionSd.キャラ.権限証憑);
         // 選択済みの権限超過の旧エントリはクリックで解除可能；未選択の権限超過商品は直接ロックする。
         var permissionLocked = (!isSelected && !permission.allowed);
         // 無効化判定: 選択済みはグレーにしない(数量調整/解除を許可); 未選択かつ単価 > 残高 → グレーアウトで無効
@@ -8372,7 +8394,7 @@ function shopCredentialRefund(credentials, requirements) {
         var bloodFusionLock = (cat === '血统区' && !isSelected && bloodFusionBusy);
         // ★ アップグレード区が融合進行中: そのアップグレードカードの"replace_target = 今回融合されている血統" → グレーロック
         //   (元の血統が消費中であり, 融合結果が出るまで対応するアップグレードサービスの購入を一時停止する)
-        if (cat === '升级区' && !isSelected && bloodFusionBusy && item.category === '血统'
+        if (cat === '升级区' && !isSelected && bloodFusionBusy && item.category === '血統'
             && bloodFusionConsumedNames.length && bloodFusionConsumedNames.indexOf(item.replace_target || '') >= 0) {
             bloodFusionLock = true;
         }
@@ -8396,7 +8418,7 @@ function shopCredentialRefund(credentials, requirements) {
         var sd = getStatData() || {};
         var actorCtx = shopResolveCharacter(sd, shopCurrentActor);
         var credentialRequirements = shopCredentialCartRequirements(actorCtx.character || {}, shopCart);
-        var credentialShortages = shopCredentialShortages(sd.角色 && sd.角色.权限凭证, credentialRequirements);
+        var credentialShortages = shopCredentialShortages(sd.キャラ && sd.キャラ.権限証憑, credentialRequirements);
         var credentialInsufficient = credentialShortages.length > 0;
         var credentialText = shopCredentialRequirementText(credentialRequirements);
         var remainCls = insufficient ? ' insufficient' : '';
@@ -8490,18 +8512,18 @@ function shopCredentialRefund(credentials, requirements) {
     // レシートは既に正常に確定したローカルショップ動作のみを記録する；各件を改行で追記し、本文モデルの叙述後にクリアされる。
     function shopAppendReceipt(statData, line) {
         if (!statData || !line) return;
-        statData.系统状态 = statData.系统状态 || {};
-        var oldText = safeStr(statData.系统状态.待播报记录, '').trim();
-        statData.系统状态.待播报记录 = oldText ? (oldText + '\n' + line) : line;
+        statData.システム状態 = statData.システム状態 || {};
+        var oldText = safeStr(statData.システム状態.配信待ち記録, '').trim();
+        statData.システム状態.配信待ち記録 = oldText ? (oldText + '\n' + line) : line;
     }
     function shopReceiptLine(action, detail, cost, balance, actorLabel) {
-        var who = actorLabel || '角色';
+        var who = actorLabel || 'キャラ';
         return '['+action+']['+who+'] '+detail+'｜支払 '+safeNum(cost, 0)+'スペースコイン｜残高 '+safeNum(balance, 0);
     }
     function shopClearReceipt() {
         var ok = writeBackMvu(function(statData) {
-            statData.系统状态 = statData.系统状态 || {};
-            statData.系统状态.待播报记录 = '';
+            statData.システム状態 = statData.システム状態 || {};
+            statData.システム状態.配信待ち記録 = '';
         });
         if (ok) { renderAll(); samToast('success', '配信待ち記録を削除しました'); }
         else samToast('error', '削除に失敗: MVU書き戻しが使用できません');
@@ -8509,34 +8531,34 @@ function shopCredentialRefund(credentials, requirements) {
     // 取引の構築: stat_data のコピー上でコイン控除/バッグ格納を実行し, { statData, purchaseLog, receipts, actorName } を返す
     // ★ 複数キャラのショップ: 受取人(荷造りしてバッグへ入れるキャラクター)は shopCurrentActor が決定する(角色またはNPC); 通貨は常に 角色.スペースコイン から控除する
     function shopBuildTransaction(statData) {
-        var coinOwner = statData.角色;
+        var coinOwner = statData.キャラ;
         if (!coinOwner) throw new Error('キャラクターデータが存在しません');
         var actorName = shopCurrentActor || SHOP_ACTOR_REINCARNATOR;
-        var character = (actorName === SHOP_ACTOR_REINCARNATOR) ? coinOwner : (statData.关系列表 && statData.关系列表[actorName]);
+        var character = (actorName === SHOP_ACTOR_REINCARNATOR) ? coinOwner : (statData.关系リスト && statData.关系リスト[actorName]);
         if (!character) throw new Error('キャラクターデータが存在しません: ' + actorName);
         for (var gateI = 0; gateI < shopCart.length; gateI++) {
             var gateItem = shopCart[gateI] || {};
-            var gate = shopPermissionDecision(character, gateItem, coinOwner.权限凭证);
+            var gate = shopPermissionDecision(character, gateItem, coinOwner.権限証憑);
             if (!gate.allowed) throw new Error(shopPermissionMessage(gate, gateItem));
         }
         var credentialRequirements = shopCredentialCartRequirements(character, shopCart);
-        var credentialShortages = shopCredentialShortages(coinOwner.权限凭证, credentialRequirements);
+        var credentialShortages = shopCredentialShortages(coinOwner.権限証憑, credentialRequirements);
         if (credentialShortages.length) throw new Error('権限証憑不足：' + shopCredentialShortageText(credentialShortages));
         var total = shopCartCost();
         var startCoin = Number(coinOwner.スペースコイン || 0);
         if (startCoin < total) throw new Error('キャラクターのスペースコインが不足しています');
-        coinOwner.权限凭证 = coinOwner.权限凭证 || {};
-        if (!shopCredentialConsume(coinOwner.权限凭证, credentialRequirements)) throw new Error('権限証憑の控除に失敗しました');
+        coinOwner.権限証憑 = coinOwner.権限証憑 || {};
+        if (!shopCredentialConsume(coinOwner.権限証憑, credentialRequirements)) throw new Error('権限証憑の控除に失敗しました');
         coinOwner.スペースコイン = startCoin - total;
-        if (!character.装备) character.装备 = {};
+        if (!character.装備) character.装備 = {};
         if (!character.技能) character.技能 = {};
-        if (!character.血统) character.血统 = {};
+        if (!character.血統) character.血統 = {};
         if (!character.道具) character.道具 = {};
-        if (!character.形态库) character.形态库 = {};
+        if (!character.形態庫) character.形態庫 = {};
         var itemStrs = [];
         var receiptLines = [];
         var receiptBalance = startCoin;
-        var _actorLabel = (actorName === SHOP_ACTOR_REINCARNATOR) ? '角色' : actorName;
+        var _actorLabel = (actorName === SHOP_ACTOR_REINCARNATOR) ? 'キャラ' : actorName;
         for (var i = 0; i < shopCart.length; i++) {
             var item = shopCart[i];
             var qty = item.quantity || 1;
@@ -8546,13 +8568,13 @@ function shopCredentialRefund(credentials, requirements) {
                 // ★ 血統上限の防御(フォールバック): 通常フローでは血統区の商品は shopHandleExec で融合ダイアログへ横取りされ,
                 //   直接購入パス(bloodFusionDirectPurchase)は既に上限チェックを含む; この分岐は将来の変更で
                 //   ルーティングを迂回し血統が純増して BLOODLINE_CAP を突破するのを防ぐ
-                if (!character.血统[item.name] && Object.keys(character.血统).length >= BLOODLINE_CAP) {
+                if (!character.血統[item.name] && Object.keys(character.血統).length >= BLOODLINE_CAP) {
                     throw new Error('血統が上限に達しました(' + BLOODLINE_CAP + '), 購入できません: ' + item.name);
                 }
-                character.血统[item.name] = shopToBloodlineVar(item);
+                character.血統[item.name] = shopToBloodlineVar(item);
             } else if (item._cat === '装备区') {
                 var nextEq = shopToEquipVar(item, item._slot);
-                character.装备[item.name] = nextEq;
+                character.装備[item.name] = nextEq;
             } else if (item._cat === '道具区') {
                 var old = character.道具[item.name];
                 var nextCon = shopToConsumeVar(item, qty);
@@ -8563,36 +8585,36 @@ function shopCredentialRefund(credentials, requirements) {
                 character.道具[item.name] = merged;
             } else if (item._cat === '形态区') {
                 // 形態商品: 直接購入して 形态库 へ入れる(キーは形態名, 置換は強制しない; 同名は上書き)
-                character.形态库[item.name] = shopToFormVar(item, item.name);
+                character.形態庫[item.name] = shopToFormVar(item, item.name);
             } else if (item._cat === '升级区') {
                 // アップグレード商品: 所属大分類に応じて書き込むキャラクター項目を決める; 置換対象が回収する旧アイテムを決める
                 var upCat = item.category || '';
                 var tgtName = item.replace_target || item.name;
-                if (upCat === '血统') {
+                if (upCat === '血統') {
                     // ★ 血統上限の防御: アップグレードサービスの意味は"旧を削除して新を追加"(数量不変)だが, AI が生成した
                     //   replace_target がキャラクターの実際の所持血統名と一致しない場合(データ陳腐化/融合済み/名前の幻覚),
                     //   delete が空操作に堕し, 実質"血統1件の純増"→ BLOODLINE_CAP 上限を迂回する。
                     //   よって書き込み前に検証: 置換対象が存在せず同名上書きでもない場合, 購入後の数量は上限を超えてはならない。
-                    var bTgtExists = !!character.血统[tgtName];
-                    var bOverwrite = !!character.血统[item.name];
-                    if (!bTgtExists && !bOverwrite && Object.keys(character.血统).length >= BLOODLINE_CAP) {
+                    var bTgtExists = !!character.血統[tgtName];
+                    var bOverwrite = !!character.血統[item.name];
+                    if (!bTgtExists && !bOverwrite && Object.keys(character.血統).length >= BLOODLINE_CAP) {
                         throw new Error('血統が上限に達しました(' + BLOODLINE_CAP + '), アップグレードサービス【' + item.name + '】の置換対象【' + tgtName + '】が存在しないため, 購入できません');
                     }
-                    if (bTgtExists) delete character.血统[tgtName];
-                    character.血统[item.name] = shopToBloodlineVar(item);
+                    if (bTgtExists) delete character.血統[tgtName];
+                    character.血統[item.name] = shopToBloodlineVar(item);
                 } else if (upCat === '技能') {
                     if (character.技能[tgtName]) delete character.技能[tgtName];
                     character.技能[item.name] = shopToSkillVar(item);
-                } else if (upCat === '装备') {
-                    var oldEquip = character.装备[tgtName];
+                } else if (upCat === '装備') {
+                    var oldEquip = character.装備[tgtName];
                     var newEquip = shopToEquipVar(item, '');
-                    if (oldEquip && typeof oldEquip === 'object' && oldEquip.状态 != null) newEquip.状态 = oldEquip.状态;
-                    if (character.装备[tgtName]) delete character.装备[tgtName];
-                    character.装备[item.name] = newEquip;
+                    if (oldEquip && typeof oldEquip === 'object' && oldEquip.状態 != null) newEquip.状態 = oldEquip.状態;
+                    if (character.装備[tgtName]) delete character.装備[tgtName];
+                    character.装備[item.name] = newEquip;
                 } else if (upCat === '形态') {
                     // 形態アップグレード: 旧形態(置換対象)を削除してから新形態を書き込む; "形態購入"と同じく shopToFormVar を通る
-                    if (character.形态库[tgtName]) delete character.形态库[tgtName];
-                    character.形态库[item.name] = shopToFormVar(item, item.name);
+                    if (character.形態庫[tgtName]) delete character.形態庫[tgtName];
+                    character.形態庫[item.name] = shopToFormVar(item, item.name);
                 }
             }
             var qtyStr = qty > 1 ? ' ×'+qty : '';
@@ -8616,7 +8638,7 @@ function shopCredentialRefund(credentials, requirements) {
             actorName: actorName
         };
     }
-    // 商品ライブラリから購入済み物品を削除: 商城.成员商库.<角色名> 配下の 装备列表/技能列表/血统列表/道具列表/升级列表 はいずれもフラット配列
+    // 商品ライブラリから購入済み物品を削除: 商城.メンバー商品庫.<角色名> 配下の 装备列表/技能列表/血统列表/道具列表/升级列表 はいずれもフラット配列
     // すべての区域(アイテム区を含む)で統一的に"丸ごと削除"——買われた商品は商品ライブラリから直接消え, 数量の逓減は行わない
     // (ストアの意味論: プレイヤーが買った時点で陳列終了, 再陳列はしない; アイテムの元数量フィールドは表示専用で, 購入可能上限とはしない)
     // ★ 複数キャラ: actorName はどのキャラクターの専用商庫から削除するかを指定する; 既定は shopCurrentActor を踏襲
@@ -8629,8 +8651,8 @@ function shopCredentialRefund(credentials, requirements) {
             lib = libMap[actorName];
         } else if (actorName === SHOP_ACTOR_REINCARNATOR) {
             // 旧データ互換: 角色 の商庫が 商城 のトップレベルに直接並んでいる場合がある
-            if (Array.isArray(statData.商城.装备列表) || Array.isArray(statData.商城.技能列表)
-                || Array.isArray(statData.商城.血统列表) || Array.isArray(statData.商城.道具列表) || Array.isArray(statData.商城.升级列表) || Array.isArray(statData.商城.形态列表)) {
+            if (Array.isArray(statData.商城.装備リスト) || Array.isArray(statData.商城.技能リスト)
+                || Array.isArray(statData.商城.血統リスト) || Array.isArray(statData.商城.道具リスト) || Array.isArray(statData.商城.升级リスト) || Array.isArray(statData.商城.形态リスト)) {
                 lib = statData.商城;
             }
         }
@@ -8641,7 +8663,7 @@ function shopCredentialRefund(credentials, requirements) {
             removeNames[cart[i].name] = true;
         }
         // 新構造: 4本のフラット配列, 逐次フィルタ(丸ごと削除)
-        var listKeys = ['装备列表','技能列表','血统列表','道具列表','升级列表','形态列表'];
+        var listKeys = ['装備リスト','技能リスト','血統リスト','道具リスト','升級リスト','形态列表'];
         for (var ki = 0; ki < listKeys.length; ki++) {
             var key = listKeys[ki];
             if (Array.isArray(lib[key])) {
@@ -8652,7 +8674,7 @@ function shopCredentialRefund(credentials, requirements) {
         //   升级列表 内の残りの"置換対象=その同一の元物品"のアップグレード項目も意味を失うため, まとめて削除する
         //   例: 人类血统 → 升级列表 に【修仙进化】【科技进化】【血肉进化】があり, いずれも"人类血统"を置換対象とする;
         //       【修仙进化】購入後は人类血统が削除され, 人类血统に対応する残りのアップグレード商品はすべて削除される
-        if (Array.isArray(lib.升级列表) && lib.升级列表.length) {
+        if (Array.isArray(lib.升級リスト) && lib.升級リスト.length) {
             var consumeTargets = {};
             for (var ci = 0; ci < cart.length; ci++) {
                 var ce = cart[ci];
@@ -8661,8 +8683,8 @@ function shopCredentialRefund(credentials, requirements) {
                 }
             }
             if (Object.keys(consumeTargets).length) {
-                lib.升级列表 = lib.升级列表.filter(function(u) {
-                    var upTgt = String(shopPick(u, 'replace_target','替换目标') || '');
+                lib.升級リスト = lib.升級リスト.filter(function(u) {
+                    var upTgt = String(shopPick(u, 'replace_target','置換対象') || '');
                     // 同じ置換対象のアップグレード項目もまとめて削除(購入済み項目は上で丸ごと削除済み, ここはフォールバックの再クリア)
                     return !(upTgt && consumeTargets[upTgt]);
                 });
@@ -8696,7 +8718,7 @@ function shopCredentialRefund(credentials, requirements) {
         // ★ アップグレードサービスにも融合進行中のブロックがある: "replace_target=融合中の血統"に該当するアップグレード項目は決算を禁止する
         if (bloodFusionBusy && bloodFusionConsumedNames.length) {
             var upgradeHit = shopCart.filter(function(entry) {
-                return entry && entry._cat === '升级区' && entry.category === '血统'
+                return entry && entry._cat === '升级区' && entry.category === '血統'
                     && bloodFusionConsumedNames.indexOf(entry.replace_target || '') >= 0;
             });
             if (upgradeHit.length) { samToast('warning', '血統融合中, 対応するアップグレードサービスは購入できません, 融合の完了をお待ちください'); return; }
@@ -8721,11 +8743,11 @@ function shopCredentialRefund(credentials, requirements) {
             return;
         }
         // ★ 複数キャラのショップ: 通貨は常に 角色.スペースコイン から控除する; 角色 のスペースコイン残高を検証
-        var coin = safeNum(sd.角色 && sd.角色.スペースコイン, 0);
+        var coin = safeNum(sd.キャラ && sd.キャラ.スペースコイン, 0);
         if (coin < shopCartCost()) { samToast('error', 'スペースコイン不足, 取引を実行できません'); return; }
         // ★ 現在の対象キャラクター(NPC) がまだ在場しているかを検証(切替後に退場する可能性)
         if (shopCurrentActor !== SHOP_ACTOR_REINCARNATOR) {
-            var actorNpc = (sd.关系列表 && sd.关系列表[shopCurrentActor]) ? sd.关系列表[shopCurrentActor] : null;
+            var actorNpc = (sd.关系リスト && sd.关系リスト[shopCurrentActor]) ? sd.关系リスト[shopCurrentActor] : null;
             if (!actorNpc) { samToast('error', '対象キャラクターは退場済み, 購入できません, 再選択してください'); return; }
         }
         // 1) stat_data のコピー上で取引結果を構築(コイン控除/バッグ格納/商品ライブラリから購入済みを一括削除)
@@ -8747,9 +8769,9 @@ function shopCredentialRefund(credentials, requirements) {
             // 構築済みの取引結果でキャラクター項目 + ショップ商品ライブラリを丸ごと上書きする
             var rs = result.statData;
             // ★ 書き戻し: 角色(スペースコイン控除を含む, 角色 の買い物時は新装備を含む) + 商城(商品ライブラリは購入済みを削除済み) + 关系列表(NPCの買い物時は新装備を含む)
-            if (rs.角色) statData.角色 = rs.角色;
+            if (rs.キャラ) statData.キャラ = rs.キャラ;
             if (rs.商城) statData.商城 = rs.商城;
-            if (rs.关系列表) statData.关系列表 = rs.关系列表;
+            if (rs.関係リスト) statData.关系リスト = rs.関係リスト;
             for (var ri = 0; ri < result.receipts.length; ri++) {
                 shopAppendReceipt(statData, result.receipts[ri]);
             }
@@ -8837,7 +8859,7 @@ function shopCredentialRefund(credentials, requirements) {
     //   寛容性: ```yaml / ``` のコードフェンスに対応; フィールド名は大文字小文字を区別しない; インライン {a:1,b:2} と ['a','b'] のインライン構文
     //   新ZOD構造に厳密対応: 血统(原始属性/效果) 技能(类型0-2) 装备(类型0-8) 道具(类型str/数量)
     function shopParseMarketText(text) {
-        var result = { 血统列表: [], 技能列表: [], 装备列表: [], 道具列表: [], 升级列表: [], 形态列表: [] };
+        var result = { 血統リスト: [], 技能リスト: [], 装備リスト: [], 道具リスト: [], 升級リスト: [], 形态列表: [] };
         if (!text || typeof text !== 'string') return result;
         // コードフェンスを除去
         var cleaned = text.replace(/```(?:ya?ml|json)?/gi, '').replace(/```/g, '');
@@ -8904,7 +8926,7 @@ function shopCredentialRefund(credentials, requirements) {
             return out;
         }
         // インデント式YAML解析: リスト見出し(血统列表/技能列表/...)で区切り, 各段落内の - 項目が新規エントリ, 同階層のインデントキーがフィールド
-        var listKeys = ['血统列表', '技能列表', '装备列表', '道具列表', '升级列表', '形态列表'];
+        var listKeys = ['血統リスト', '技能リスト', '装備リスト', '道具リスト', '升級リスト', '形态列表'];
         var curList = null;     // 現在のリスト名(resultのkey)
         var curItem = null;     // 現在充填中のエントリオブジェクト
         var itemIndent = -1;    // 現在のエントリの - 行インデント
@@ -8951,7 +8973,7 @@ function shopCredentialRefund(credentials, requirements) {
                 // (形態エントリに内蔵される 技能: { - 名称: ...\n  品质: ...\n  类型: ...\n  效果: {...}\n  标签: [...] } のサブリスト,
                 //  サブスキルの 效果/原始属性 も複数行 YAML, という形で展開される場合があるため先読みして収集する必要がある)
                 // 技能 サブブロックの収集: 形态列表 内, または 升级列表 内で現在のエントリの 所属大类=形态(形態アップグレード項目に内蔵される 技能 サブリスト)
-                var _isFormSkillBlock = (curList === '形态列表') || (curList === '升级列表' && curItem && (curItem.所属大类 === '形态' || curItem.category === '形态'));
+                var _isFormSkillBlock = (curList === '形态列表') || (curList === '升級リスト' && curItem && (curItem.所属カテゴリ === '形态' || curItem.category === '形态'));
                 if (!v.trim() && _isFormSkillBlock && k === '技能') {
                     var skillsArr = [];
                     var sCur = null;        // 現在充填中のサブスキル
@@ -8959,11 +8981,11 @@ function shopCredentialRefund(credentials, requirements) {
                     var j3 = i + 1;
                     // サブスキルフィールド値の処理: 行内値 sv → 対応する型へ正規化
                     function pushSkillField(obj, fk, fv) {
-                        if (fk === '标签') obj[fk] = tags(fv);
-                        else if (fk === '类型') {
+                        if (fk === 'タグ') obj[fk] = tags(fv);
+                        else if (fk === 'タイプ') {
                             var _stn = parseInt(fv, 10);
                             obj[fk] = isFinite(_stn) ? _stn : 0;
-                        } else if (fk === '效果') {
+                        } else if (fk === '効果') {
                             obj[fk] = objMap(fv);
                         } else if (fk === '原始属性') {
                             obj[fk] = numMap(fv);
@@ -8980,7 +9002,7 @@ function shopCredentialRefund(credentials, requirements) {
                             var sk = sfM[2], sv = sfM[3];
                             var sFieldIndent = sfM[1].length;
                             // サブスキルの 效果/原始属性 の複数行展開: 値が空のときはより深いインデントの key:value を先読み収集
-                            if (!sv.trim() && (sk === '效果' || sk === '原始属性')) {
+                            if (!sv.trim() && (sk === '効果' || sk === '原始属性')) {
                                 var sSub = {};
                                 var jj = j3 + 1;
                                 for (; jj < lines.length; jj++) {
@@ -9031,7 +9053,7 @@ function shopCredentialRefund(credentials, requirements) {
                 }
                 // 複数行オブジェクトフィールド: 效果/原始属性 の値が空のとき, より深いインデントの key:value ペアを下方から収集
                 // (AI はネストしたオブジェクトを複数行 YAML 形式で展開することが多く 行内 {k:v}, ではなく先読み収集が必要)
-                if (!v.trim() && (k === '效果' || k === '原始属性')) {
+                if (!v.trim() && (k === '効果' || k === '原始属性')) {
                     var subObj = {};
                     var j2 = i + 1;
                     for (; j2 < lines.length; j2++) {
@@ -9053,23 +9075,23 @@ function shopCredentialRefund(credentials, requirements) {
                     continue;
                 }
                 // 数値フィールド
-                if (k === '价格' || k === '数量') {
+                if (k === '価格' || k === '数量') {
                     curItem[k] = num(v, k === '数量' ? 1 : 0);
-                } else if (k === '类型') {
+                } else if (k === 'タイプ') {
                     // 技能(0-2)/装备(0-8)は数値, 道具は文字列
                     var tn = parseInt(v, 10);
-                    if (curList === '技能列表' || curList === '装备列表') {
+                    if (curList === '技能リスト' || curList === '装備リスト') {
                         curItem[k] = isFinite(tn) ? tn : 0;
                     } else {
                         curItem[k] = str(v);
                     }
                 } else if (k === '原始属性') {
                     curItem[k] = numMap(v);
-                } else if (k === '效果') {
+                } else if (k === '効果') {
                     curItem[k] = objMap(v);
-                } else if (k === '标签') {
+                } else if (k === 'タグ') {
                     curItem[k] = tags(v);
-                } else if (k === '品质' || k === '层级' || k === '消耗' || k === '描述' || k === '名称') {
+                } else if (k === '品質' || k === '階層' || k === '消費' || k === '説明' || k === '名称') {
                     curItem[k] = str(v);
                 } else {
                     // 未知のフィールドはそのまま保持
@@ -9087,18 +9109,18 @@ function shopCredentialRefund(credentials, requirements) {
         actorName = actorName || shopCurrentActor || SHOP_ACTOR_REINCARNATOR;
         var ctx = shopResolveCharacter(sd, actorName);
         var p = ctx.character || {};
-        var reincarnatorCoin = (sd.角色 && sd.角色.スペースコイン != null) ? sd.角色.スペースコイン : null;
-        var reincarnatorCredentials = (sd.角色 && sd.角色.权限凭证 && typeof sd.角色.权限凭证 === 'object') ? sd.角色.权限凭证 : {};
+        var reincarnatorCoin = (sd.キャラ && sd.キャラ.スペースコイン != null) ? sd.キャラ.スペースコイン : null;
+        var reincarnatorCredentials = (sd.キャラ && sd.キャラ.権限証憑 && typeof sd.キャラ.権限証憑 === 'object') ? sd.キャラ.権限証憑 : {};
         var parts = [];
         // 先頭に今回の生成対象(角色/チームメイト名)を明記し, AI がビルドを合わせられるようにする
-        parts.push('本次购买目标: ' + (ctx.isReincarnator ? '角色(プレイヤー本人)' : (actorName + '(チームメイト)')));
-        if (p.种族) parts.push('种族: ' + p.种族);
-        if (Array.isArray(p.身份) && p.身份.length) parts.push('身份: ' + p.身份.join('/'));
+        parts.push('本次购买目标: ' + (ctx.isReincarnator ? 'キャラ(プレイヤー本人)' : (actorName + '(チームメイト)')));
+        if (p.種族) parts.push('種族: ' + p.種族);
+        if (Array.isArray(p.身分) && p.身分.length) parts.push('身分: ' + p.身分.join('/'));
         {
-            var _occTxt = occupationSummaryText(p.职业);
-            if (_occTxt) parts.push('职业: ' + _occTxt);
+            var _occTxt = occupationSummaryText(p.職業);
+            if (_occTxt) parts.push('職業: ' + _occTxt);
         }
-        if (p.层级) parts.push('层级: ' + p.层级);
+        if (p.階層) parts.push('階層: ' + p.階層);
         // スペースコインも権限証憑も角色アカウントに属する；現在がNPCの購入であっても角色アカウントで支払い/認可する。
         if (reincarnatorCoin != null) parts.push('スペースコイン: ' + reincarnatorCoin);
         var credentialParts = [];
@@ -9107,7 +9129,7 @@ function shopCredentialRefund(credentials, requirements) {
             var _cq = Math.max(0, Math.floor(safeNum(reincarnatorCredentials[_cg], 0)));
             if (_cq > 0) credentialParts.push(_cg + '×' + _cq);
         }
-        parts.push('权限凭证(角色账户): ' + (credentialParts.length ? credentialParts.join(' / ') : '无'));
+        parts.push('権限証憑(角色账户): ' + (credentialParts.length ? credentialParts.join(' / ') : '无'));
         
         // ★ コア補助関数：アイテムの重要情報をすべて抽出し、コンパクトな単一行テキストに連結。網羅的かつ Token 節約
         function formatDict(dict) {
@@ -9118,13 +9140,13 @@ function shopCredentialRefund(credentials, requirements) {
                 var v = dict[k] || {};
                 var info = [];
                 
-                if (v.品质) info.push(v.品质 + '级');
+                if (v.品質) info.push(v.品質 + '级');
                 if (v.数量 != null) info.push('数量:' + v.数量);
-                if (v.消耗) info.push('消耗:' + v.消耗);
+                if (v.消費) info.push('消費:' + v.消費);
                 // 属性と効果はオブジェクトなので JSON.stringify で平坦化して表示
                 if (v.原始属性 && Object.keys(v.原始属性).length > 0) info.push('属性:' + JSON.stringify(v.原始属性));
-                if (v.效果 && Object.keys(v.效果).length > 0) info.push('效果:' + JSON.stringify(v.效果));
-                if (v.描述) info.push('描述:' + v.描述);
+                if (v.効果 && Object.keys(v.効果).length > 0) info.push('効果:' + JSON.stringify(v.効果));
+                if (v.説明) info.push('説明:' + v.説明);
                 
                 // 出力形式の例: "  - 御剑术 [F级 | 消耗:8MP | 效果:{"主动":"..."} | 描述:...]"
                 return '  - ' + k + ' [' + info.join(' | ') + ']';
@@ -9132,23 +9154,23 @@ function shopCredentialRefund(credentials, requirements) {
         }
 
         // 既存の装備/スキル/血統名(AIの重複回避+ビルド適合を支援)
-        var blData = p.血统 || {};
+        var blData = p.血統 || {};
         if (Object.keys(blData).length) parts.push('已有血统:\n' + formatDict(blData));
         
         var skData = p.技能 || {};
         if (Object.keys(skData).length) parts.push('已有技能:\n' + formatDict(skData));
         
-        var eqData = p.装备 || {};
+        var eqData = p.装備 || {};
         if (Object.keys(eqData).length) parts.push('已有装备:\n' + formatDict(eqData));
         
         var invData = p.道具 || {};
         if (Object.keys(invData).length) parts.push('已有物品:\n' + formatDict(invData));
 
-        var statusData = p.状态 || {};
+        var statusData = p.状態 || {};
         if (Object.keys(statusData).length) parts.push('已有状态:\n' + formatDict(statusData));
 
         // 既存の 形态库(AIがビルドに合わせ重複を避けるため; 形態アップグレード機能はこれに基づき"替换目标"を記入する)
-        var formData = p.形态库 || {};
+        var formData = p.形態庫 || {};
         if (Object.keys(formData).length) parts.push('已有形态:\n' + formatDict(formData));
         
         // 世界/任務コンテキスト
@@ -9185,9 +9207,9 @@ function shopCredentialRefund(credentials, requirements) {
     function handleShopRefresh(reqText, worldBookContent) {
         var sd = getStatData();
         if (!sd) { samToast('error', 'データが未準備です'); return; }
-        var sys = sd.系统状态 || {};
-        if (sys.是否战斗中 === true) { samToast('warning', '戦闘中は取引できません, 安全な場所に移動してから再試行してください'); return; }
-        if (sys.是否在主神空间 !== true && !(sd.设置 && sd.设置.单一世界 === true)) { samToast('warning', '主神空間に戻らないとショップ取引を開始できません'); return; }
+        var sys = sd.システム状態 || {};
+        if (sys.戦闘中 === true) { samToast('warning', '戦闘中は取引できません, 安全な場所に移動してから再試行してください'); return; }
+        if (sys.主神空間滞在中 !== true && !(sd.設定 && sd.設定.単一世界 === true)) { samToast('warning', '主神空間に戻らないとショップ取引を開始できません'); return; }
         // AIインターフェースを確認: 追加モデル設定が有効なら自前ホストAPI, それ以外は generateRaw が必要
         if (!isApiConfigEnabled() && !shopGetAI()) { samToast('error', '本文AIインターフェース generateRawが検出できません(設定で「追加モデル設定」を有効にしてください)'); return; }
         if (isApiConfigEnabled()) {
@@ -9219,7 +9241,7 @@ function shopCredentialRefund(credentials, requirements) {
             + '   - 【纯净展示】: 権限証憑はショップ視野の決定にのみ使用する；選択と決算はプログラムが同一の上限で厳密に検証する。合法な視野内の商品には権限条件を再度書く必要はなく、ショップ視野を超える商品は生成してはならない。\n'
             + '   - プレイヤーが既に所持するアイテムと機能が完全に重複するものは避けること。\n'
             + '3. アップグレード再鋳造の仕組み: \n'
-            + '   - 【当前角色数据】を精査し、プレイヤーが現在所持する低階層の血統・スキル・装備・形態から選び、高階層の強化版を生成して「升级列表」へ入れること。アップグレード後の完成パネルを直接生成すること。詞条の差分でパッチを当てる方式は絶対に禁止！システムが回収・置換できるよう、正確な `替换目标`を必ず提供すること。同一の対象に複数の選択肢を用意してもよい。\n'
+            + '   - 【当前角色数据】を精査し、プレイヤーが現在所持する低階層の血統・スキル・装備・形態から選び、高階層の強化版を生成して「升级列表」へ入れること。アップグレード後の完成パネルを直接生成すること。詞条の差分でパッチを当てる方式は絶対に禁止！システムが回収・置換できるよう、正確な `置換対象`を必ず提供すること。同一の対象に複数の選択肢を用意してもよい。\n'
             + '   - 【升级命名】: 完成品には簡潔で完全な名称を使用すること；旧名称の後ろに“改/強化/進階/精製/Ⅰ/Ⅱ/Plus”などのアップグレード接尾辞を追加・累積することは禁止。改名が必要な場合は全体をそのままリネームすること。\n'
             + '   - 【阶位限制规则】: アップグレードと再鋳造の階位上限は、上記第2条の【品质与视野权限控制】と厳密に同期させること。プレイヤーの視野上限を超えるアップグレード案を生成してはならない。\n'
             + '   - 【升级继承规则】:\n'
@@ -9248,30 +9270,30 @@ function shopCredentialRefund(credentials, requirements) {
             + '   - 【道具列表】では秘伝書、功法、心法、修練資料などの成長型アイテムを生成できる。\n'
             + '   - 修練系アイテムは学習の媒体であり、スキルやパッシブ効果を直接生成しない；購入後は修練の過程を経て対応する成長型状態を生成する必要がある。\n'
             + '   - 商品説明が功法、修真秘伝書、内功心法、魔法研究資料、身体強化案などである場合は、【道具】として生成することを優先し、【技能】としては生成しない。\n'
-            + '   - 技能列表 はキャラクターが既に習得し直接使用できる能力にのみ用い、学習教材や成長経路の記録には用いない。\n'
-            + '   - 技能列表 では、長期的な学習・修練の蓄積・生命構造の変更を要して初めて得られる体系能力を生成することを禁止。\n'
+            + '   - 技能リスト はキャラクターが既に習得し直接使用できる能力にのみ用い、学習教材や成長経路の記録には用いない。\n'
+            + '   - 技能リスト では、長期的な学習・修練の蓄積・生命構造の変更を要して初めて得られる体系能力を生成することを禁止。\n'
             + '   - 品質の参考:\n'
             + '      * 一般武学・基礎訓練系の秘伝書: F-E級\n'
             + '      * 高度な武学・内功心法・特殊技能の伝承: D-C級\n'
             + '      * 修練体系・生命進化・長期的な身体改造系の秘伝書: 通常はD級以上、実際の成長潜在力に基づいて評価する\n'
             + '   - 長期的な修練体系を単一のスキルへ圧縮して販売することを禁止。例えば「修真功法」「血脉觉醒法」「内功心法」を直接スキルとして生成してはならない。\n'
             + '【严格输出格式】\n'
-            + '出力は YAML テキストのみ, 説明や markdown のコードフェンスは不要。トップレベルは六つのリストキー: 血统列表 / 形态列表 / 技能列表 / 装备列表 / 道具列表 / 升级列表, 各項目は "  - " で始める。\n'
+            + '出力は YAML テキストのみ, 説明や markdown のコードフェンスは不要。トップレベルは六つのリストキー: 血統リスト / 形态列表 / 技能列表 / 装备列表 / 道具列表 / 升级列表, 各項目は "  - " で始める。\n'
             + 'フィールドの型は厳密に従うこと:\n'
-            + '  - 层级: 文字列, Ⅰ / Ⅱ / Ⅲ / Ⅳ / Ⅴ / Ⅵ / Ⅶ / Ⅷ / Ⅸ のみ\n'
-            + '  - 品质: 文字列, F / E / D / C / B / A / S / SS / SSSのみ\n'
-            + '  - 标签: インライン配列 [\'标签1\', \'标签2\'...]\n'
-            + '  - 原始属性: インラインオブジェクト、段階付けは《品质效果数值规则》に従う；血統は五維（力量、敏捷、体质、精神、魅力）を完全に含むこと、【形态】は五維を完全に含み関連する【衍生属性】を付加する、装備は有効な非0項目のみ記述。\n'
-            + '  - 效果: インラインオブジェクト {效果名: \'描述\'}, キーは文字列, 値は文字列の説明\n'
-            + '  - 价格: 数値(スペースコイン)\n'
-            + '  - 描述/消耗: 字符串\n'
-            + '  - 类型:\n'
-            + '      技能列表.类型 = 数値 0(アクティブ) / 1(パッシブ) / 2(特殊)\n'
-            + '      装备列表.类型 = 数値 0(武器) / 1(手袋) / 2(頭部) / 3(胸部) / 4(脚部) / 5(靴) / 6(マント) / 7(アクセサリー)\n'
-            + '      道具列表.类型 = 文字列(消耗品/材料/特殊など, 同類型は再利用し細分化しない)\n'
-            + '  - 替换目标: 文字列 (【升级列表】内の商品でのみ必須、プレイヤーが現在所有する元アイテム名と一字一句違わず一致させること！)\n'
-            + '  - 所属大类: 文字列 (【升级列表】内の商品でのみ必須、記入可能な値: 血统 / 形态 / 技能 / 装备)\n'
-            + '  - 道具列表.数量 = 数値(この商品を購入可能な在庫数, ≥1)\n'
+            + '  - 階層: 文字列, Ⅰ / Ⅱ / Ⅲ / Ⅳ / Ⅴ / Ⅵ / Ⅶ / Ⅷ / Ⅸ のみ\n'
+            + '  - 品質: 文字列, F / E / D / C / B / A / S / SS / SSSのみ\n'
+            + '  - タグ: インライン配列 [\'标签1\', \'标签2\'...]\n'
+            + '  - 原始属性: インラインオブジェクト、段階付けは《品質効果数値規則》に従う；血統は五維（力量、敏捷、体质、精神、魅力）を完全に含むこと、【形态】は五維を完全に含み関連する【衍生属性】を付加する、装備は有効な非0項目のみ記述。\n'
+            + '  - 効果: インラインオブジェクト {效果名: \'説明\'}, キーは文字列, 値は文字列の説明\n'
+            + '  - 価格: 数値(スペースコイン)\n'
+            + '  - 説明/消費: 字符串\n'
+            + '  - タイプ:\n'
+            + '      技能リスト.タイプ = 数値 0(アクティブ) / 1(パッシブ) / 2(特殊)\n'
+            + '      装備リスト.タイプ = 数値 0(武器) / 1(手袋) / 2(頭部) / 3(胸部) / 4(脚部) / 5(靴) / 6(マント) / 7(アクセサリー)\n'
+            + '      道具リスト.タイプ = 文字列(消耗品/材料/特殊など, 同類型は再利用し細分化しない)\n'
+            + '  - 置換対象: 文字列 (【升级列表】内の商品でのみ必須、プレイヤーが現在所有する元アイテム名と一字一句違わず一致させること！)\n'
+            + '  - 所属カテゴリ: 文字列 (【升级列表】内の商品でのみ必須、記入可能な値: 血統 / 形态 / 技能 / 装备)\n'
+            + '  - 道具リスト.数量 = 数値(この商品を購入可能な在庫数, ≥1)\n'
             + 'オブジェクトのキーに英語のピリオドは使用禁止、口径系のX.YmmはX·Yと統一して記述（例：5.56mm弾薬→5·56弾薬）;\n'
 
         // —— ユーザープロンプト: プレイヤーコンテキスト + 要件 + 出力テンプレート例 ——
@@ -9279,73 +9301,73 @@ function shopCredentialRefund(credentials, requirements) {
         var playerCtx = shopBuildPlayerContext(sd, shopCurrentActor);
         var userPrompt = '\n【当前角色数据】\n' + (playerCtx || '(无)') + '\n';
         userPrompt += '\n【输出结构】\n以下はフィールド形式のデモのみ、具体的な段階は商品の位置づけに応じて生成すること。\n'
-            + '血统列表:\n'
+            + '血統リスト:\n'
             + '  - 名称: 血統名\n'
-            + '    品质: E\n'
-            + '    标签: ["主神空间", "强化"]\n'
-            + '    原始属性: {"力量": "C", "敏捷": "F", "体质": "D", "精神": "E", "魅力": "F"}\n'
-            + '    效果: {体能充沛: 基础生命恢复速度小幅提升}\n'
-            + '    描述: 簡潔な説明\n'
-            + '    价格: 450\n'
-            + '技能列表:\n'
+            + '    品質: E\n'
+            + '    タグ: ["主神空間", "强化"]\n'
+            + '    原始属性: {"筋力": "C", "敏捷": "F", "体力": "D", "精神": "E", "魅力": "F"}\n'
+            + '    効果: {体能充沛: 基础生命恢复速度小幅提升}\n'
+            + '    説明: 簡潔な説明\n'
+            + '    価格: 450\n'
+            + '技能リスト:\n'
             + '  - 名称: スキル名\n'
-            + '    品质: F\n'
-            + '    类型: 0\n'
-            + '    标签: ["主神空间", "被动"]\n'
-            + '    效果: {射击校准: 射击检定+5}\n'
-            + '    描述: 簡潔な説明\n'
-            + '    消耗: 无\n'
-            + '    价格: 80\n'
-            + '装备列表:\n'
+            + '    品質: F\n'
+            + '    タイプ: 0\n'
+            + '    タグ: ["主神空間", "被动"]\n'
+            + '    効果: {射击校准: 射击检定+5}\n'
+            + '    説明: 簡潔な説明\n'
+            + '    消費: 无\n'
+            + '    価格: 80\n'
+            + '装備リスト:\n'
             + '  - 名称: 装備名\n'
-            + '    品质: D\n'
-            + '    类型: 0\n'
-            + '    标签: ["主神空间", "科技"]\n'
+            + '    品質: D\n'
+            + '    タイプ: 0\n'
+            + '    タグ: ["主神空間", "科技"]\n'
             + '    原始属性: {"ATK": "C", "敏捷": "F"}\n'
-            + '    效果: {射击稳定: 连续射击检定+15}\n'
-            + '    描述: 簡潔な説明\n'
-            + '    消耗: 无\n'
-            + '    价格: 3000\n'
-            + '道具列表:\n'
+            + '    効果: {射击稳定: 连续射击检定+15}\n'
+            + '    説明: 簡潔な説明\n'
+            + '    消費: 无\n'
+            + '    価格: 3000\n'
+            + '道具リスト:\n'
             + '  - 名称: アイテム名\n'
-            + '    品质: F\n'
-            + '    类型: 消耗品\n'
+            + '    品質: F\n'
+            + '    タイプ: 消耗品\n'
             + '    数量: 3\n'
-            + '    标签: ["主神空间", "辅助"]\n'
-            + '    效果: {急救: 恢复10HP}\n'
-            + '    描述: 簡潔な説明\n'
-            + '    价格: 50\n'
+            + '    タグ: ["主神空間", "支援"]\n'
+            + '    効果: {急救: 恢复10HP}\n'
+            + '    説明: 簡潔な説明\n'
+            + '    価格: 50\n'
             + '形态列表:\n'
             + '  - 名称: 形態名\n'
-            + '    层级: {形態自身の戦闘位格に従って生成、Ⅰ－Ⅸ}\n'
-            + '    消耗: HP/EP/特殊資源\n'
-            + '    状态: 完好\n'
-            + '    标签: ["主神空间", 依存する道具/血統/来源など]\n'
-            + '    原始属性: {基础属性/衍生属性: 品质}\n'
-            + '    效果: { [词条]: 描述 }\n'
+            + '    階層: {形態自身の戦闘位格に従って生成、Ⅰ－Ⅸ}\n'
+            + '    消費: HP/EP/特殊資源\n'
+            + '    状態: 完好\n'
+            + '    タグ: ["主神空間", 依存する道具/血統/来源など]\n'
+            + '    原始属性: {基础属性/衍生属性: 品質}\n'
+            + '    効果: { [词条]: 説明 }\n'
             + '    技能: {\n'
             + '     - 名称: スキル名\n'
-            + '       品质: F\n'
-            + '       类型: 0\n'
-            + '       标签: ["主神空间", "被动"]\n'
-            + '       效果: {射击校准: 射击检定+5}\n'
-            + '       描述: 簡潔な説明\n'
-            + '       消耗: 无}\n'
-            + '    描述: 簡潔な説明\n'
-            + '    价格: 300\n'
-            + '升级列表:\n'
+            + '       品質: F\n'
+            + '       タイプ: 0\n'
+            + '       タグ: ["主神空間", "被动"]\n'
+            + '       効果: {射击校准: 射击检定+5}\n'
+            + '       説明: 簡潔な説明\n'
+            + '       消費: 无}\n'
+            + '    説明: 簡潔な説明\n'
+            + '    価格: 300\n'
+            + '升級リスト:\n'
             + '  - 名称: アップグレード後の装備/スキル/血統/形態の名称 (例: M16A2突撃銃·改)\n'
-            + '    替换目标: 元のアイテムの正確な名称 (例: M16A2突撃銃)\n'
-            + '    所属大类: 装备 (必須: 血统/技能/装备/形态)\n'
-            + '    层级: Ⅰ\n'
-            + '    品质: E\n'
-            + '    类型: 0\n'
-            + '    标签: ["主神空间", "科技", "升级"]\n'
+            + '    置換対象: 元のアイテムの正確な名称 (例: M16A2突撃銃)\n'
+            + '    所属カテゴリ: 装備 (必須: 血統/技能/装備/形态)\n'
+            + '    階層: Ⅰ\n'
+            + '    品質: E\n'
+            + '    タイプ: 0\n'
+            + '    タグ: ["主神空間", "科技", "升级"]\n'
             + '    原始属性: {"ATK": "C", "敏捷": "E"}\n'
-            + '    效果: {精密射击: 瞄准射击检定+10}\n'
-            + '    描述: 旧型を回収し再鋳造・昇階した完成品\n'
-            + '    消耗: 无\n'
-            + '    价格: 300\n'
+            + '    効果: {精密射击: 瞄准射击检定+10}\n'
+            + '    説明: 旧型を回収し再鋳造・昇階した完成品\n'
+            + '    消費: 无\n'
+            + '    価格: 300\n'
 // 🌟 コア最適化：動的な末尾指示
 if (hasReq) {
     userPrompt += '\n【本次核心商品需求】\n  ' + reqText + '\n';
@@ -9359,7 +9381,7 @@ if (hasReq) {
             if (myEpoch !== shopRefreshEpoch || !shopRefreshing) return;
             var parsed = shopParseMarketText(out);
             // 生成数を集計
-            var total = (parsed.血统列表.length + parsed.技能列表.length + parsed.装备列表.length + parsed.道具列表.length + parsed.升级列表.length + parsed.形态列表.length);
+            var total = (parsed.血統リスト.length + parsed.技能リスト.length + parsed.装備リスト.length + parsed.道具リスト.length + parsed.升級リスト.length + parsed.形态列表.length);
             if (total === 0) {
                 // 解析失敗: 更新中状態を解除, 元のリスト表示へ戻し, トースト通知
                 shopRefreshing = false;
@@ -9367,7 +9389,7 @@ if (hasReq) {
                 samToast('error', 'AIの返答を商品として解析できませんでした, 元の商品リストに戻しました');
                 return;
             }
-            // ★ 現在の角色専用の商庫(商城.成员商库.<角色名>)へ書き戻す; 他の角色の商庫には影響しない
+            // ★ 現在の角色専用の商庫(商城.メンバー商品庫.<角色名>)へ書き戻す; 他の角色の商庫には影響しない
             //   角色キーが旧トップレベル構造の場合は 成员商库.角色へ移行し, 複数角色の分離を実現
             var refreshActor = shopCurrentActor || SHOP_ACTOR_REINCARNATOR;
             var ok = writeBackMvu(function (statData) {
@@ -9381,33 +9403,33 @@ if (hasReq) {
                 // 角色の初回移行: 旧トップレベルのフラット商庫を 角色 の初期在庫として扱う(角色キーが未存在の場合のみ)
                 if (refreshActor === SHOP_ACTOR_REINCARNATOR && !libMap[SHOP_ACTOR_REINCARNATOR]) {
                     var oldTop = null;
-                    if (Array.isArray(market.血统列表) || Array.isArray(market.技能列表)
-                        || Array.isArray(market.装备列表) || Array.isArray(market.道具列表) || Array.isArray(market.升级列表) || Array.isArray(market.形态列表)) {
+                    if (Array.isArray(market.血統リスト) || Array.isArray(market.技能リスト)
+                        || Array.isArray(market.装備リスト) || Array.isArray(market.道具リスト) || Array.isArray(market.升級リスト) || Array.isArray(market.形态列表)) {
                         oldTop = {
-                            血统列表: Array.isArray(market.血统列表) ? market.血统列表 : [],
-                            技能列表: Array.isArray(market.技能列表) ? market.技能列表 : [],
-                            装备列表: Array.isArray(market.装备列表) ? market.装备列表 : [],
-                            道具列表: Array.isArray(market.道具列表) ? market.道具列表 : [],
-                            升级列表: Array.isArray(market.升级列表) ? market.升级列表 : [],
+                            血統リスト: Array.isArray(market.血統リスト) ? market.血統リスト : [],
+                            技能リスト: Array.isArray(market.技能リスト) ? market.技能リスト : [],
+                            装備リスト: Array.isArray(market.装備リスト) ? market.装備リスト : [],
+                            道具リスト: Array.isArray(market.道具リスト) ? market.道具リスト : [],
+                            升級リスト: Array.isArray(market.升級リスト) ? market.升級リスト : [],
                             形态列表: Array.isArray(market.形态列表) ? market.形态列表 : []
                         };
                     }
-                    libMap[SHOP_ACTOR_REINCARNATOR] = oldTop || { 血统列表:[], 技能列表:[], 装备列表:[], 道具列表:[], 升级列表:[], 形态列表:[] };
+                    libMap[SHOP_ACTOR_REINCARNATOR] = oldTop || { 血統リスト:[], 技能リスト:[], 装備リスト:[], 道具リスト:[], 升級リスト:[], 形态列表:[] };
                     // 旧トップレベルの冗長フィールドを削除し, 成员商库 へ統合移行
-                    delete market.血统列表;
-                    delete market.技能列表;
-                    delete market.装备列表;
-                    delete market.道具列表;
-                    delete market.升级列表;
+                    delete market.血統リスト;
+                    delete market.技能リスト;
+                    delete market.装備リスト;
+                    delete market.道具リスト;
+                    delete market.升級リスト;
                     delete market.形态列表;
                 }
                 // 現在の角色の新しい更新結果を書き込む(ライブラリ全体を上書き)
                 libMap[refreshActor] = {
-                    血统列表: parsed.血统列表,
-                    技能列表: parsed.技能列表,
-                    装备列表: parsed.装备列表,
-                    道具列表: parsed.道具列表,
-                    升级列表: parsed.升级列表,
+                    血統リスト: parsed.血統リスト,
+                    技能リスト: parsed.技能リスト,
+                    装備リスト: parsed.装備リスト,
+                    道具リスト: parsed.道具リスト,
+                    升級リスト: parsed.升級リスト,
                     形态列表: parsed.形态列表
                 };
             });
@@ -9446,7 +9468,7 @@ if (hasReq) {
     /* 32d-7. 融合停止: ユーザーが"血統融合進行中…"状態で停止ボタンを押した時に呼ばれる
        - bloodFusionBusy のロックを即座に解除し, renderAll が融合を再開できる状態に戻る
        - bloodFusionEpoch を進めて飛行中の旧 Promise コールバックをターン検証で自動的に結果破棄させる,
-         AI の遅延応答が血統ライブラリ/升级列表/形态库 を上書きすることはなくなる
+         AI の遅延応答が血統ライブラリ/升級リスト/形態庫 を上書きすることはなくなる
        - 今回がショップ血統融合の場合(開始時にスペースコインを差し引き+商品ライブラリを削除済み), bloodFusionSnap をロールバックしてスペースコイン+商品ライブラリを復元する必要がある */
     function bloodFusionStop() {
         if (!bloodFusionBusy) return;
@@ -9459,13 +9481,13 @@ if (hasReq) {
         if (bloodFusionSnap) {
             try {
                 writeBackMvu(function(statData) {
-                    statData.角色 = statData.角色 || {};
-                    statData.角色.スペースコイン = safeNum(statData.角色.スペースコイン, 0) + bloodFusionSnap.price;
-                    statData.角色.权限凭证 = statData.角色.权限凭证 || {};
-                    shopCredentialRefund(statData.角色.权限凭证, bloodFusionSnap.credentialRequirements || {});
+                    statData.キャラ = statData.キャラ || {};
+                    statData.キャラ.スペースコイン = safeNum(statData.キャラ.スペースコイン, 0) + bloodFusionSnap.price;
+                    statData.キャラ.権限証憑 = statData.キャラ.権限証憑 || {};
+                    shopCredentialRefund(statData.キャラ.権限証憑, bloodFusionSnap.credentialRequirements || {});
                     if (bloodFusionSnap.preBloodLib !== null && statData.商城) {
                         var _rlibS = shopGetActorLibRaw(statData.商城, bloodFusionSnap.preActor);
-                        if (_rlibS) _rlibS.血统列表 = bloodFusionSnap.preBloodLib.slice();
+                        if (_rlibS) _rlibS.血統リスト = bloodFusionSnap.preBloodLib.slice();
                     }
                 });
             } catch(eStop) { try { console.warn('[主神端末] 融合停止ロールバック異常:', eStop.message); } catch(e2){} }
@@ -9489,14 +9511,14 @@ if (hasReq) {
         if (!action || !path) return;
         var type = Number(typeStr);
         var sd = getStatData();
-        if (!sd || !sd.角色) { samToast('error', 'データが未準備です'); return; }
+        if (!sd || !sd.キャラ) { samToast('error', 'データが未準備です'); return; }
         var isEquip = (kind === 'equip');
-        var dict = isEquip ? (sd.角色.装备 || {}) : (sd.角色.道具 || {});
-        var basePath = isEquip ? '角色.装备' : '角色.道具';
+        var dict = isEquip ? (sd.キャラ.装備 || {}) : (sd.キャラ.道具 || {});
+        var basePath = isEquip ? 'キャラ.装備' : 'キャラ.道具';
         // 削除: 辞書から直接取り除く
         if (action === 'delete') {
             var ok = writeBackMvu(function(statData) {
-                var d = isEquip ? (statData.角色.装备||{}) : (statData.角色.道具||{});
+                var d = isEquip ? (statData.キャラ.装備||{}) : (statData.キャラ.道具||{});
                 if (d[key] !== undefined) delete d[key];
             });
             if (ok) { samToast('success', (isEquip?'装備':'アイテム')+'を削除しました: '+key); renderAll(); }
@@ -9521,19 +9543,19 @@ if (hasReq) {
                 if (cap >= 2) {
                     // 複数スロット型(武器2/アクセサリー2): 満杯なら拒否
                     var wCount = 0;
-                    Object.keys(dict).forEach(function(k){ if (Number(dict[k].类型)===type && Number(dict[k].状态)===1) wCount++; });
+                    Object.keys(dict).forEach(function(k){ if (Number(dict[k].タイプ)===type && Number(dict[k].状態)===1) wCount++; });
                     if (wCount >= cap) { samToast('warning', '体上の'+slotLabel+'が満杯です('+cap+'件), 現在の'+slotLabel+'を外してから再試行してください'); return; }
                 } else if (cap === 1) {
                     // 単一スロット型(手袋/頭部/.../マント): 同タイプの装着済みと置換
                     var replaced = [];
                     Object.keys(dict).forEach(function(k){
-                        if (k !== key && Number(dict[k].类型) === type && Number(dict[k].状态) === 1) replaced.push(k);
+                        if (k !== key && Number(dict[k].タイプ) === type && Number(dict[k].状態) === 1) replaced.push(k);
                     });
                     if (replaced.length > 0) {
                         var okR = writeBackMvu(function(statData) {
-                            var d = statData.角色.装备 || {};
-                            replaced.forEach(function(k){ if (d[k]) d[k].状态 = 0; });
-                            if (d[key]) d[key].状态 = 1;
+                            var d = statData.キャラ.装備 || {};
+                            replaced.forEach(function(k){ if (d[k]) d[k].状態 = 0; });
+                            if (d[key]) d[key].状態 = 1;
                         });
                         if (okR) { samToast('success', '装着しました: '+key+(replaced.length?' (置換:'+replaced.join(',')+')':'')); renderAll(); }
                         else samToast('error', '装着失敗: MVU書き戻しを利用できません');
@@ -9544,14 +9566,14 @@ if (hasReq) {
             } else {
                 // アイテム戦術枠は ITEM_SLOT_CAP 個まで
                 var iCount = 0;
-                Object.keys(dict).forEach(function(k){ if (Number(dict[k].状态)===1) iCount++; });
+                Object.keys(dict).forEach(function(k){ if (Number(dict[k].状態)===1) iCount++; });
                 if (iCount >= ITEM_SLOT_CAP) { samToast('warning', '体上の負重が満杯です(アイテム'+ITEM_SLOT_CAP+'個), 現在のアイテムを外してから再試行してください'); return; }
             }
         }
         // 共通: 目標状態を設定
         var ok2 = writeBackMvu(function(statData) {
-            var d = isEquip ? (statData.角色.装备||{}) : (statData.角色.道具||{});
-            if (d[key]) d[key].状态 = targetStatus;
+            var d = isEquip ? (statData.キャラ.装備||{}) : (statData.キャラ.道具||{});
+            if (d[key]) d[key].状態 = targetStatus;
         });
         if (ok2) {
             var actLabel = {wear:'装着',remove:'取り外し',store:'収納',takeback:'取り戻し'}[action];
@@ -9566,16 +9588,16 @@ if (hasReq) {
     function handleFormActivate(formName) {
         if (!formName) return;
         var sd = getStatData();
-        if (!sd || !sd.角色) { samToast('error', 'データが未準備です'); return; }
-        var p = sd.角色;
-        var cf = p.当前形态 || {};
+        if (!sd || !sd.キャラ) { samToast('error', 'データが未準備です'); return; }
+        var p = sd.キャラ;
+        var cf = p.現在形態 || {};
         // アクティブ化済みの形態(現在有効)は重複してアクティブ化できない
         if (cf.激活 === true && safeStr(cf.名称) === formName) {
             samToast('warning', 'この形態はすでにアクティブです: ' + formName);
             return;
         }
         // クールダウンがゼロでないとアクティブ化できない(ゼロになって初めて再アクティブ化できる)
-        var forms = p.形态库 || {};
+        var forms = p.形態庫 || {};
         var f = forms[formName] || {};
         var cdM = safeStr(f.冷却).match(/^(\d+)\s*\/\s*(\d+)/);
         var cdCur = cdM ? (parseInt(cdM[1], 10) || 0) : 0;
@@ -9585,17 +9607,17 @@ if (hasReq) {
         }
         // 書き戻し: 当前形态 を設定 + 当該形態のクールダウンを2ターンに(他の形態のクールダウンは触らない)
         var ok = writeBackMvu(function(statData) {
-            var pp = statData.角色;
+            var pp = statData.キャラ;
             if (!pp) return;
             // 当前形态 を設定
-            pp.当前形态 = { 激活: true, 名称: formName };
+            pp.現在形態 = { 激活: true, 名称: formName };
             // 当該形態のクールダウンを 2/2 回合に設定(他の形態のクールダウンには触れない)
-            var ff = pp.形态库 || {};
+            var ff = pp.形態庫 || {};
             if (ff[formName]) {
                 ff[formName].冷却 = '2/2 回合';
             }
             // ★ フロントの形態アクティブ化 → 待播报记录 へ記録(今回の書き戻しと同じタイミングで保存, 本文モデルの叙述後に自動クリア)
-            shopAppendReceipt(statData, '[変身][角色] 形態「' + formName + '」をアクティブ化');
+            shopAppendReceipt(statData, '[変身][キャラ] 形態「' + formName + '」をアクティブ化');
         });
         if (ok) {
             samToast('success', '形態をアクティブ化しました: ' + formName + ' (クールダウン1ターン)');
@@ -9609,9 +9631,9 @@ if (hasReq) {
     function handleFormDeactivate(formName) {
         if (!formName) return;
         var sd = getStatData();
-        if (!sd || !sd.角色) { samToast('error', 'データが未準備です'); return; }
-        var p = sd.角色;
-        var cf = p.当前形态 || {};
+        if (!sd || !sd.キャラ) { samToast('error', 'データが未準備です'); return; }
+        var p = sd.キャラ;
+        var cf = p.現在形態 || {};
         // 現在アクティブな形態がこれと一致する場合のみ解除できる
         if (!(cf.激活 === true && safeStr(cf.名称) === formName)) {
             samToast('warning', 'この形態はアクティブではありません, 解除の必要はありません: ' + formName);
@@ -9619,11 +9641,11 @@ if (hasReq) {
         }
         // 書き戻し: 当前形态 を非アクティブに + 名称をクリア(クールダウンはそのまま, 元のカウントダウンを継続)
         var ok = writeBackMvu(function(statData) {
-            var pp = statData.角色;
+            var pp = statData.キャラ;
             if (!pp) return;
-            pp.当前形态 = { 激活: false, 名称: '' };
+            pp.現在形態 = { 激活: false, 名称: '' };
             // ★ フロントの形態アクティブ化解除 → 待播报记录 へ記録(今回の書き戻しと同じタイミングで保存, 本文モデルの叙述後に自動クリア)
-            shopAppendReceipt(statData, '[変身終了][角色] 形態「' + formName + '」を解除');
+            shopAppendReceipt(statData, '[変身終了][キャラ] 形態「' + formName + '」を解除');
         });
         if (ok) {
             samToast('success', '形態を解除しました: ' + formName);
@@ -9706,15 +9728,15 @@ if (hasReq) {
     }
 
     /* ===== 32h. R21-噂取引: 単一の噂を削除(MVUへ書き戻し) =====
-       sectionKey: '街头巷议' | '情报交易' | '布告与檄文'
+       sectionKey: '街頭の噂' | '情報取引' | '布告と檄文'
        name: 噂の key(名前)
     */
     function handleRumorDelete(sectionKey, name) {
         if (!sectionKey || !name) return;
         var ok = writeBackMvu(function(statData) {
-            if (!statData || !statData.传闻 || !statData.传闻[sectionKey]) return;
-            if (statData.传闻[sectionKey][name]) {
-                delete statData.传闻[sectionKey][name];
+            if (!statData || !statData.噂 || !statData.噂[sectionKey]) return;
+            if (statData.噂[sectionKey][name]) {
+                delete statData.噂[sectionKey][name];
                 try { console.log('%c[主神端末] ✅ 噂を削除しました: '+sectionKey+'/'+name, 'color:#86efac'); } catch(e){}
             }
         });
@@ -9726,8 +9748,8 @@ if (hasReq) {
     function handleRumorClearSection(sectionKey) {
         if (!sectionKey) return;
         var ok = writeBackMvu(function(statData) {
-            if (!statData || !statData.传闻) return;
-            statData.传闻[sectionKey] = {};
+            if (!statData || !statData.噂) return;
+            statData.噂[sectionKey] = {};
             try { console.log('%c[主神端末] ✅ 噂カテゴリをクリアしました: '+sectionKey, 'color:#86efac'); } catch(e){}
         });
         if (ok) { samToast('success', 'カテゴリをクリアしました: ' + sectionKey); renderAll(); }
@@ -9737,8 +9759,8 @@ if (hasReq) {
     /* ===== 32j. R21-噂取引: 全ての噂を削除(街头巷议+情报交易+布告与檄文) ===== */
     function handleRumorClearAll() {
         var ok = writeBackMvu(function(statData) {
-            if (!statData || !statData.传闻) return;
-            statData.传闻 = { 街头巷议: {}, 情报交易: {}, 布告与檄文: {} };
+            if (!statData || !statData.噂) return;
+            statData.噂 = { 街頭の噂: {}, 情報取引: {}, 布告と檄文: {} };
             try { console.log('%c[主神端末] ✅ 全ての噂を削除しました', 'color:#86efac'); } catch(e){}
         });
         if (ok) { samToast('success', '全ての噂を削除しました'); renderAll(); }

@@ -70,12 +70,23 @@
         } catch (e) {}
         return null;
     }
+    /* BATCH_A_CHARACTER_KEY_COMPAT: 旧セーブの 角色 コンテナを正規キーへ読み取り時に移行する。入力境界専用・冪等。 */
+    var CHARACTER_KEY_CANONICAL = 'キャラ';
+    var CHARACTER_KEY_LEGACY = '角色';
+    function normalizeLegacyCharacterKey(stat) {
+        if (!stat || typeof stat !== 'object') return stat;
+        if (!Object.prototype.hasOwnProperty.call(stat, CHARACTER_KEY_LEGACY)) return stat;
+        var legacy = stat[CHARACTER_KEY_LEGACY];
+        delete stat[CHARACTER_KEY_LEGACY];
+        if (stat[CHARACTER_KEY_CANONICAL] === undefined || stat[CHARACTER_KEY_CANONICAL] === null) stat[CHARACTER_KEY_CANONICAL] = legacy;
+        return stat;
+    }
     function getStatData() {
         try {
             var win = getMvuGlobal();
             if (win && win.Mvu && typeof win.Mvu.getMvuData === 'function') {
                 var r = win.Mvu.getMvuData({ type: 'message', message_id: 'latest' });
-                if (r && r.stat_data) return r.stat_data;
+                if (r && r.stat_data) { normalizeLegacyCharacterKey(r.stat_data); return r.stat_data; }
                 if (r) return r;
             }
             if (typeof GS_PARENT.getMessageVar === 'function') return GS_PARENT.getMessageVar('stat_data');
@@ -175,7 +186,7 @@
             if (!statData) return;
 
             // ★ 関係リストは、通常キャラクターが引き続きバックエンド人物管理の対象かどうかを示すライフサイクル信号。
-            //   関係リストから明示的に削除されたキャラクターは 世界.后台.人物 からも同期削除し、世界進行コンテキストを占有し続けないようにする；異端レーダーは独立管理のためここでは変更しない。
+            //   関係リストから明示的に削除されたキャラクターは 世界.バックステージ.人物 からも同期削除し、世界進行コンテキストを占有し続けないようにする；異端レーダーは独立管理のためここでは変更しない。
             syncRemovedRelationshipPeople(statData, statDataBefore);
             // 資産の削除と再構築も同じくプログラム側ライフサイクルの墓碑を通す。
             syncRemovedAssets(statData, statDataBefore);
@@ -183,13 +194,13 @@
             syncAlienLifecycle(statData, statDataBefore);
 
             // ★ タスク生成の同層まるごとロック：後続の計算より前に、美化プログラムの権威スナップショットを復元する。
-            //   影響するのは 任务.列表 / 任务.副本成就 のみで、任务.击杀 やその他の変数には影響しない。
+            //   影響するのは 任務.リスト / 任務.インスタンス実績 のみで、任務.撃破 やその他の変数には影響しない。
             guardTaskGenerationLock(statData);
 
             // ★ 後続フロアのタスク委託元ガード：主神任务 / 晋升试炼 の委託元のみを保護する。
             guardPersistedSystemTaskOwner(statData, statDataBefore);
 
-            const users = statData.角色;
+            const users = statData.キャラ;
             if (!users) return;
 
             // 状態の持続時間、戦闘ラウンド、クールダウンは「新規の AI 本文フロア」でのみ一度だけ進む。
@@ -218,38 +229,38 @@
             // 全キャラクターの属性を再計算（before を渡し、NPC 集団の THP/数量 同期判定に用いる）
             recalcAllCharacters(statData, statDataBefore);
 
-            // ★ キャラクター昇格判定：五維階位の累計≥24 → 系统状态.是否可试炼=true/false
+            // ★ キャラクター昇格判定：五維階位の累計≥24 → システム状態.試練可能=true/false
             //   recalcAllCharacters の後に実行する必要がある(最終属性の確定+階層打ち切りに依存)
-            if (statData.角色 && statData.系统状态) {
-                checkTrialEligibility(statData.角色, statData.系统状态);
+            if (statData.キャラ && statData.システム状態) {
+                checkTrialEligibility(statData.キャラ, statData.システム状態);
             }
 
             // 挿入：功法熟練度ガード (モジュール4)
-            // guardProficiency(statData.角色);
+            // guardProficiency(statData.キャラ);
 
             // 挿入：伴生神器の自動成長 (モジュール3)
-            // processArtifactGrowth(statData.角色);
+            // processArtifactGrowth(statData.キャラ);
 
-            // 挿入：実プレイ日数の進行 (世界.时间 の日付変動 → 系统状态.游玩天数+1)
+            // 挿入：実プレイ日数の進行 (世界.時間 の日付変動 → システム状態.プレイ日数+1)
             updatePlayDays(statData);
 
             // 挿入：全自動収穫システム (モジュール1, プレイ日数軸で駆動, インスタンスの時間跳躍の影響を受けない)
             autoHarvestAssets(statData, statDataBefore);
 
             // 【追加】：三つのバックエンド整理ロジックを実行
-            const isCombat = statData.系统状态?.是否战斗中 === true;
+            const isCombat = statData.システム状態?.戦闘中 === true;
 
             // 1. キャラクターの道具と状態を整理
-            if (statData.角色) {
-                cleanupZeroQuantityItems(statData.角色);
+            if (statData.キャラ) {
+                cleanupZeroQuantityItems(statData.キャラ);
                 if (shouldAdvanceTurn) {
-                    processStatusDuration(statData.角色, isCombat);
+                    processStatusDuration(statData.キャラ, isCombat);
                 }
             }
             
             // 2. NPC の道具と状態を整理
-            if (statData.关系列表) {
-                Object.values(statData.关系列表).forEach(npc => {
+            if (statData.关系リスト) {
+                Object.values(statData.关系リスト).forEach(npc => {
                     if (!npc) return;
                     cleanupZeroQuantityItems(npc);
                     if (shouldAdvanceTurn) {
@@ -312,13 +323,13 @@
     /**
      * 関係リストからの削除 → 世界バックエンド人物の同期退役。
      * 「前状態に存在し、現状態で消えた」明確な削除のみに反応し、関係リストへ一度も入っていない純粋な場外NPCは整理しない。
-     * 世界.异端雷达.名单 は独立したライフサイクルであり、この関数では決して変更しない。
+     * 世界.異端レーダー.名簿 は独立したライフサイクルであり、この関数では決して変更しない。
      */
     function syncRemovedRelationshipPeople(statData, statDataBefore) {
         if (!statData || !statDataBefore) return [];
-        const beforeRelations = statDataBefore.关系列表;
-        const currentRelations = statData.关系列表;
-        const backendPeople = statData.世界?.后台?.人物;
+        const beforeRelations = statDataBefore.关系リスト;
+        const currentRelations = statData.关系リスト;
+        const backendPeople = statData.世界?.バックステージ?.人物;
         if (!beforeRelations || typeof beforeRelations !== 'object' || Array.isArray(beforeRelations)) return [];
         if (!currentRelations || typeof currentRelations !== 'object' || Array.isArray(currentRelations)) return [];
         if (!backendPeople || typeof backendPeople !== 'object' || Array.isArray(backendPeople)) return [];
@@ -351,17 +362,17 @@
 
     /**
      * 異端ライフサイクルガード。
-     * - レーダーの死亡は不可逆であり、後続モデルが 活跃 へ戻すことを拒否する。
+     * - レーダーの死亡は不可逆であり、後続モデルが 活動中 へ戻すことを拒否する。
      * - 関係実体の HP<=0 または状態が明確に死亡のとき、レーダーも=死亡 に同期する。
-     * - 死亡した異端は関係リストと 世界.后台.人物 から同期削除し、本文への再登場や世界エンジンの活動継続を防ぐ；レーダーの死亡記録は保持する。
+     * - 死亡した異端は関係リストと 世界.バックステージ.人物 から同期削除し、本文への再登場や世界エンジンの活動継続を防ぐ；レーダーの死亡記録は保持する。
      */
     function syncAlienLifecycle(statData, statDataBefore) {
-        const roster = statData?.世界?.异端雷达?.名单;
+        const roster = statData?.世界?.異端レーダー?.名簿;
         if (!roster || typeof roster !== 'object' || Array.isArray(roster)) return { 死亡: [], 删除关系: [], 删除后台: [] };
 
-        const beforeRoster = statDataBefore?.世界?.异端雷达?.名单 || {};
-        const relations = statData.关系列表 && typeof statData.关系列表 === 'object' ? statData.关系列表 : {};
-        const backendPeople = statData.世界?.后台?.人物 && typeof statData.世界.后台.人物 === 'object' ? statData.世界.后台.人物 : {};
+        const beforeRoster = statDataBefore?.世界?.異端レーダー?.名簿 || {};
+        const relations = statData.关系リスト && typeof statData.关系リスト === 'object' ? statData.关系リスト : {};
+        const backendPeople = statData.世界?.バックステージ?.人物 && typeof statData.世界.バックステージ.人物 === 'object' ? statData.世界.バックステージ.人物 : {};
         const nameKey = (value) => String(value || '').toLowerCase().replace(/[\\/／·・._\-\s]+/g, '');
         const uniqueMatch = (bucket, name) => {
             if (!bucket || typeof bucket !== 'object') return '';
@@ -373,7 +384,7 @@
         const relationDead = (npc) => {
             if (!npc || typeof npc !== 'object') return false;
             if (typeof npc.HP === 'number' && npc.HP <= 0) return true;
-            const statuses = npc.状态 && typeof npc.状态 === 'object' ? Object.keys(npc.状态) : [];
+            const statuses = npc.状態 && typeof npc.状態 === 'object' ? Object.keys(npc.状態) : [];
             return statuses.some(key => String(key).includes('死亡'));
         };
 
@@ -381,19 +392,19 @@
         for (const [alienName, alien] of Object.entries(roster)) {
             if (!alien || typeof alien !== 'object') continue;
             const previousName = uniqueMatch(beforeRoster, alienName);
-            const wasDead = previousName && beforeRoster[previousName]?.状态 === '死亡';
+            const wasDead = previousName && beforeRoster[previousName]?.状態 === '死亡';
             const relationName = uniqueMatch(relations, alienName);
             const npc = relationName ? relations[relationName] : null;
 
-            if (wasDead && alien.状态 !== '死亡') {
-                alien.状态 = '死亡';
+            if (wasDead && alien.状態 !== '死亡') {
+                alien.状態 = '死亡';
                 console.warn('[異端ライフサイクル] ' + alienName + ' は死亡済みのため、活跃 への復帰を拒否。');
             }
-            if (alien.状态 !== '死亡' && relationDead(npc)) {
-                alien.状态 = '死亡';
+            if (alien.状態 !== '死亡' && relationDead(npc)) {
+                alien.状態 = '死亡';
                 console.log('[異端ライフサイクル] ' + alienName + ' はキャラクター死亡の事実により死亡へ同期。');
             }
-            if (alien.状态 !== '死亡') continue;
+            if (alien.状態 !== '死亡') continue;
 
             report.死亡.push(alienName);
             if (relationName && Object.prototype.hasOwnProperty.call(relations, relationName)) {
@@ -410,7 +421,7 @@
     }
 
     /**
-     * 現在のフロアより前で、実際に 任务.列表 を含む直近の MVU メッセージスナップショットを読み取る。
+     * 現在のフロアより前で、実際に 任務.リスト を含む直近の MVU メッセージスナップショットを読み取る。
      * VARIABLE_UPDATE_ENDED の rawVariablesBefore には依存しない：酒場では一部の追加変数更新時に、
      * before 引数が「前フロアで既に保存されたデータ」と等価であるとは限らない。
      */
@@ -427,7 +438,7 @@
                     const data = win.Mvu.getMvuData({ type: 'message', message_id: id });
                     if (!data) continue;
                     const stat = data.stat_data || data;
-                    const list = stat?.任务?.列表;
+                    const list = stat?.任務?.リスト;
                     if (!list || typeof list !== 'object') continue;
                     return list;
                 } catch (e) {}
@@ -448,27 +459,27 @@
         if (!statData) return false;
 
         // 前フロアで実際に保存された MVU を優先し、取得できない場合のみイベントの before 引数へフォールバックする。
-        const previousList = readPreviousMessageTaskList() || statDataBefore?.任务?.列表;
-        const currentList = statData?.任务?.列表;
+        const previousList = readPreviousMessageTaskList() || statDataBefore?.任務?.リスト;
+        const currentList = statData?.任務?.リスト;
         if (!previousList || typeof previousList !== 'object') return false;
         if (!currentList || typeof currentList !== 'object') return false;
 
         let repaired = false;
         Object.entries(previousList).forEach(([taskName, oldTask]) => {
             if (!oldTask || typeof oldTask !== 'object') return;
-            const oldOwner = String(oldTask.委托方 || '').trim();
-            if (oldOwner !== '主神任务' && oldOwner !== '晋升试炼') return;
+            const oldOwner = String(oldTask.依頼元 || '').trim();
+            if (oldOwner !== '主神任務' && oldOwner !== '主神任务' && oldOwner !== '昇格試練' && oldOwner !== '晋升试炼') return;
 
             const currentTask = currentList[taskName];
             if (!currentTask || typeof currentTask !== 'object') return;
 
-            const newOwner = String(currentTask.委托方 || '').trim();
+            const newOwner = String(currentTask.依頼元 || '').trim();
             if (newOwner === oldOwner) return;
 
             // 復元するのは 委托方 のみ；状態、目標、報酬、難易度、ペナルティなどはすべて AI の今回の更新結果を保持する。
-            currentTask.委托方 = oldTask.委托方;
+            currentTask.依頼元 = oldTask.依頼元;
             repaired = true;
-            console.warn(`[タスク委託元ガード] ${taskName}.委托方 が ${newOwner || '(空)'}, 前フロアのMVUに従い復元 ${oldOwner}`);
+            console.warn(`[タスク委託元ガード] ${taskName}.依頼元 が ${newOwner || '(空)'}, 前フロアのMVUに従い復元 ${oldOwner}`);
         });
 
         return repaired;
@@ -477,7 +488,7 @@
     /**
      * タスク生成の同層まるごとミラーロック。
      * 主神任务/试炼任务美化器 が現メッセージでタスク代入を完了した後、完全な
-     * 任务.列表 と 任务.副本成就 のスナップショットを __samsaraTaskGenerationLock に保存する。
+     * 任務.リスト と 任務.インスタンス実績 のスナップショットを __samsaraTaskGenerationLock に保存する。
      * 同一 message_id の追加変数更新が、フィールドの変更・削除・改名・近似タスクの追加のいずれであっても、
      * そのスナップショットでまるごと上書きする；次のメッセージに入るとロックは自動解除される。
      */
@@ -533,15 +544,15 @@
     function guardTaskGenerationLock(statData) {
         if (!statData || typeof statData !== 'object') return false;
 
-        // 单一世界 ではデータ層の時点で副本実績の存在を許さない。旧バージョンのタスクロックが実績スナップショットを保持していても、
+        // 単一世界 ではデータ層の時点で副本実績の存在を許さない。旧バージョンのタスクロックが実績スナップショットを保持していても、
         // 復元できるのはタスクリストのみで、副本実績を現在の世界へ持ち戻すことはできない。
-        const singleWorld = statData?.设置?.单一世界 === true;
+        const singleWorld = statData?.設定?.単一世界 === true || statData?.設定?.単一世界 === true;
         let singleWorldAchievementClear = false;
         if (singleWorld) {
-            if (!statData.任务 || typeof statData.任务 !== 'object') statData.任务 = {};
-            const currentAchievements = statData.任务.副本成就;
+            if (!statData.任務 || typeof statData.任務 !== 'object') statData.任務 = {};
+            const currentAchievements = statData.任務.インスタンス実績;
             if (currentAchievements && typeof currentAchievements === 'object' && Object.keys(currentAchievements).length) {
-                statData.任务.副本成就 = {};
+                statData.任務.インスタンス実績 = {};
                 singleWorldAchievementClear = true;
             }
         }
@@ -567,17 +578,17 @@
             return false;
         }
 
-        if (!statData.任务 || typeof statData.任务 !== 'object') statData.任务 = {};
+        if (!statData.任務 || typeof statData.任務 !== 'object') statData.任務 = {};
 
-        const oldList = statData.任务.列表 || {};
-        const oldAchievements = statData.任务.副本成就 || {};
+        const oldList = statData.任務.リスト || {};
+        const oldAchievements = statData.任務.インスタンス実績 || {};
         const expectedAchievements = singleWorld ? {} : (lock.achievements || {});
         const listChanged = hasChanged(oldList, lock.taskList);
         const achievementsChanged = hasChanged(oldAchievements, expectedAchievements);
 
         // フィールド単位の修正ではなくまるごと復元する：タスク名を一、二字変えて追加された近似タスクも直接消去される。
-        statData.任务.列表 = clonePlainValue(lock.taskList) || {};
-        statData.任务.副本成就 = clonePlainValue(expectedAchievements) || {};
+        statData.任務.リスト = clonePlainValue(lock.taskList) || {};
+        statData.任務.インスタンス実績 = clonePlainValue(expectedAchievements) || {};
 
         if (listChanged || achievementsChanged) {
             console.warn(
@@ -614,7 +625,7 @@
      *   通行証は newVal === permit(この一档のみ)のとき階層変化を許可し, 消費後は直ちに無効化する(使い捨て);
      *   複数ウィンドウ(win/GS_PARENT/parent/top/window)のいずれかで一致すれば有効とみなす( isUIMutationActive と同じ方針)。
      *   permit はフローティング玉が書き込み, 20s 後に同スクリプトが保険として消去する, 長期的には残留しない。
-     * @param {string} newVal 今回のイベントにおける 角色.层级 の新しい値
+     * @param {string} newVal 今回のイベントにおける キャラ.階層 の新しい値
      * @returns {boolean} 許可するかどうか
      */
     function tierPermitAllows(newVal) {
@@ -652,12 +663,12 @@
         const PROTECTED_RELATIVE_PATHS = [
             'HP_MAX',
             'EP_MAX',
-            '最终属性',   // 属性オブジェクト全体はバックエンドが全量計算するため、AI による変更は禁止
+            '最終属性',   // 属性オブジェクト全体はバックエンドが全量計算するため、AI による変更は禁止
         ];
         // キャラクター専用の保護パス: 階層は 進階フロー(フローティング玉の"開始進階"ボタン→writeBackMvu) によってのみ変更可能であり,
         //   ★ 制限はキャラクターのみ; NPC の階層はシナリオ進行に応じた自由な変動(例：敵役の突破/成長)を許可し, ガードしない
         const REINCARNATOR_ONLY_PROTECTED_PATHS = [
-            '层级',
+            '階層',
         ];
 
         // —— 2. 汎用ロールバック関数：キャラクターオブジェクトの読み取り専用フィールドを比較してロールバックする ——
@@ -680,8 +691,8 @@
         }
 
         // —— 3. キャラクターのロールバック ——
-        const user = statData?.角色;
-        const userBefore = statDataBefore?.角色;
+        const user = statData?.キャラ;
+        const userBefore = statDataBefore?.キャラ;
         if (user && userBefore) {
             // キャラクターは"階層"を追加保護: 進階フローのみ変更可能で, AI の改竄は一律ロールバック
             //   ★ UI 操作ウィンドウ期(フローティング玉の"開始進階"ボタン→writeBackMvu のイベントブロードキャスト)は階層変化を許可し,
@@ -691,13 +702,13 @@
             //     (=対象階層, "開始進階"ボタンが書き込み, 20s で保険失効)により許可し, "一瞬上がって戻る"不具合を解消する
             const extraReincarnatorPaths = isUIMutationActive()
                 ? []
-                : (tierPermitAllows(user.层级) ? [] : REINCARNATOR_ONLY_PROTECTED_PATHS);
-            rollbackProtectedFields(user, userBefore, '角色', extraReincarnatorPaths);
+                : (tierPermitAllows(user.階層) ? [] : REINCARNATOR_ONLY_PROTECTED_PATHS);
+            rollbackProtectedFields(user, userBefore, 'キャラ', extraReincarnatorPaths);
         }
 
         // —— 4. 関係リストの登場中 NPC をすべてロールバック ——
-        const rel = statData?.关系列表;
-        const relBefore = statDataBefore?.关系列表;
+        const rel = statData?.关系リスト;
+        const relBefore = statDataBefore?.关系リスト;
         if (rel && typeof rel === 'object' && relBefore && typeof relBefore === 'object') {
             for (const [name, npc] of Object.entries(rel)) {
                 if (!npc || typeof npc !== 'object') continue;
@@ -711,23 +722,23 @@
 
          // —— 5. 新規装備ガード（キャラクター装備。既存ロジックは変更なし） ——
         // 「新規追加された装備」のみを処理し、既存の装備には触れない
-        const oldEquip = statDataBefore?.角色?.装备 || {};
-        const newEquip = statData?.角色?.装备 || {};
+        const oldEquip = statDataBefore?.キャラ?.装備 || {};
+        const newEquip = statData?.キャラ?.装備 || {};
         for (const [equipKey, equipVal] of Object.entries(newEquip)) {
             if (!equipVal || typeof equipVal !== 'object') continue;
             const isNewEquip = oldEquip[equipKey] === undefined;
             if (!isNewEquip) continue;
 
             // 状態の正規化：0|1 のみ許可し、それ以外は一律 0（未装着）に補正する
-            if (equipVal.状态 !== 0 && equipVal.状态 !== 1) {
+            if (equipVal.状態 !== 0 && equipVal.状態 !== 1) {
                 console.warn(
-                    `[変数ガード] ⚠️ 新規装備 "${equipKey}" の状態が不正(${JSON.stringify(equipVal.状态)})のため 0(未装着)に補正`
+                    `[変数ガード] ⚠️ 新規装備 "${equipKey}" の状態が不正(${JSON.stringify(equipVal.状態)})のため 0(未装着)に補正`
                 );
-                equipVal.状态 = 0;
+                equipVal.状態 = 0;
             }
 
             // 型チェック：0-9 の整数であるべき。不正でも警告のみ（装備計算段階での処理に委ねる）
-            const typeVal = equipVal.类型;
+            const typeVal = equipVal.タイプ;
             const isValidType = Number.isInteger(typeVal) && typeVal >= 0 && typeVal <= 9;
             if (!isValidType) {
                 console.warn(
@@ -750,9 +761,9 @@
     //   6. HP/EP：最上位フィールドへ書き込む（属性オブジェクトは全量読み取り専用であり、その内部に HP/EP を書くとガードと衝突するため避ける）
     //   注：状态.效果、形态.效果 は文字列であり、第三段階の文字列パーサーで一括処理する
 
-    const ATTR_NAMES = ['力量', '敏捷', '体质', '精神', '魅力'];
+    const ATTR_NAMES = ['筋力', '敏捷', '体力', '精神', '魅力'];
     const DERIVED_ATTRS = ['ATK', 'DEF', 'MATK', 'MDEF', 'AP'];
-    const CHECK_ATTRS = ['先攻DC', '防御DC'];
+    const CHECK_ATTRS = ['先制DC', '防御DC'];
     // 装備/形態が提供しうる加値キー（汎用の累加に使用）
     const BONUS_KEYS = [...DERIVED_ATTRS, ...CHECK_ATTRS];
     // 位格 → 属性修正値の上限
@@ -763,7 +774,7 @@
     // 品質階位の序列（低 → 高）
     const TIER_ORDER = ['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
     // 五維キー定数（ZOD の attr5_keys と揃える）
-    const attr5_keys_const = ['力量', '敏捷', '体质', '精神', '魅力'];
+    const attr5_keys_const = ['筋力', '敏捷', '体力', '精神', '魅力'];
     // 生命階層（大階層）の序列と、単一属性ボーナス区間の上下限
     //   ★ 大階層は【最終的な単一累加値の打ち切り上限】にのみ用い、品質→数値の変換には関与しない
     const LIFE_TIER_ORDER = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ', 'Ⅶ', 'Ⅷ', 'Ⅸ'];
@@ -913,19 +924,19 @@
         if (!item.真属性 || typeof item.真属性 !== 'object') item.真属性 = {};
         const real = item.真属性;
         // 形態のフィールドは"品質"から"階層"(Ⅰ~Ⅸ)へ変更済み; normalizeTier がローマ数字を品質字母へ自動補正する; 旧セーブの 品質 フィールドにも対応
-        const it = normalizeTier(item.层级 != null ? item.层级 : item.品质);
+        const it = normalizeTier(item.階層 != null ? item.階層 : item.品質);
         const capFiveTier = (itemTier, capTier) => {
             if (kind === 'form' || capTier == null) return itemTier;
             return TIER_ORDER[Math.min(tierRank(itemTier), tierRank(capTier))];
         };
         const fiveTier = capFiveTier(it, effectiveTier);
         // ★ Bug 修正: 実体全体の階層が変化(Ⅰ→Ⅱ…)した場合は、すべての品質型属性を強制再計算し, "区間検証"の偶然に頼らない
-        //   原因: 区間検証(seg range)は item.层级 の変更で全体がずれるため, 旧真属性がたまたま新しい区間内に収まることがある
+        //   原因: 区間検証(seg range)は item.階層 の変更で全体がずれるため, 旧真属性がたまたま新しい区間内に収まることがある
         //         → inSeg に命中 → 再計算されない → 真属性が旧階層の段位に留まる; よってここで itemBefore の階層変化を明示的に比較する。
         let tierChanged = false;
         let fiveTierChanged = false;
         if (itemBefore && typeof itemBefore === 'object') {
-            const beforeTierRaw = itemBefore.层级 != null ? itemBefore.层级 : itemBefore.品质;
+            const beforeTierRaw = itemBefore.階層 != null ? itemBefore.階層 : itemBefore.品質;
             const beforeIt = normalizeTier(beforeTierRaw);
             if (beforeIt !== it) tierChanged = true;
             const beforeFiveTier = capFiveTier(beforeIt, effectiveTierBefore != null ? effectiveTierBefore : effectiveTier);
@@ -998,22 +1009,22 @@
      * 原住民NPCの位格/血統品質の抑制
      *   発動条件 (すべて満たす場合のみ抑制):
      *     1. 新規登場の NPC: 前フレームの 関係リスト に同名が存在しない (シナリオ上妥当な成長を繰り返し上書きしないため)
-     *     2. 主神空間内ではない (系统状态.是否在主神空间 !== true)
-     *     3. 身分に 角色/穿越者/守护者/织梦者/篡夺者/残魂 を含まない (特殊身分には別ルートを残す)
+     *     2. 主神空間内ではない (システム状態.主神空間滞在中 !== true)
+     *     3. 身分に キャラ/穿越者/守护者/织梦者/篡夺者/残魂 を含まない (特殊身分には別ルートを残す)
      *   抑制ルール:
-     *     - NPC.层级 (Ⅰ~Ⅸ) が 世界.位格 を超える → 世界.位格 へ押し戻す
-     *     - 各 血统[name].层级 または .品质 が 世界.位格 に対応する品質字母を超える → capQuality へ押し戻す
+     *     - NPC.階層 (Ⅰ~Ⅸ) が 世界.位格 を超える → 世界.位格 へ押し戻す
+     *     - 各 血統[name].层级 または .品質 が 世界.位格 に対応する品質字母を超える → capQuality へ押し戻す
      *   マッピング: Ⅰ↔F Ⅱ↔E Ⅲ↔D Ⅳ↔C Ⅴ↔B Ⅵ↔A Ⅶ↔S Ⅷ↔SS Ⅸ↔SSS ( ROMAN_TO_QUALITY / TIER_ORDER) を再利用
      */
     const NATIVE_SPECIAL_IDENTITY_SET = {
-        '轮回者': 1, '穿越者': 1, '守护者': 1, '织梦者': 1, '篡夺者': 1, '残魂': 1
+        '輪廻者': 1, '轮回者': 1, '穿越者': 1, '守护者': 1, '织梦者': 1, '篡夺者': 1, '残魂': 1
     };
     function clampNativeNpcToWorldTier(statData, statDataBefore) {
         if (!statData) return;
-        const rel = statData.关系列表;
+        const rel = statData.关系リスト;
         if (!rel || typeof rel !== 'object') return;
-        const relBefore = statDataBefore && statDataBefore.关系列表;
-        const inMainSpace = !!(statData.系统状态 && statData.系统状态.是否在主神空间 === true);
+        const relBefore = statDataBefore && statDataBefore.关系リスト;
+        const inMainSpace = !!(statData.システム状態 && statData.システム状態.主神空間滞在中 === true);
         if (inMainSpace) return;
         const worldTier = statData.世界 && statData.世界.位格;
         if (!worldTier) return;
@@ -1027,7 +1038,7 @@
         for (const [name, npc] of Object.entries(rel)) {
             if (!npc || typeof npc !== 'object') continue;
             if (relBefore && typeof relBefore === 'object' && relBefore[name]) continue;
-            const identList = npc.身份;
+            const identList = npc.身分;
             let isSpecial = false;
             if (Array.isArray(identList)) {
                 for (const it of identList) {
@@ -1038,21 +1049,21 @@
             }
             if (isSpecial) continue;
 
-            if (npc.层级 && overCapLife(npc.层级)) {
-                console.warn(`[位格抑制] 新規登場NPC "${name}" の階層 ${npc.层级} が世界位格 ${worldTier}を超えたため, ${worldTier}へ押し戻した`);
-                npc.层级 = worldTier;
+            if (npc.階層 && overCapLife(npc.階層)) {
+                console.warn(`[位格抑制] 新規登場NPC "${name}" の階層 ${npc.階層} が世界位格 ${worldTier}を超えたため, ${worldTier}へ押し戻した`);
+                npc.階層 = worldTier;
             }
-            const bloodDict = npc.血统;
+            const bloodDict = npc.血統;
             if (bloodDict && typeof bloodDict === 'object') {
                 for (const [bname, b] of Object.entries(bloodDict)) {
                     if (!b || typeof b !== 'object') continue;
-                    if (b.层级 && isQualityString(b.层级) === false && overCapLife(b.层级)) {
-                        console.warn(`[位格抑制] NPC "${name}" の血統[${bname}] 階層 ${b.层级} が ${worldTier}を超えたため, ${worldTier}へ押し戻した`);
-                        b.层级 = worldTier;
-                        delete b.品质;
-                    } else if (b.品质 && isQualityString(b.品质) && overCapQ(b.品质)) {
-                        console.warn(`[位格抑制] NPC "${name}" の血統[${bname}] 品質 ${b.品质} が ${capQuality}を超えたため, ${capQuality}へ押し戻した`);
-                        b.品质 = capQuality;
+                    if (b.階層 && isQualityString(b.階層) === false && overCapLife(b.階層)) {
+                        console.warn(`[位格抑制] NPC "${name}" の血統[${bname}] 階層 ${b.階層} が ${worldTier}を超えたため, ${worldTier}へ押し戻した`);
+                        b.階層 = worldTier;
+                        delete b.品質;
+                    } else if (b.品質 && isQualityString(b.品質) && overCapQ(b.品質)) {
+                        console.warn(`[位格抑制] NPC "${name}" の血統[${bname}] 品質 ${b.品質} が ${capQuality}を超えたため, ${capQuality}へ押し戻した`);
+                        b.品質 = capQuality;
                     }
                 }
             }
@@ -1063,63 +1074,63 @@
     // 血統、スキル、状態、形態の元の難易度強化は保持する；装備とその付帯内容は一切書き換えず、戦利品が難易度ボーナスを継承しないようにする。
     function applyNewNpcDifficulty(statData, statDataBefore) {
         if (!statDataBefore) return;
-        const mode = statData.设置?.难度 || '体验';
-        if (!['体验', '正常', '困难', '挑战'].includes(mode)) return;
-        const before = statDataBefore.关系列表 || {};
-        const steps = { '体验': 0, '正常': 2, '困难': 4, '挑战': 6 }[mode];
+        const mode = statData.設定?.難易度 || '体験';
+        if (!['体験', '正常', '困難', '挑戦'].includes(mode)) return;
+        const before = statDataBefore.关系リスト || {};
+        const steps = { '体験': 0, '正常': 2, '困難': 4, '挑戦': 6 }[mode];
         const boostedAttrs = [...ATTR_NAMES, ...DERIVED_ATTRS];
-        for (const [name, npc] of Object.entries(statData.关系列表 || {})) {
+        for (const [name, npc] of Object.entries(statData.关系リスト || {})) {
             if (!npc || typeof npc !== 'object' || Object.hasOwn(before, name)) continue;
-            if (npc.是否队友 === true || !(Number(npc.好感度) < 0)) continue;
-            const life = LIFE_TIER_ORDER.indexOf(normalizeLifeTier(npc.层级));
+            if (npc.仲間 === true || !(Number(npc.好感度) < 0)) continue;
+            const life = LIFE_TIER_ORDER.indexOf(normalizeLifeTier(npc.階層));
             const baseRank = life >= 0 ? life : 0;
-            if (!npc.状态 || typeof npc.状态 !== 'object') npc.状态 = {};
+            if (!npc.状態 || typeof npc.状態 !== 'object') npc.状態 = {};
             if (steps > 0) {
                 // 追加強化は難易度処理済みのマーカーも兼ね、同一の新規敵が書き戻しのたびに連続で昇格しないようにする。
-                if (npc.状态.额外强化) continue;
+                if (npc.状態.额外强化) continue;
                 const extraRule = {
                     正常: { qualityOffset: 0, attrTier: 'E', attrs: DERIVED_ATTRS },
-                    困难: { qualityOffset: 0, attrTier: 'C', attrs: boostedAttrs },
-                    挑战: { qualityOffset: 1, attrTier: 'B', attrs: boostedAttrs }
+                    困難: { qualityOffset: 0, attrTier: 'C', attrs: boostedAttrs },
+                    挑戦: { qualityOffset: 1, attrTier: 'B', attrs: boostedAttrs }
                 }[mode];
-                npc.状态.额外强化 = {
-                    类型: '增益',
-                    品质: TIER_ORDER[Math.min(8, baseRank + extraRule.qualityOffset)],
-                    持续: '持续',
-                    来源: '难度机制',
+                npc.状態.额外强化 = {
+                    タイプ: 'バフ',
+                    品質: TIER_ORDER[Math.min(8, baseRank + extraRule.qualityOffset)],
+                    持続: '持続',
+                    出典: '难度机制',
                     原始属性: Object.fromEntries(extraRule.attrs.map(attr => [attr, extraRule.attrTier])),
-                    效果: '全属性强化'
+                    効果: '全属性强化'
                 };
             }
             function upgrade(item, kind) {
                 if (!item || typeof item !== 'object') return;
-                const aboveLife = (mode === '困难' || mode === '挑战') && ['状态', '形态库'].includes(kind)
-                    || mode === '挑战' && kind === '血统';
+                const aboveLife = (mode === '困難' || mode === '挑戦') && ['状態', '形態庫'].includes(kind)
+                    || mode === '挑戦' && kind === '血統';
                 const floor = Math.min(8, baseRank + (aboveLife ? 1 : 0));
-                const rank = Math.max(floor, tierRank(item.层级 ?? item.品质));
-                if (kind === '形态库' || item.层级 != null) item.层级 = LIFE_TIER_ORDER[rank];
-                else item.品质 = TIER_ORDER[rank];
+                const rank = Math.max(floor, tierRank(item.階層 ?? item.品質));
+                if (kind === '形態庫' || item.階層 != null) item.階層 = LIFE_TIER_ORDER[rank];
+                else item.品質 = TIER_ORDER[rank];
                 const raw = item.原始属性;
                 if (raw && typeof raw === 'object') {
-                    const constitutionFloor = mode === '挑战' ? 'SSS' : mode === '困难' ? 'S' : null;
-                    const fixedConstitution = constitutionFloor && (kind === '血统' || kind === '形态库' || Object.hasOwn(raw, '体质'));
-                    const originalConstitution = raw.体质;
+                    const constitutionFloor = mode === '挑戦' ? 'SSS' : mode === '困難' ? 'S' : null;
+                    const fixedConstitution = constitutionFloor && (kind === '血統' || kind === '形態庫' || Object.hasOwn(raw, '体力'));
+                    const originalConstitution = raw.体力;
                     for (const key of Object.keys(raw)) {
-                        if (key === '体质' && fixedConstitution) continue;
+                        if (key === '体力' && fixedConstitution) continue;
                         // 数値型の一時的な加減値および 0 は品質階位ではないため、その意味を保つ。
                         if (isQualityString(raw[key])) raw[key] = TIER_ORDER[Math.min(8, tierRank(raw[key]) + steps)];
                     }
                     // 固定した体質の段階は下限を補うのみで、元から基準より高い体質は降格しない。
-                    if (fixedConstitution) raw.体质 = TIER_ORDER[Math.max(tierRank(constitutionFloor), isQualityString(originalConstitution) ? tierRank(originalConstitution) : 0)];
+                    if (fixedConstitution) raw.体力 = TIER_ORDER[Math.max(tierRank(constitutionFloor), isQualityString(originalConstitution) ? tierRank(originalConstitution) : 0)];
                     item.真属性 = {};
                 }
                 for (const skill of Object.values(item.技能 || {})) upgrade(skill, '技能');
             }
             // 装備は意図的に難易度強化のフローに入れない；品質、原始属性、付帯スキルはいずれも生成時の値を保持する。
-            for (const kind of ['血统', '技能', '状态', '形态库']) {
+            for (const kind of ['血統', '技能', '状態', '形態庫']) {
                 for (const item of Object.values(npc[kind] || {})) {
                     // 追加強化は難易度専用の固定値を使用し、汎用の +2/+4/+6 強化には入らない。
-                    if (kind === '状态' && item === npc.状态.额外强化) continue;
+                    if (kind === '状態' && item === npc.状態.额外强化) continue;
                     upgrade(item, kind);
                 }
             }
@@ -1170,20 +1181,20 @@
      * @returns {object|null} 発動中の形態ライブラリ項目；未発動なら null
      */
     function getActiveForm(char) {
-        const cur = char.当前形态;
+        const cur = char.現在形態;
         if (!cur || typeof cur !== 'object') return null;
         if (cur.激活 !== true) return null;
         const name = cur.名称;
         if (!name) return null;
-        const entry = char.形态库 && char.形态库[name];
+        const entry = char.形態庫 && char.形態庫[name];
         if (!entry || typeof entry !== 'object') return null;
         return entry;
     }
 
     /** 有効キャラクター階層 = キャラクター自身の階層と現在発動中の形態階層のうち高い方。 */
     function getEffectiveLifeTier(char, activeForm) {
-        const charTier = normalizeLifeTier(char && char.层级);
-        const formTierRaw = activeForm && (activeForm.层级 != null ? activeForm.层级 : activeForm.品质);
+        const charTier = normalizeLifeTier(char && char.階層);
+        const formTierRaw = activeForm && (activeForm.階層 != null ? activeForm.階層 : activeForm.品質);
         const formTier = formTierRaw != null ? normalizeLifeTier(formTierRaw) : null;
         if (formTier && LIFE_TIER_ORDER.indexOf(formTier) > LIFE_TIER_ORDER.indexOf(charTier)) return formTier;
         return charTier;
@@ -1275,7 +1286,7 @@
 
     /**
      * 単一キャラクター（キャラクターまたはNPC）の属性パネル一式を再計算する
-     * @param {object} char キャラクターオブジェクト（角色 または 关系列表[某NPC]）
+     * @param {object} char キャラクターオブジェクト（角色 または 関係リスト[某NPC]）
      * @param {string} label ログ識別子
      * @param {object|null} [charBefore] 前フレームのキャラクターオブジェクト（NPC 集団同期用）
      */
@@ -1283,22 +1294,22 @@
         if (!char || typeof char !== 'object') return;
         // ★ バックエンドガード: 現在の形態が未発動のとき, 名称を自動で空にする(残留した不正データにより getActiveForm が誤判定するのを防ぐ)
         try {
-            const cur = char.当前形态;
+            const cur = char.現在形態;
             if (cur && typeof cur === 'object' && cur.激活 !== true && cur.名称) {
                 cur.名称 = '';
                 // if (label) console.log(`[属性再計算] ${label}: 現在の形態が未発動のため, 残留した名称を空にした`);
             }
         } catch (e) {}
 
-        if (!char.最终属性) char.最终属性 = {};
-        const attr = char.最终属性;
-        const 血统 = char.血统 || {};
-        const 装备 = char.装备 || {};
-        const 状态 = char.状态 || {};
+        if (!char.最終属性) char.最終属性 = {};
+        const attr = char.最終属性;
+        const 血統 = char.血統 || {};
+        const 装備 = char.装備 || {};
+        const 状態 = char.状態 || {};
         // 前フレームの対応するサブコレクション（resolveRealAttr が品質変化を判定するため。未変更なら旧乱数を再利用する）
-        const 血统Before = (charBefore && charBefore.血统) || {};
-        const 装备Before = (charBefore && charBefore.装备) || {};
-        const 状态Before = (charBefore && charBefore.状态) || {};
+        const 血统Before = (charBefore && charBefore.血統) || {};
+        const 装备Before = (charBefore && charBefore.装備) || {};
+        const 状态Before = (charBefore && charBefore.状態) || {};
 
         // —— 0. 形態の発動判定（発動後は形態の真属性を血統へ加算する）——
         const activeForm = getActiveForm(char);
@@ -1326,14 +1337,14 @@
         // 真属性(数値)を累加；状態の原始属性は品質字母→真属性、または数値をそのまま使用できる
         const statusSix = {};
         ATTR_NAMES.forEach(a => { statusSix[a] = 0; });
-        Object.entries(状态).forEach(([sname, s]) => {
+        Object.entries(状態).forEach(([sname, s]) => {
             if (s && typeof s === 'object' && s.原始属性) {
                 const sb = 状态Before[sname];
                 const rs = resolveRealAttr(s, 'status', sb, effectiveTier, effectiveTierBefore);
                 // ★ デバフ状態: 原始属性が品質字母のとき, その項目の真属性は負値として最終五維に計上する
                 //   (真属性自体は正値のまま保持し, resolveRealAttr の段位区間キャッシュの安定を保つ;
                 //    数値型の原始属性は元のロジックどおり正負そのまま累加し, ここでは処理しない)
-                const isDebuff = String(s.类型).trim() === '减益';
+                const isDebuff = String(s.タイプ).trim() === 'デバフ';
                 ATTR_NAMES.forEach(a => {
                     const v = safeNum(rs[a]);
                     if (isDebuff && isQualityString(s.原始属性[a]) && v > 0) {
@@ -1347,8 +1358,8 @@
         // 装着済み装備(状態===1)の五維ボーナス（品質表は装備の五維を許容するため、最終属性に計上する必要がある）
         const equipSix = {};
         ATTR_NAMES.forEach(a => { equipSix[a] = 0; });
-        Object.entries(装备).forEach(([ename, e]) => {
-            if (!e || typeof e !== 'object' || e.状态 !== 1) return;
+        Object.entries(装備).forEach(([ename, e]) => {
+            if (!e || typeof e !== 'object' || e.状態 !== 1) return;
             if (!e.原始属性 || typeof e.原始属性 !== 'object') return;
             const eb = 装备Before[ename];
             const re = resolveRealAttr(e, 'equip', eb, effectiveTier, effectiveTierBefore);
@@ -1358,7 +1369,7 @@
         // 血統五維の真属性合計（常に参加：形態の発動後も血統は有効で、形態と累加する）
         const bloodSix = {};
         ATTR_NAMES.forEach(a => { bloodSix[a] = 0; });
-        Object.entries(血统).forEach(([bname, b]) => {
+        Object.entries(血統).forEach(([bname, b]) => {
             if (b && typeof b === 'object' && b.原始属性) {
                 const bb = 血统Before[bname];
                 const rb = resolveRealAttr(b, 'blood', bb, effectiveTier, effectiveTierBefore);
@@ -1390,7 +1401,7 @@
         // —— 2. 修正値（位格上限の制約を受ける；位格は読み取り専用で書き戻さない）——
         // ★ 階層は Ⅰ-Ⅸ のローマ数字で統一（新機構。属性の合計点から逆算して書き戻すことはなく、開局/AI/進階ボタンが書き込む）
         //    修正値の位格上限表 TIER_MODIFIER_CAPS は字母品質 F-SSS を key とするため、Ⅰ→F … Ⅸ→SSS の同順マッピングで cap を取得する
-        // ★ Bug 修正: 以前は常に char.层级 で修正上限を計算していた → 本体がⅠ階でⅣ階形態を発動すると、
+        // ★ Bug 修正: 以前は常に char.階層 で修正上限を計算していた → 本体がⅠ階でⅣ階形態を発動すると、
         //   五維上限は形態に合わせてⅣ階へ上がる( 1.5 のltを参照)が、修正値はⅠ階の段(TIER_MODIFIER_CAPS['F']=12)に押さえ込まれていた。
         //   現在は 1.5 節で"キャラクター階層 vs 発動形態階層の高い方"に調整済みの lt を再利用し、属性の単一上限と同一の基準とする：
         //   変身中は修正上限が高い側を継承し、変身終了で getActiveForm()=null → lt が本体階層へ戻る → 上限も自動的に復元される。
@@ -1408,12 +1419,12 @@
         const bonus = {};
         BONUS_KEYS.forEach(k => { bonus[k] = 0; });
         const weapons = []; // [{name, atk, matk}]
-        Object.entries(装备).forEach(([wname, e]) => {
-            if (!e || typeof e !== 'object' || e.状态 !== 1) return;
+        Object.entries(装備).forEach(([wname, e]) => {
+            if (!e || typeof e !== 'object' || e.状態 !== 1) return;
             if (!e.原始属性) return;
             const eb = 装备Before[wname];
             const re = resolveRealAttr(e, 'equip', eb, effectiveTier, effectiveTierBefore);
-            if (safeNum(e.类型, 0) === 0) {
+            if (safeNum(e.タイプ, 0) === 0) {
                 // 武器: ATK/MATKは個別に記録し, その他の属性(DEF/MDEF/AP/判定)は引き続きbonusに計上する
                 weapons.push({ name: wname, atk: safeNum(re.ATK), matk: safeNum(re.MATK) });
                 BONUS_KEYS.forEach(k => { if (k !== 'ATK' && k !== 'MATK') bonus[k] += safeNum(re[k]); });
@@ -1427,11 +1438,11 @@
             DERIVED_ATTRS.forEach(k => { bonus[k] += safeNum(sixSource[k]); });
         }
         // 状态.原始属性：派生項目はすべてbonusに計上；デバフ型の品質属性は負値で計算する
-        Object.entries(状态).forEach(([sname, s]) => {
+        Object.entries(状態).forEach(([sname, s]) => {
             if (s && typeof s === 'object' && s.原始属性) {
                 const sb = 状态Before[sname];
                 const rs = resolveRealAttr(s, 'status', sb, effectiveTier, effectiveTierBefore);
-                const isDebuff = String(s.类型).trim() === '减益';
+                const isDebuff = String(s.タイプ).trim() === 'デバフ';
                 BONUS_KEYS.forEach(k => {
                     const v = safeNum(rs[k]);
                     if (isDebuff && isQualityString(s.原始属性[k]) && v > 0) bonus[k] -= v;
@@ -1441,9 +1452,9 @@
         });
 
         // —— 4. HP_MAX / EP_MAX（旧式；最上位フィールドへ書き込む）——
-        const { 体质, 精神} = finalBase;
+        const { 体力, 精神} = finalBase;
         const oldMaxHP = safeNum(char.HP_MAX, safeNum(attr.HP_MAX));
-        const newMaxHP = Math.max(1, Math.floor(体质 * 8));
+        const newMaxHP = Math.max(1, Math.floor(体力 * 8));
         const oldMaxEP = safeNum(char.EP_MAX, safeNum(attr.EP_MAX));
         const newMaxEP = Math.max(0, Math.floor(精神 * 4));
         char.HP_MAX = newMaxHP;
@@ -1477,8 +1488,8 @@
         // ATK/MATK は最上位へ書かず, "保持法則"に従って 最终属性.武器へ振り分ける:
         //   無武装 = 計算式による換算 + 非武器の装備/形態のATK/MATK(bonus.ATK/MATKは武器を除外済み)
         //   {武器名} = 武器の原始属性ATK/MATK + 無武装ATK/MATK
-        const { 力量, 敏捷 } = finalBase;
-        const unarmedATK  = Math.floor((力量 + 敏捷) / 2) + bonus.ATK;
+        const { 筋力, 敏捷 } = finalBase;
+        const unarmedATK  = Math.floor((筋力 + 敏捷) / 2) + bonus.ATK;
         const unarmedMATK = Math.floor(精神 / 2) + bonus.MATK;
         // 武器オブジェクトを再構築する(毎回全量を再構築し, 外した後の旧項目の残留を防ぐ)
         attr.武器 = {};
@@ -1490,41 +1501,41 @@
         delete attr.ATK;
         delete attr.MATK;
         // DEF/MDEF/AP は最上位のまま(武器のDEFなどのボーナスはbonusに計上済み)
-        attr.DEF  = Math.floor(体质 / 2) + bonus.DEF;
-        attr.MDEF = Math.floor((体质 + 精神) / 4) + bonus.MDEF;
+        attr.DEF  = Math.floor(体力 / 2) + bonus.DEF;
+        attr.MDEF = Math.floor((体力 + 精神) / 4) + bonus.MDEF;
         attr.AP   = bonus.AP;
 
         // —— 追加：防御力を軽減率へ換算し、パネルへ書き戻す（フロント側で固定防御の代わりに使用）——
-        attr.物理减伤率 = calcReduction(attr.DEF, char.层级 || 'E');
-        attr.魔法减伤率 = calcReduction(attr.MDEF, char.层级 || 'E');
+        attr.物理軽減率 = calcReduction(attr.DEF, char.階層 || 'E');
+        attr.魔法軽減率 = calcReduction(attr.MDEF, char.階層 || 'E');
 
         // —— 7. 判定（基礎値 + 装備加値；先攻DC/防御DC のみ）——
-        attr.先攻DC = Math.floor((attr.敏捷修正 + attr.精神修正 / 2) / 2) + bonus.先攻DC;
+        attr.先制DC = Math.floor((attr.敏捷修正 + attr.精神修正 / 2) / 2) + bonus.先制DC;
         attr.防御DC = 30 + Math.floor((attr.体质修正 + attr.敏捷修正) / 2) + bonus.防御DC;
 
-        const formTag = formActive ? `[形態:${char.当前形态.名称}]` : '[血統]';
+        const formTag = formActive ? `[形態:${char.現在形態.名称}]` : '[血統]';
         // console.log(
         //     `[属性再計算] ${label} ${formTag}: ` +
-        //     `五維={力${finalBase.力量}/敏${finalBase.敏捷}/体${finalBase.体质}/精${finalBase.精神}/魅${finalBase.魅力}} ` +
+        //     `五維={力${finalBase.筋力}/敏${finalBase.敏捷}/体${finalBase.体力}/精${finalBase.精神}/魅${finalBase.魅力}} ` +
         //     `HP=${char.HP}/${newMaxHP} EP=${char.EP}/${newMaxEP} ` +
         //     `無武装ATK=${unarmedATK} MATK=${unarmedMATK} 武器x${weapons.length} ` +
         //     `DEF=${attr.DEF}(+${bonus.DEF}) ` +
-        //     `先攻=${attr.先攻DC}(+${bonus.先攻DC}) 防御=${attr.防御DC}(+${bonus.防御DC})` +
+        //     `先攻=${attr.先制DC}(+${bonus.先制DC}) 防御=${attr.防御DC}(+${bonus.防御DC})` +
         //     (Number.isFinite(modifierCap) ? '' : '(位格未命中,修正は無制限)')
         // );
     }
 
     /**
-     * キャラクター昇格判定：最終五維の属性値が【現在の生命階層】内でどの段位にあるかで判定し、五維の累計≥24 → 是否可试炼=true
+     * キャラクター昇格判定：最終五維の属性値が【現在の生命階層】内でどの段位にあるかで判定し、五維の累計≥24 → 試練可能=true
      *   - 単一属性の点数：キャラクターの現在の階層(Ⅰ~Ⅸ)に対応する LIFE_TIER_RANGE [lo,hi]を9等分し F~SSSの九段とする
      *     属性値がどの段に入るか → 段位点(F=1, E=2 … SSS=9) qualitySegValue の分段ロジックと揃える
      *   - 現在の階層の下限(lo)未満 → 最低保証 F=1 点（属性が低すぎても基礎点を与える。0 点にはしない）
      *     例：階層Ⅲの範囲[100,299]で魅力=20 < 100 → F=1点と判定
      *   - しきい値 24：五維の満点は 45(5×9)で、24 ≈ 五維がすべて現在の階層の B 段(5点)以上に達して初めて試練可能
      *   - 進階後は新しい階層の範囲が広がり、属性は再び基準を満たす必要がある；属性低下で累計<24 → 直ちに false にする
-     *   - キャラクターにのみ作用する(系统状态.是否可试炼)。NPC にこの仕組みはない
+     *   - キャラクターにのみ作用する(システム状態.試練可能)。NPC にこの仕組みはない
      * @param {object} reincarnator キャラクターオブジェクト
-     * @param {object} sys 系统状态 オブジェクト
+     * @param {object} sys システム状態 オブジェクト
      */
     const TRIAL_SCORE_THRESHOLD = 24;
     /**
@@ -1556,14 +1567,14 @@
     }
     function checkTrialEligibility(reincarnator, sys) {
         if (!reincarnator || !sys) return;
-        const attr = reincarnator.最终属性;
+        const attr = reincarnator.最終属性;
         if (!attr || typeof attr !== 'object') return;
-        const lifeTier = reincarnator.层级;
+        const lifeTier = reincarnator.階層;
         let total = 0;
         ATTR_NAMES.forEach(a => { total += attrTierScore(attr[a], lifeTier); });
         const eligible = total >= TRIAL_SCORE_THRESHOLD;
-        if (sys.是否可试炼 !== eligible) {
-            sys.是否可试炼 = eligible;
+        if (sys.試練可能 !== eligible) {
+            sys.試練可能 = eligible;
             // console.log(`[昇格判定] キャラクター階層=${lifeTier} 五維段位累計=${total} (しきい値${TRIAL_SCORE_THRESHOLD}) → 是否可试炼=${eligible}`);
         }
     }
@@ -1572,12 +1583,12 @@
     function recalcAllCharacters(statData, statDataBefore) {
         if (!statData) return;
         // キャラクター
-        if (statData.角色) {
-            recalcCharacter(statData.角色, '角色', statDataBefore?.角色);
+        if (statData.キャラ) {
+            recalcCharacter(statData.キャラ, 'キャラ', statDataBefore?.キャラ);
         }
         // 関係リストの全NPC（未登場でも属性の再計算が必要。パネルでの確認用。AI へ表示するかは変数の可視性で制御する）
-        const rel = statData.关系列表;
-        const relBefore = statDataBefore?.关系列表;
+        const rel = statData.关系リスト;
+        const relBefore = statDataBefore?.关系リスト;
         if (rel && typeof rel === 'object') {
             Object.entries(rel).forEach(([name, npc]) => {
                 if (!npc || typeof npc !== 'object') return;
@@ -1587,10 +1598,10 @@
         }
     }
 
-    /** 実プレイ日数の進行: 世界.时间 の日付(年月日)が変わるたびに → 系统状态.游玩天数+1 (単調増加, インスタンス内の時間跳躍/巻き戻しの影響を受けない) */
+    /** 実プレイ日数の進行: 世界.時間 の日付(年月日)が変わるたびに → システム状態.プレイ日数+1 (単調増加, インスタンス内の時間跳躍/巻き戻しの影響を受けない) */
     function updatePlayDays(statData) {
-        const worldTime = statData?.世界?.时间;
-        const sys = statData?.系统状态;
+        const worldTime = statData?.世界?.時間;
+        const sys = statData?.システム状態;
         if (!sys || !worldTime) return;
 
         // 「日付が変わったかどうか」のみを判定し、実際に経過した日数では累計しない；紀年は古代/異世界のテキストを許容する。
@@ -1600,16 +1611,16 @@
 
         // 紀年/月/日のみを取得する；同一日付内で時刻が変わっても重複して数えない。
         const dateKey = `${String(m[1] || '').trim()}-${+m[2]}-${+m[3]}`;
-        const lastDate = String(sys.上次世界日期 || '');
+        const lastDate = String(sys.前回世界日付 || '');
 
         if (!lastDate) {
             // 初回初期化: 開局時点で第1日
-            sys.游玩天数 = 1;
+            sys.プレイ日数 = 1;
         } else if (lastDate !== dateKey) {
             // 日付変動(日跨ぎ/インスタンス入場/退場はいずれも1日として計上)
-            sys.游玩天数 = Number(sys.游玩天数 || 0) + 1;
+            sys.プレイ日数 = Number(sys.プレイ日数 || 0) + 1;
         }
-        sys.上次世界日期 = dateKey;
+        sys.前回世界日付 = dateKey;
     }
 
     function getPlayerName() {
@@ -1631,9 +1642,9 @@
     }
 
     function isPlayerOwnedAsset(asset) {
-        const owners = Array.isArray(asset?.所属对象)
-            ? asset.所属对象
-            : (typeof asset?.所属对象 === 'string' ? [asset.所属对象] : []);
+        const owners = Array.isArray(asset?.所属対象)
+            ? asset.所属対象
+            : (typeof asset?.所属対象 === 'string' ? [asset.所属対象] : []);
         const playerName = getPlayerName();
         return owners.some(owner => isPlayerOwner(owner, playerName));
     }
@@ -1642,16 +1653,16 @@
     function syncRemovedAssets(statData, statDataBefore) {
         if (!statData || !statDataBefore) return [];
         // 通常のインスタンス決算で主神空間へ戻る際の一括削除は世界ライフサイクルの整理であり、世界をまたぐ資産墓碑として記録してはならない。
-        if (statData?.系统状态?.是否在主神空间 === true && statDataBefore?.系统状态?.是否在主神空间 !== true) return [];
+        if (statData?.システム状態?.主神空間滞在中 === true && statDataBefore?.システム状態?.主神空間滞在中 !== true) return [];
         const beforeAssets = statDataBefore.资产 && typeof statDataBefore.资产 === 'object' ? statDataBefore.资产 : {};
         const currentAssets = statData.资产 && typeof statData.资产 === 'object' ? statData.资产 : {};
         statData.世界 = statData.世界 || {};
-        statData.世界.后台 = statData.世界.后台 || {};
-        const tombstones = statData.世界.后台.资产墓碑 = statData.世界.后台.资产墓碑 || {};
+        statData.世界.バックステージ = statData.世界.バックステージ || {};
+        const tombstones = statData.世界.バックステージ.资产墓碑 = statData.世界.バックステージ.资产墓碑 || {};
         const removed = [];
         Object.keys(beforeAssets).forEach(name => {
             if (Object.prototype.hasOwnProperty.call(currentAssets, name)) return;
-            tombstones[name] = String(statData.世界.时间 || '已删除');
+            tombstones[name] = String(statData.世界.時間 || '已删除');
             removed.push(name);
         });
         // ユーザー/MVU が明示的に同名資産を再構築した場合は墓碑を解除する。
@@ -1659,36 +1670,36 @@
         return removed;
     }
 
-    /** 資産の自動収穫：系统状态.游玩天数 のみでスケジュールし、期限到来時は待辦のみを生成する。 */
+    /** 資産の自動収穫：システム状態.プレイ日数 のみでスケジュールし、期限到来時は待辦のみを生成する。 */
     function autoHarvestAssets(statData, statDataBefore) {
         const assets = statData?.资产;
-        const sys = statData?.系统状态;
+        const sys = statData?.システム状態;
         if (!assets || typeof assets !== 'object' || !sys) return;
 
-        const playDays = Number(sys.游玩天数 || 0);
+        const playDays = Number(sys.プレイ日数 || 0);
         if (!(playDays > 0)) return;
         const cycle = 7;
         const formatRemaining = (nextPlay) => `${Math.max(0, Math.ceil(nextPlay - playDays))}天后`;
 
         Object.entries(assets).forEach(([assetName, asset]) => {
             if (!asset || typeof asset !== 'object' || !isPlayerOwnedAsset(asset)) return;
-            const seqs = asset.建设序列;
+            const seqs = asset.建設シーケンス;
             if (!seqs || typeof seqs !== 'object') return;
-            if (!Array.isArray(asset.待办事件)) asset.待办事件 = [];
+            if (!Array.isArray(asset.待機イベント)) asset.待機イベント = [];
 
             Object.entries(seqs).forEach(([seqName, seq]) => {
                 if (!seq || typeof seq !== 'object') return;
-                const output = String(seq.产出 || '').trim();
+                const output = String(seq.産出 || '').trim();
                 if (!output || output === '无' || output === '待定') {
-                    seq.下次产出日期 = '';
-                    seq.下次产出游天 = 0;
+                    seq.次回産出日 = '';
+                    seq.次回産出游日 = 0;
                     return;
                 }
 
-                let nextPlay = Number(seq.下次产出游天);
+                let nextPlay = Number(seq.次回産出游日);
                 if (!Number.isFinite(nextPlay) || nextPlay <= 0) {
                     // 旧形式の相対表示/プレイ日表示に対応；旧世界の絶対日付はもうスケジュールに関与しない。
-                    const shown = String(seq.下次产出日期 || '').trim();
+                    const shown = String(seq.次回産出日 || '').trim();
                     const remainingMatch = shown.match(/^(\d+)\s*天后$/);
                     const legacyPlayMatch = shown.match(/^第?\s*(\d+)\s*游玩日$/);
                     if (remainingMatch) nextPlay = playDays + Number(remainingMatch[1]);
@@ -1696,26 +1707,26 @@
                     else nextPlay = playDays + cycle;
                 }
 
-                seq.下次产出游天 = nextPlay;
+                seq.次回産出游日 = nextPlay;
 
                 if (playDays >= nextPlay) {
                     const harvestCount = Math.floor((playDays - nextPlay) / cycle) + 1;
                     const prefix = `【自动收菜】${assetName}-${seqName}`;
-                    const pendingIndex = asset.待办事件.findIndex(item => String(item || '').startsWith(prefix));
+                    const pendingIndex = asset.待機イベント.findIndex(item => String(item || '').startsWith(prefix));
                     let totalCount = harvestCount;
                     if (pendingIndex >= 0) {
-                        const oldCount = String(asset.待办事件[pendingIndex] || '').match(/共\s*(\d+)\s*份/);
+                        const oldCount = String(asset.待機イベント[pendingIndex] || '').match(/共\s*(\d+)\s*份/);
                         if (oldCount) totalCount += Number(oldCount[1]);
                     }
                     const todoMsg = `${prefix}：${output}（共${totalCount}份，待玩家领取）`;
-                    if (pendingIndex >= 0) asset.待办事件[pendingIndex] = todoMsg;
-                    else asset.待办事件.push(todoMsg);
+                    if (pendingIndex >= 0) asset.待機イベント[pendingIndex] = todoMsg;
+                    else asset.待機イベント.push(todoMsg);
 
                     nextPlay += harvestCount * cycle;
-                    seq.下次产出游天 = nextPlay;
+                    seq.次回産出游日 = nextPlay;
                 }
 
-                seq.下次产出日期 = formatRemaining(nextPlay);
+                seq.次回産出日 = formatRemaining(nextPlay);
             });
         });
     };
@@ -1727,7 +1738,7 @@
 
     /**
      * 【中核修正】：各階位に対応する理論上の満防御値（防具上限 + 体質換算上限）
-     * 根拠：あなたの《品质效果数值规则》における各階位の五維合計と防御しきい値から推算
+     * 根拠：あなたの《品質効果数値規則》における各階位の五維合計と防御しきい値から推算
     */ 
     const TIER_DEF_SCALE = {
         'Ⅰ': 70,       // F級の新顔の満防御基準
@@ -1759,42 +1770,42 @@
 
     /** 伴生神器の自動成長 */
     function processArtifactGrowth(char) {
-        if (!char || !char.装备) return;
+        if (!char || !char.装備) return;
         
         // 伴生神器の装備タグが "伴生神器" または "可成长" であると仮定し、装備リストから検索する
-        const artifact = Object.values(char.装备).find(e => e.标签?.includes("伴生神器") || e.标签?.includes("可成长"));
+        const artifact = Object.values(char.装備).find(e => e.タグ?.includes("伴生神器") || e.タグ?.includes("可成长"));
         
         if (!artifact) return;
 
-        const currentTier = char.层级; // F ~ SSS
-        const oldTier = artifact.品质;
+        const currentTier = char.階層; // F ~ SSS
+        const oldTier = artifact.品質;
 
         // 神器の品質が既にキャラクターの階層と等しい場合は成長不要
         if (oldTier === currentTier) return;
 
         // 装備の品質をキャラクターの位格へ自動的に揃える
-        artifact.品质 = currentTier;
+        artifact.品質 = currentTier;
         
         // 特殊効果と属性を動的に書き換える
-        if (!artifact.效果) artifact.效果 = {};
+        if (!artifact.効果) artifact.効果 = {};
         if (!artifact.原始属性) artifact.原始属性 = {};
 
         // 階層に応じて詞条を解放する (修仙小説の本命法宝の封印解除のように)
         switch(currentTier) {
             case 'E':
-                artifact.效果['真名初现'] = "攻击时额外造成小幅灵魂震荡";
+                artifact.効果['真名初现'] = "攻击时额外造成小幅灵魂震荡";
                 artifact.原始属性['ATK'] = 50;
                 break;
             case 'C':
-                artifact.效果['火之高兴'] = "无视目标 20% 物理减伤率";
+                artifact.効果['火之高兴'] = "无视目标 20% 物理軽減率";
                 artifact.原始属性['ATK'] = 500;
                 break;
             case 'A':
-                artifact.效果['焚天'] = "每次攻击附带基于目标最大HP 5% 的真实灼烧";
+                artifact.効果['焚天'] = "每次攻击附带基于目标最大HP 5% 的真实灼烧";
                 artifact.原始属性['ATK'] = 3000;
                 break;
             case 'SSS':
-                artifact.效果['概念级·初火'] = "绝对必中，且击杀目标后直接抹除其在世界法则中的因果";
+                artifact.効果['概念级·初火'] = "绝对必中，且击杀目标后直接抹除其在世界法则中的因果";
                 artifact.原始属性['ATK'] = 50000;
                 break;
         }
@@ -1807,7 +1818,7 @@
         if (!char || !char.技能) return;
         
         // 階位昇格のしきい値を設定する
-        const TIER_THRESHOLDS = { '入门': 100, '熟练': 300, '精通': 1000, '宗师': 5000, '化境': Infinity };
+        const TIER_THRESHOLDS = { '入門': 100, '熟練': 300, '精通': 1000, '宗師': 5000, '化境': Infinity };
         const TIER_ORDER = Object.keys(TIER_THRESHOLDS);
 
         Object.entries(char.技能).forEach(([skillName, skill]) => {
@@ -1830,8 +1841,8 @@
                 // console.log(`[功法突破] おめでとう！${skillName} が ${currentTier}へ突破！`);
                 
                 // 進階時にスキルのダメージ係数を自動で強化する
-                if (skill.效果 && skill.效果['基础伤害倍率']) {
-                    skill.效果['基础伤害倍率'] = (parseFloat(skill.效果['基础伤害倍率']) + 0.5) + "x";
+                if (skill.効果 && skill.効果['基础伤害倍率']) {
+                    skill.効果['基础伤害倍率'] = (parseFloat(skill.効果['基础伤害倍率']) + 0.5) + "x";
                 }
             }
 
@@ -1857,22 +1868,22 @@
 
     /** 状態ターンの減衰と期限切れの整理 */
     function processStatusDuration(char, isCombat) {
-        if (!char || !char.状态) return;
+        if (!char || !char.状態) return;
         const statusesToRemove = [];
         
-        Object.entries(char.状态).forEach(([statusName, statusData]) => {
-            if (!statusData || typeof statusData.持续 !== 'string') return;
+        Object.entries(char.状態).forEach(([statusName, statusData]) => {
+            if (!statusData || typeof statusData.持続 !== 'string') return;
             
             // 戦闘中のみ、「回合」の文字を含む状態のカウントダウンを処理する
-            if (isCombat && statusData.持续.includes('回合')) {
-                let rounds = parseInt(statusData.持续);
+            if (isCombat && statusData.持続.includes('回合')) {
+                let rounds = parseInt(statusData.持続);
                 if (!isNaN(rounds) && rounds > 0) {
                     rounds -= 1; // ターン数を -1
                     if (rounds <= 0) {
                         statusesToRemove.push(statusName);
                     } else {
                         // 文字列へ書き戻す。例 "2回合"
-                        statusData.持续 = `${rounds}回合`;
+                        statusData.持続 = `${rounds}回合`;
                     }
                 }
             }
@@ -1881,22 +1892,22 @@
         
         // 期限切れの状態をまとめて削除する
         statusesToRemove.forEach(name => {
-            delete char.状态[name];
-            console.log(`[状態整理] ${char.名称 || '角色'} の状態 [${name}] が期限切れのため、バックエンドで自動削除した。`);
+            delete char.状態[name];
+            console.log(`[状態整理] ${char.名称 || 'キャラ'} の状態 [${name}] が期限切れのため、バックエンドで自動削除した。`);
         });
     }
 
     /** 死亡 NPC の整理 (誤削除防止強化版) */
     function cleanupDeadNPCs(statData) {
-        if (!statData || !statData.关系列表) return;
-        Object.keys(statData.关系列表).forEach(npcName => {
-            const npc = statData.关系列表[npcName];
+        if (!statData || !statData.关系リスト) return;
+        Object.keys(statData.关系リスト).forEach(npcName => {
+            const npc = statData.关系リスト[npcName];
             if (!npc) return;
             
             // 1. 最終保護 チームメイト、または好感度 > 30の場合は絶対に削除しない（蘇生アイテム/スキルのために肉体を保持する）;登場中は処理しない
-            const isTeammate = npc.是否队友 === true;
+            const isTeammate = npc.仲間 === true;
             const highAffinity = typeof npc.好感度 === 'number' && npc.好感度 > 30;
-            const isPresent = npc.在场 === true;
+            const isPresent = npc.登場 === true;
             if (isTeammate || highAffinity || isPresent) {
                 return; // そのままスキップし、整理の対象外とする
             }
@@ -1906,11 +1917,11 @@
             const isHpDead = (typeof npc.HP === 'number' && npc.HP <= 0);
             
             // 判定条件 B：AI が状態に「死亡」を含む語を明示的に書いた（二重の保険）
-            const isExplicitlyDead = npc.状态 && Object.keys(npc.状态).some(key => key.includes('死亡'));
+            const isExplicitlyDead = npc.状態 && Object.keys(npc.状態).some(key => key.includes('死亡'));
 
             // 3. いずれかの死亡条件を満たし、保護もない場合はメモリから直接抹消する
             if (isHpDead || isExplicitlyDead) {
-                delete statData.关系列表[npcName];
+                delete statData.关系リスト[npcName];
                 console.log(`[戦死整理] 敵対または通行人の NPC "${npcName}" は死亡確認済み（蘇生価値なし）のため、バックエンドで自動削除した。`);
             }
         });
@@ -1919,12 +1930,12 @@
     /** 世界安定値の自動推計 */
     function calcWorldStability(statData) {
         if (!statData || !statData.世界) return;
-        if (statData.设置?.世界超稳 === true) {
-            statData.世界.稳定 = 100;
+        if (statData.設定?.世界超安定 === true) {
+            statData.世界.安定 = 100;
             return;
         }
-        if (!statData.世界.因果轨道) return;
-        const records = statData.世界.因果轨道.偏移记录;
+        if (!statData.世界.因果軌道) return;
+        const records = statData.世界.因果軌道.偏移記録;
         
         let totalOffset = 0;
         if (records && typeof records === 'object') {
@@ -1941,20 +1952,20 @@
         const STABILITY_MIN = 0, STABILITY_MAX = 120;
         const newStability = Math.max(STABILITY_MIN, Math.min(STABILITY_MAX, 100 + totalOffset));
 
-        if (statData.世界.稳定 !== newStability) {
+        if (statData.世界.安定 !== newStability) {
             console.log(`[世界法則] 安定値の再計算: 100 + ${totalOffset}(偏移合計) = ${newStability} (リミット[${STABILITY_MIN},${STABILITY_MAX}])`);
-            statData.世界.稳定 = newStability;
+            statData.世界.安定 = newStability;
         }
     }
 
     /** 戦闘ラウンドとスキルクールダウンの全自動管理 */
     function processCombatAndCooldowns(statData, statDataBefore) {
-        const combat = statData?.系统状态;
-        const combatBefore = statDataBefore?.系统状态;
+        const combat = statData?.システム状態;
+        const combatBefore = statDataBefore?.システム状態;
         if (!combat) return;
 
         let deltaRound = 0;
-        let isCombatNow = combat.是否战斗中 === true;
+        let isCombatNow = combat.戦闘中 === true;
         const wasCombatBefore = combatBefore?.是否战斗中 === true;
 
         // —— 0. 戦場の敵対勢力の生存検出：登場中で生存している敵対 NPC がいない場合は強制的に戦闘離脱させる ——
@@ -1963,28 +1974,28 @@
         function isHostileAlive(npc) {
             if (!npc) return false;
             // チームメイト / 好感度が非負 → 非敵対
-            if (npc.是否队友 === true) return false;
+            if (npc.仲間 === true) return false;
             const affinity = safeNum(npc.好感度, 0);
             if (affinity >= 0) return false;
             // 死亡判定: HP がゼロ または 状態に「死亡」を含む
             const isHpDead = (typeof npc.HP === 'number' && npc.HP <= 0);
-            const isExplicitlyDead = npc.状态 && Object.keys(npc.状态).some(k => k.includes('死亡'));
+            const isExplicitlyDead = npc.状態 && Object.keys(npc.状態).some(k => k.includes('死亡'));
             if (isHpDead || isExplicitlyDead) return false;
             // 生存しており、なお戦闘能力を持つ敵対単位
             return true;
         }
 
         let hasHostileOnScene = false;
-        if (statData.关系列表 && typeof statData.关系列表 === 'object') {
-            hasHostileOnScene = Object.values(statData.关系列表).some(npc =>
-                npc && npc.在场 !== false && isHostileAlive(npc)
+        if (statData.关系リスト && typeof statData.关系リスト === 'object') {
+            hasHostileOnScene = Object.values(statData.关系リスト).some(npc =>
+                npc && npc.登場 !== false && isHostileAlive(npc)
             );
         }
 
         // 戦闘中でも現場に生存する敵対単位がいない → バックエンドで強制離脱させ、AI が空転する戦闘を維持しないようにする
         if (isCombatNow && !hasHostileOnScene) {
             // console.log(`[戦闘システム] 現場に生存する敵対 NPCがいないため、バックエンドで戦闘を強制終了`);
-            combat.是否战斗中 = false;
+            combat.戦闘中 = false;
             // 後続の「離脱分岐」がこのフレームで発動できるようにし、クールダウン/THP の整理プロトコルを即座に有効化する
             isCombatNow = false;
         }
@@ -1992,20 +2003,20 @@
         // —— 1. ラウンドの自動増加処理 ——
         if (isCombatNow) {
             if (!wasCombatBefore) {
-                combat.当前轮次 = 1; // 戦闘に入った直後
+                combat.現在ラウンド = 1; // 戦闘に入った直後
                 // console.log(`[戦闘システム] 戦闘に入り、現在のラウンドを 1に初期化`);
             } else {
                 const beforeRound = safeNum(combatBefore.当前轮次, 1);
-                const aiRound = safeNum(combat.当前轮次, 1);
+                const aiRound = safeNum(combat.現在ラウンド, 1);
                 // バックエンドが強力に引き継いで増加させ、AI による二重加算を防ぐ
                 if (aiRound <= beforeRound) {
-                    combat.当前轮次 = beforeRound + 1;
+                    combat.現在ラウンド = beforeRound + 1;
                 }
-                deltaRound = combat.当前轮次 - beforeRound;
-                // console.log(`[戦闘システム] ラウンド進行: ${beforeRound} -> ${combat.当前轮次}`);
+                deltaRound = combat.現在ラウンド - beforeRound;
+                // console.log(`[戦闘システム] ラウンド進行: ${beforeRound} -> ${combat.現在ラウンド}`);
             }
         } else {
-            combat.当前轮次 = 0;
+            combat.現在ラウンド = 0;
             // ★ 非戦闘: AI メッセージごとに 1 ターンと数え, 形態/状態のクールダウンをターン単位で減少させる(3ターン後にゼロになり再発動可能)
             //   旧ロジックの deltaRound=999 は tickCooldowns にクールダウンを強制ゼロさせていた → 非戦闘メッセージごとにクールダウンが 0 に戻る → 形態をいつでも発動/解除できてしまう
             //   現在は deltaRound=1: 離脱してもクールダウンはゼロにせず, 毎ターン-1(戦闘中と同じカウントダウンのリズム); 離脱の瞬間に THP はゼロにする(下方の wasCombatBefore ブロックを参照)
@@ -2016,16 +2027,16 @@
                 // console.log(`[戦闘システム] 戦闘から離脱し、クールダウンとシールド(THP)のクリアプロトコルを発動`);
                 
                 // 1. キャラクターの一時生命値をクリアする
-                if (statData.角色 && typeof statData.角色.THP !== 'undefined') {
-                    statData.角色.THP = 0;
+                if (statData.キャラ && typeof statData.キャラ.THP !== 'undefined') {
+                    statData.キャラ.THP = 0;
                     // console.log(`[戦闘システム] キャラクターの THP を離脱時にゼロにした`);
                 }
 
                 // 2. すべてのNPCの一時生命値をクリアする
                 //    注意：このフレームの recalc は完了済み；集団単位の THP はゼロ化された後、同一フレームで 数量 に従って再充填する必要がある
-                if (statData.关系列表) {
-                    Object.entries(statData.关系列表).forEach(([npcName, npc]) => {
-                        if (!npc || npc.在场 === false) return;
+                if (statData.关系リスト) {
+                    Object.entries(statData.关系リスト).forEach(([npcName, npc]) => {
+                        if (!npc || npc.登場 === false) return;
                         if (typeof npc.THP !== 'undefined') npc.THP = 0;
                         // 集団：THP をゼロにした後、現在の 数量 に従って再充填する（人数は戦闘中に THP から逆算済みのため、満員には戻さない）
                         const qty = Math.max(1, Math.floor(safeNum(npc.数量, 1)));
@@ -2091,16 +2102,16 @@
 
             // スキルライブラリと形態ライブラリを走査する
             // processDict(actor.技能, actorBefore?.技能);
-            processDict(actor.形态库, actorBefore?.形态库);
+            processDict(actor.形態庫, actorBefore?.形態庫);
         }
 
         // キャラクターのクールダウン減少を実行する
-        tickCooldowns(statData.角色, statDataBefore?.角色, "角色");
+        tickCooldowns(statData.キャラ, statDataBefore?.キャラ, "キャラ");
         // 登場中の NPC のクールダウン減少を実行する
-        if (statData.关系列表) {
-            Object.entries(statData.关系列表).forEach(([npcName, npc]) => {
-                if (npc.在场 !== false) {
-                    tickCooldowns(npc, statDataBefore?.关系列表?.[npcName], `NPC:${npcName}`);
+        if (statData.关系リスト) {
+            Object.entries(statData.关系リスト).forEach(([npcName, npc]) => {
+                if (npc.登場 !== false) {
+                    tickCooldowns(npc, statDataBefore?.关系リスト?.[npcName], `NPC:${npcName}`);
                 }
             });
         }
