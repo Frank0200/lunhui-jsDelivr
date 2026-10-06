@@ -86,8 +86,8 @@
     /* ===== 4. 保護(読み取り専用)フィールド定義 ===== */
     var READONLY_PATHS = [
         'キャラ.HP_MAX', 'キャラ.EP_MAX', 'キャラ.最終属性', 'キャラ.階層',
-        'キャラ.現在形态', 'キャラ.形態庫',
-        '世界.安定', '世界.現在ラウンド', 'システム状態.現在ラウンド'
+        'キャラ.現在形態', 'キャラ.形態庫',
+        '世界.安定', 'システム状態.現在ラウンド'
     ];
     /* 階層閾値表: F→E→D→C→B→A→S→SS→SSS (下限値; 階層が上がるのは昇格任務のみ, そのためプログレスバーは進捗のみ表示し自動昇格しない) */
     var TIER_THRESHOLDS = [
@@ -127,10 +127,10 @@
             if (path === rp || path.indexOf(rp + '.') === 0) return true;
         }
         // NPC の HP_MAX / EP_MAX / 最终属性 / 层级
-        if (/^关系列表\.[^.]+\.HP_MAX$/.test(path)) return true;
-        if (/^关系列表\.[^.]+\.EP_MAX$/.test(path)) return true;
-        if (/^关系列表\.[^.]+\.最终属性/.test(path)) return true;
-        if (/^关系列表\.[^.]+\.层级$/.test(path)) return true;
+        if (/^関係リスト\.[^.]+\.HP_MAX$/.test(path)) return true;
+        if (/^関係リスト\.[^.]+\.EP_MAX$/.test(path)) return true;
+        if (/^関係リスト\.[^.]+\.最终属性/.test(path)) return true;
+        if (/^関係リスト\.[^.]+\.层级$/.test(path)) return true;
         // 装備/スキルの"类型"は数値列挙(武器/胸部/.../主动/被动/特殊), ユーザーが文字列に変更すると"未知"と解析されるため, 一律読み取り専用; (道具の"类型"は文字列なので, 編集可)
         if (/\.(装备|技能)\.[^.]+\.类型$/.test(path)) return true;
         return false;
@@ -169,6 +169,44 @@
         if (stat[CHARACTER_KEY_CANONICAL] === undefined || stat[CHARACTER_KEY_CANONICAL] === null) stat[CHARACTER_KEY_CANONICAL] = legacy;
         return stat;
     }
+    /* F2_LEGACY_PATH_COMPAT: 旧セーブの簡体字 MVU キーを正規キーへ読み取り時に移行する。入力境界専用・冪等。 */
+    /* 半移行(接頭辞 JP + 葉 CN)のパスはどちらのスキーマでも解決しないため, 旧セーブだけでなく
+       移行期に書かれたデータもここで回収する。canonical が既にあれば常にそちらを優先する。 */
+var LEGACY_KEY_PREFERRED = {"关系リスト":true};
+    var LEGACY_KEY_RENAMES = {"传闻":"噂","布告与檄文":"布告と檄文","发布者":"発布者","张贴位置":"掲示位置","街头巷议":"街頭の噂","可信度":"信頼度","来源":"出典","情报交易":"情報取引","卖家":"売り手","情报评级":"情報評価","要价":"要求価格","摘要":"要約","真实内幕":"真の内幕","关系リスト":"関係リスト","背景故事":"背景","层级":"階層","当前形态":"現在形態","标签":"タグ","标签[]":"タグ[]","类型":"タイプ","描述":"説明","品质":"品質","效果":"効果","状态":"状態","消耗":"消費","身份":"身分","身份[]":"身分[]","是否队友":"仲間","态度":"態度","外貌":"外見","喜爱":"好み","形态库":"形態庫","力量":"筋力","体质":"体力","血统":"血統","在场":"登場","着装":"服装","职业":"職業","种族":"種族","装备":"装備","持续":"持続","最终属性":"最終属性","魔法减伤率":"魔法軽減率","物理减伤率":"物理軽減率","先攻DC":"先制DC","角色":"キャラ","空间币":"スペースコイン","权限凭证":"権限証憑","任务":"任務","副本成就":"インスタンス実績","奖励":"報酬","难度":"難易度","说明":"説明","击杀":"撃破","列表":"リスト","惩罚":"罰則","交付":"納品","目标":"目標","委托方":"依頼元","隐藏真相":"隠された真実","成员商库":"メンバー商品庫","道具列表":"道具リスト","道具列表[]":"道具リスト[]","价格":"価格","技能列表":"技能リスト","技能列表[]":"技能リスト[]","升级列表":"升級リスト","升级列表[]":"升級リスト[]","所属大类":"所属カテゴリ","替换目标":"置換対象","血统列表":"血統リスト","血统列表[]":"血統リスト[]","装备列表":"装備リスト","装备列表[]":"装備リスト[]","设置":"設定","单一世界":"単一世界","世界超稳":"世界超安定","法则":"法則","法则[]":"法則[]","后台":"バックステージ","货币":"通貨","购买力基准":"購買力基準","经济波动":"経済変動","历法":"暦法","闰年规则":"閏年規則","月份天数":"月日数","月份天数[]":"月日数[]","时间":"時間","势力":"勢力","领地":"領地","实力":"実力","风险":"リスク","稳定":"安定","异端雷达":"異端レーダー","当前模式":"現在モード","名单":"名簿","经历":"経歴","阵营":"陣営","因果轨道":"因果軌道","当前阶段":"現在段階","故事线":"ストーリーライン","偏移记录":"偏移記録","引发者":"誘発者","影响程度":"影響度","下一节点":"次ノード","系统状态":"システム状態","待播报记录":"配信待ち記録","当前轮次":"現在ラウンド","上次世界日期":"前回世界日付","试炼任务名单":"試練任務名簿","试炼任务名单[]":"試練任務名簿[]","试炼已完成":"試練完了","是否可试炼":"試練可能","是否试炼任务":"試練任務中","是否在主神空间":"主神空間滞在中","是否战斗中":"戦闘中","游玩天数":"プレイ日数","待办事件":"待機イベント","待办事件[]":"待機イベント[]","建设序列":"建設シーケンス","产出":"産出","功能":"機能","阶段":"段階","下次产出日期":"次回産出日","下次产出游天":"次回産出游日","能源":"エネルギー","当前":"現在","所属对象":"所属対象","所属对象[]":"所属対象[]","完整度":"完全度","消耗单元":"消耗ユニット","余量":"残量","主体规模":"主体規模","驻扎人员":"駐留人員","关系列表":"関係リスト"};
+                        function normalizeLegacyWorldKeys(stat) {
+        if (!stat || typeof stat !== 'object') return stat;
+        var seen = new Set();
+        (function walk(node) {
+            if (!node || typeof node !== 'object' || seen.has(node)) return;
+            seen.add(node);
+            if (Array.isArray(node)) { for (var i = 0; i < node.length; i++) walk(node[i]); return; }
+            /* Two legacy spellings can target the SAME canonical key, so the pass runs in
+               two phases: preferred sources first, then the rest.  A source only fills the
+               canonical slot if neither a real canonical value nor a preferred source
+               already claimed it.  Both legacy keys are always removed. */
+            var preexisting = {};
+            var claimed = {};
+            var keys = Object.keys(node);
+            for (var p = 0; p < keys.length; p++) preexisting[keys[p]] = true;
+            var phases = [LEGACY_KEY_PREFERRED, null];
+            for (var ph = 0; ph < phases.length; ph++) {
+                for (var k = 0; k < keys.length; k++) {
+                    var from = keys[k];
+                    var to = LEGACY_KEY_RENAMES[from];
+                    if (!to || to === from) continue;
+                    var preferred = Object.prototype.hasOwnProperty.call(LEGACY_KEY_PREFERRED, from);
+                    if (ph === 0 ? !preferred : preferred) continue;
+                    if (!Object.prototype.hasOwnProperty.call(node, from)) continue;
+                    if (!preexisting[to] && !claimed[to]) { node[to] = node[from]; claimed[to] = true; }
+                    delete node[from];
+                }
+            }
+            var next = Object.keys(node);
+            for (var j = 0; j < next.length; j++) walk(node[next[j]]);
+        })(stat);
+        return stat;
+    }
     /* ===== 5. 旧インスタンスの事前クリーンアップ ===== */
     function samPreClean() {
         try {
@@ -194,7 +232,7 @@
             var win = getMvuGlobal();
             if (win && win.Mvu && typeof win.Mvu.getMvuData === 'function') {
                 var r = win.Mvu.getMvuData({ type: 'message', message_id: 'latest' });
-                if (r && r.stat_data) { normalizeLegacyCharacterKey(r.stat_data); normalizeLegacyCurrencyKey(r.stat_data.キャラ); normalizeLegacySettingsKey(r.stat_data.設定); return r.stat_data; }
+                if (r && r.stat_data) { normalizeLegacyCharacterKey(r.stat_data); normalizeLegacyCurrencyKey(r.stat_data.キャラ); normalizeLegacySettingsKey(r.stat_data.設定); normalizeLegacyWorldKeys(r.stat_data); return r.stat_data; }
                 if (r) return r;
             }
             if (typeof GS_PARENT.getMessageVar === 'function') return GS_PARENT.getMessageVar('stat_data');
@@ -219,6 +257,7 @@
             // 最新の完全なデータ(stat_dataを含む)を取得 —— "更新前"スナップショット(before)とする
             var mvuData = win.Mvu.getMvuData({ type: 'message', message_id: 'latest' });
             if (!mvuData || !mvuData.stat_data) { console.warn('[主神端末] 書き込み可能なデータなし'); return false; }
+            normalizeLegacyWorldKeys(mvuData.stat_data);
             // "更新前"データをバックアップ(ディープコピー, イベントコールバックの variables_before_update 引数用)
             var before = (_ && _.cloneDeep) ? _.cloneDeep(mvuData) : JSON.parse(JSON.stringify(mvuData));
             // lodashのディープコピーで元オブジェクトの直接汚染を回避(replaceMvuDataの正規チャネルを通す) —— "更新後"データ(after)とする
@@ -448,7 +487,7 @@
         return total;
     }
     // SOURCE_INFUSION_CREDENTIAL_START
-    /* 权限凭证の所持数：角色.権限証憑.<品质>のみを読む。 */
+    /* 権限証憑の所持数：キャラ.権限証憑.<品質>のみを読む。 */
     function sourceInfusionCredentialQty(reincarnator, credentialGrade) {
         if (!reincarnator || !credentialGrade) return 0;
         var ledger = reincarnator.権限証憑 || {};
@@ -468,7 +507,7 @@
     function sourceInfusionPlan(sd, targetName) {
         if (!sd || !sd.キャラ) return { error:'データが未準備です' };
         var isReincarnator = (targetName === 'キャラ');
-        var target = isReincarnator ? sd.キャラ : (sd.关系リスト && sd.关系リスト[targetName]);
+        var target = isReincarnator ? sd.キャラ : (sd.関係リスト && sd.関係リスト[targetName]);
         if (!target) return { error:'対象キャラクターが見つかりません' };
         if (!isReincarnator && target.仲間 !== true) return { error:'源力注入はチームメイトのみ使用できます' };
         if (sd.システム状態 && sd.システム状態.戦闘中 === true) return { error:'安全なエリアで再度お試しください' };
@@ -532,7 +571,7 @@
                 if (check.error || check.nextTier !== latest.nextTier || check.nextGrade !== latest.nextGrade) return;
                 if (check.coin < check.cost || check.credentialQty < 1) return;
                 var payer = statData.キャラ;
-                var target = check.isReincarnator ? payer : (statData.关系リスト && statData.关系リスト[check.targetName]);
+                var target = check.isReincarnator ? payer : (statData.関係リスト && statData.関係リスト[check.targetName]);
                 if (!target || (!check.isReincarnator && target.仲間 !== true)) return;
                 if (!sourceInfusionConsumeCredential(payer, check.credentialGrade)) return;
                 payer.スペースコイン = Math.max(0, safeNum(payer.スペースコイン, 0) - check.cost);
@@ -2413,11 +2452,11 @@
             + '    先制DC: 行動順\n'
             + '    防御DC: 被命中難易度\n';
         // ワールドブック内容の取得呼び出し
-        content += await getWorldBookContent('⚙️生命层级与社会生态'); 
-        content += await getWorldBookContent('⚙️品质效果数值规则'); 
-        content += await getWorldBookContent('⚙️实体生成规则'); 
-        content += await getWorldBookContent('⚙️状态协议'); 
-        content += await getWorldBookContent('⚙️行为判定[mvu_plot]'); 
+        content += await getWorldBookContentCompat('⚙️生命階層と社会生態'); 
+        content += await getWorldBookContentCompat('⚙️品質効果数値規則'); 
+        content += await getWorldBookContentCompat('⚙️実体生成規則'); 
+        content += await getWorldBookContentCompat('⚙️状態プロトコル'); 
+        content += await getWorldBookContentCompat('⚙️行為判定[mvu_plot]'); 
 
         // システムプロンプトの構築: 融合レンダラの位置づけ + 属性システムの下層定義 + ワールドブック規則の内容
         var sysPrompt = ''
@@ -2805,7 +2844,7 @@
     var transferCart = { 装備: {}, 道具: {} };   // 選択項目: { 装备: {key:1}, 道具: {key:qty} }
     function openTransferModal(npcName) {
         var sd = getStatData();
-        var npc = sd && sd.关系リスト && sd.关系リスト[npcName];
+        var npc = sd && sd.関係リスト && sd.関係リスト[npcName];
         if (!npc) { samToast('error', '該当キャラクターが見つかりません'); return; }
         transferTarget = npcName;
         transferCart = { 装備: {}, 道具: {} };
@@ -2920,7 +2959,7 @@
                 if (!statData) return;
                 var mc = statData.キャラ = statData.キャラ || {};
                 mc.装備 = mc.装備 || {}; mc.道具 = mc.道具 || {};
-                var rel = statData.关系リスト = statData.关系リスト || {};
+                var rel = statData.関係リスト = statData.関係リスト || {};
                 var npc = rel[npcName] = rel[npcName] || {};
                 npc.装備 = npc.装備 || {}; npc.道具 = npc.道具 || {};
                 var movedParts = []; // ★ 実際に転送が成功した明細, 配信待ち記録用
@@ -2982,7 +3021,7 @@
     var lootCart = { 装備: {}, 道具: {} };
     function openLootModal(npcName) {
         var sd = getStatData();
-        var npc = sd && sd.关系リスト && sd.关系リスト[npcName];
+        var npc = sd && sd.関係リスト && sd.関係リスト[npcName];
         if (!npc) { samToast('error', '該当キャラクターが見つかりません'); return; }
         lootTarget = npcName;
         lootCart = { 装備: {}, 道具: {} };
@@ -3062,7 +3101,7 @@
     }
     function lootAdjustQty(cat, key, dir) {
         var sd = getStatData();
-        var npc = sd && sd.关系リスト && sd.关系リスト[lootTarget];
+        var npc = sd && sd.関係リスト && sd.関係リスト[lootTarget];
         if (!npc) return;
         var max = 1;
         if (cat === '道具') max = safeNum(npc.道具[key] && npc.道具[key].数量, 1);
@@ -3074,7 +3113,7 @@
     }
     function lootInputQty(cat, key, val) {
         var sd = getStatData();
-        var npc = sd && sd.关系リスト && sd.关系リスト[lootTarget];
+        var npc = sd && sd.関係リスト && sd.関係リスト[lootTarget];
         if (!npc) return;
         var max = 1;
         if (cat === '道具') max = safeNum(npc.道具[key] && npc.道具[key].数量, 1);
@@ -3086,7 +3125,7 @@
         var $body = $('#samsara-modal .sam-modal-body');
         var saved = $body.length ? ($body[0].scrollTop || 0) : 0;
         var sd = getStatData();
-        var npc = sd && sd.关系リスト && sd.关系リスト[lootTarget];
+        var npc = sd && sd.関係リスト && sd.関係リスト[lootTarget];
         if (npc) $body.html(renderLootList(npc));
         if ($body.length && saved > 0) { try { $body[0].scrollTop = saved; } catch(e){} }
     }
@@ -3099,7 +3138,7 @@
             if (!statData) return;
             var mc = statData.キャラ = statData.キャラ || {};
             mc.装備 = mc.装備 || {}; mc.道具 = mc.道具 || {};
-            var rel = statData.关系リスト = statData.关系リスト || {};
+            var rel = statData.関係リスト = statData.関係リスト || {};
             var npc = rel[npcName] = rel[npcName] || {};
             npc.装備 = npc.装備 || {}; npc.道具 = npc.道具 || {};
             var lootedParts = []; // ★ 実際に取得が成功した明細, 配信待ち記録用
@@ -3440,7 +3479,7 @@
         });
         // ★ 進階ボタン(階層プログレスバー中央): 属性の合計ポイントが次階層の下限に達した時のみ表示; 戦闘中はブロック
         //   - 進階申請(進階試練が未完了): "【当前进阶条件已满足，申请进阶试炼】"を入力欄へ送信
-        //   - 進階開始(試練完了): writeBackMvu(角色.階層=nextTier) + renderAll() でプログレスバー/上部階層を更新
+        //   - 進階開始(試練完了): writeBackMvu(キャラ.階層=nextTier) + renderAll() でプログレスバー/上部階層を更新
         $panel.off('click.samTierAdv').on('click.samTierAdv', '.sam-tier-adv-btn', function(e) {
             e.stopPropagation();
             var $b = $(this);
@@ -3516,8 +3555,8 @@
                     //   当前形态も同時にリセットする(激活:false, 名称を空に), でなければ削除済み形態への参照が残り,
                     //   以降の血統購入/AI の形態構築時に"既存の形態"と誤読され続け, 拒否やエラーを引き起こす
                     if (seg.length === 3 && seg[0] === 'キャラ' && seg[1] === '形態庫'
-                        && statData.キャラ && statData.キャラ.現在形态) {
-                        var cf = statData.キャラ.現在形态;
+                        && statData.キャラ && statData.キャラ.現在形態) {
+                        var cf = statData.キャラ.現在形態;
                         if (cf && cf.名称 === name) {
                             cf.激活 = false; cf.名称 = '';
                         }
@@ -3539,7 +3578,7 @@
             if (ok) samToast('success', '入力欄へ送信しました: '+text);
             else samToast('warning', '入力欄が見つかりません, クリップボードへコピーしました');
         });
-        // ★ ショップ商品更新ボタン: 本文AI generateRaw を呼び新ZOD構造で商品在庫を生成し, stat_data.商城へ書き戻す
+        // ★ ショップ商品更新ボタン: 本文AI generateRaw を呼び新ZOD構造で商品在庫を生成し, stat_data.商城 へ書き戻す
         $panel.off('click.samShopRefresh').on('click.samShopRefresh', '.sam-shop-refresh-btn', async function(e) {
             e.stopPropagation();
             var $btn = $(this);
@@ -3573,11 +3612,11 @@
                 + '    先制DC: 行动顺序\n'
                 + '    防御DC: 被命中难度\n';
             // 世界書の内容を取得する呼び出し
-            content += await getWorldBookContent('⚙️生命层级与社会生态'); 
-            content += await getWorldBookContent('⚙️品质效果数值规则'); 
-            content += await getWorldBookContent('⚙️实体生成规则'); 
-            content += await getWorldBookContent('⚙️状态协议'); 
-            content += await getWorldBookContent('⚙️行为判定[mvu_plot]'); 
+            content += await getWorldBookContentCompat('⚙️生命階層と社会生態'); 
+            content += await getWorldBookContentCompat('⚙️品質効果数値規則'); 
+            content += await getWorldBookContentCompat('⚙️実体生成規則'); 
+            content += await getWorldBookContentCompat('⚙️状態プロトコル'); 
+            content += await getWorldBookContentCompat('⚙️行為判定[mvu_plot]'); 
             
             if (content) {
                 // ここで取得した世界書の内容を渡すことができる
@@ -4000,7 +4039,7 @@
          fetchedModels:[] /models エンドポイントから読み込んだモデル一覧
        }
        説明: 設定はlocalStorage( MVUから切り離し, シナリオ/補助スクリプトによる上書きを回避; VARIABLE_UPDATE_ENDEDをブロードキャストせず, 再レンダリングの副作用ゼロ)。
-             初回読み込み時に localStorage が空なら, 旧 MVU の stat_data.設置.API から一度だけ自動移行する。
+             初回読み込み時に localStorage が空なら, 旧 MVU の設定ノードから一度だけ自動移行する(現行スキーマに API ノードは無いため, 実質は新規作成)。
              この設定は統合"追加モデル"チャネル: ショップ更新と血統融合の AI リクエストは shopCallAI で一括して振り分ける,
              スイッチがオン → 自前ホストAPI, オフ → 引き続き generateRaw 本文AI */
     var API_DEFAULT_MODELS = {
@@ -4017,23 +4056,9 @@
         try {
             var raw = localStorage.getItem(API_CFG_KEY);
             if (!raw) {
-                // 旧 MVU データとの互換: stat_data.設置.API から一度だけ移行を試みる
-                var sd = getStatData();
-                var old = sd && sd.設定 && sd.設定.API;
-                if (old && typeof old === 'object' && (old.apiUrl || old.apiPresets && old.apiPresets.length || old.enabled)) {
-                    var migrated = {
-                        enabled:    (old.enabled === true),
-                        apiUrl:     safeStr(old.apiUrl),
-                        apiKey:     safeStr(old.apiKey),
-                        model:      safeStr(old.model),
-                        apiPresets: (Array.isArray(old.apiPresets) ? old.apiPresets : []).map(function(p){ return {
-                            name:safeStr(p.name), apiUrl:safeStr(p.apiUrl), apiKey:safeStr(p.apiKey), model:safeStr(p.model)
-                        }; }),
-                        fetchedModels: Array.isArray(old.fetchedModels) ? old.fetchedModels.slice() : []
-                    };
-                    localStorage.setItem(API_CFG_KEY, JSON.stringify(migrated));
-                    return migrated;
-                }
+                /* 旧 MVU データからの移行は行わない: 現行スキーマ(および CN 基準スキーマ)は
+                   API ノードを宣言しておらず、旧セーブ側の設定ノードも同じく未宣言のため、
+                   読み出しても常に undefined になる。 */
                 return { enabled:false, apiUrl:'', apiKey:'', model:'', apiPresets:[], fetchedModels:[] };
             }
             var cfg = JSON.parse(raw);
@@ -5163,7 +5188,7 @@
             baseHtml += '<div class="sam-row"><span class="k">'+esc(an)+'</span><span class="v">'+valCell+tierBadge+'</span></div>';
         });
         baseHtml += '</div>';
-        // 階層プログレスバー: 現在階層(角色.階層由来,読み取り専用) → 次階層; 中央に基础属性の合計ポイントと進捗を表示
+        // 階層プログレスバー: 現在階層(キャラ.階層,読み取り専用) → 次階層; 中央に基础属性の合計ポイントと進捗を表示
         html += renderTierProgressBar(p, fa, sd.システム状態 || {});
         html += secBlock('💪 基础属性', baseHtml);
         // 2.補正値(6項目)
@@ -5665,7 +5690,7 @@
     /* 関係パネルで現在アクティブなサブTab(すべて/在席/不在/チーム)を記憶し, renderAll 後に"すべて"へ戻るのを防ぐ */
     var relationActiveSub = 'all';
     function renderRelationTab(sd) {
-        var rel = sd.关系リスト || {};
+        var rel = sd.関係リスト || {};
         var editMode = isEditMode();
         var all = [], present = [], absent = [], team = [];
         Object.keys(rel).forEach(function(k) {
@@ -6224,7 +6249,7 @@
             {k:'名称', path:'世界.名称', type:'text'},
             {k:'位格', path:'世界.位格', type:'text'},
             {k:'難易度', path:'世界.難易度', type:'text'},
-            {k:'モード', path:'世界.異端レーダー.現在模式', type:'text', hideOnSingle:true}
+            {k:'モード', path:'世界.異端レーダー.現在モード', type:'text', hideOnSingle:true}
         ];
         var introHtml = '';
         introFields.forEach(function(f) {
@@ -7267,8 +7292,8 @@
     function deleteNpc(name) {
         if (!name) return;
         var ok = writeBackMvu(function(statData) {
-            if (statData && statData.关系リスト && statData.关系リスト[name]) {
-                delete statData.关系リスト[name];
+            if (statData && statData.関係リスト && statData.関係リスト[name]) {
+                delete statData.関係リスト[name];
                 try { console.log('%c[主神端末] ✅ NPCを削除しました: '+name, 'color:#86efac'); } catch(e){}
             }
         });
@@ -7802,18 +7827,18 @@
     var shopRefreshing = false;    // 商品更新実行中(モジュール級フラグ, チャット切替/再描画時も持続, ボタン状態の消失を回避)
     var shopRefreshEpoch = 0;      // 更新ラウンドのカウンタ: handleShopRefresh ごとに +1, 旧 Promise のコールバックはラウンド不一致時に結果を破棄("更新を停止"でハングしたリクエストを中断可能)
     var shopReqText = '';          // 要望入力欄の内容(モジュール級, 更新を跨いで保持: 更新後 renderAll がDOMを再構築するため, value 属性で再設定して失われないようにする; 不満なら元の要望を基に再更新可能)
-    // ★ 複数キャラのショップ: 現在選択中の購入対象。'角色' はキャラクター自身, それ以外は 关系列表 内の NPC 名
+    // ★ 複数キャラのショップ: 現在選択中の購入対象。'角色' はキャラクター自身, それ以外は 関係リスト 内の NPC 名
     var shopCurrentActor = 'キャラ';
     // キャラクター固有のショップ商品ライブラリの保存名: 商城.メンバー商品庫 = { '<角色名键>': { 血统列表:[...], 技能列表:[...], 装备列表:[...], 道具列表:[...], 升级列表:[...] } }
     // '角色'キー はキャラクター自身のショップ商品に対応(旧来の stat_data.商城 トップレベル構造と互換); NPC キー はその NPC のショップ商品に対応
     var SHOP_ACTOR_LIB_KEY = 'メンバー商品庫';  // 商城 の下で複数キャラの商品ライブラリを格納する子キー名
     var SHOP_ACTOR_REINCARNATOR = 'キャラ';          // 角色 キー名の定数
     // ===== ★ 複数キャラのショップ: 角色 切替と商品ライブラリ分離の補助 =====
-    // 選択可能なキャラクターのドロップダウン項目を取得: 角色 自身 + 关系列表 内で 在场=true かつ 是否队友=true の NPC
+    // 選択可能なキャラクターのドロップダウン項目を取得: 角色 自身 + 関係リスト 内で 在场=true かつ 是否队友=true の NPC
     // [{name, label}]を返す, name='角色' または NPC名; label はドロップダウン表示に使用
     function shopBuildActorOptions(sd) {
         var list = [{ name: SHOP_ACTOR_REINCARNATOR, label: 'キャラ(自身)' }];
-        var relations = (sd && sd.关系リスト) ? sd.关系リスト : null;
+        var relations = (sd && sd.関係リスト) ? sd.関係リスト : null;
         if (relations && typeof relations === 'object') {
             var allNpc = Object.keys(relations);
             allNpc.sort();
@@ -7834,7 +7859,7 @@
         if (actorName === SHOP_ACTOR_REINCARNATOR) {
             return { character: (sd && sd.キャラ) || {}, path: 'キャラ', isReincarnator: true, name: SHOP_ACTOR_REINCARNATOR };
         }
-        var npc = (sd && sd.关系リスト && sd.关系リスト[actorName]) ? sd.关系リスト[actorName] : null;
+        var npc = (sd && sd.関係リスト && sd.関係リスト[actorName]) ? sd.関係リスト[actorName] : null;
         return { character: npc || {}, path: '関係リスト.' + actorName, isReincarnator: false, name: actorName };
     }
 // SHOP_PERMISSION_GUARD_START
@@ -8534,7 +8559,7 @@ function shopCredentialRefund(credentials, requirements) {
         var coinOwner = statData.キャラ;
         if (!coinOwner) throw new Error('キャラクターデータが存在しません');
         var actorName = shopCurrentActor || SHOP_ACTOR_REINCARNATOR;
-        var character = (actorName === SHOP_ACTOR_REINCARNATOR) ? coinOwner : (statData.关系リスト && statData.关系リスト[actorName]);
+        var character = (actorName === SHOP_ACTOR_REINCARNATOR) ? coinOwner : (statData.関係リスト && statData.関係リスト[actorName]);
         if (!character) throw new Error('キャラクターデータが存在しません: ' + actorName);
         for (var gateI = 0; gateI < shopCart.length; gateI++) {
             var gateItem = shopCart[gateI] || {};
@@ -8652,7 +8677,7 @@ function shopCredentialRefund(credentials, requirements) {
         } else if (actorName === SHOP_ACTOR_REINCARNATOR) {
             // 旧データ互換: 角色 の商庫が 商城 のトップレベルに直接並んでいる場合がある
             if (Array.isArray(statData.商城.装備リスト) || Array.isArray(statData.商城.技能リスト)
-                || Array.isArray(statData.商城.血統リスト) || Array.isArray(statData.商城.道具リスト) || Array.isArray(statData.商城.升级リスト) || Array.isArray(statData.商城.形态リスト)) {
+                || Array.isArray(statData.商城.血統リスト) || Array.isArray(statData.商城.道具リスト) || Array.isArray(statData.商城.升級リスト)) {
                 lib = statData.商城;
             }
         }
@@ -8747,7 +8772,7 @@ function shopCredentialRefund(credentials, requirements) {
         if (coin < shopCartCost()) { samToast('error', 'スペースコイン不足, 取引を実行できません'); return; }
         // ★ 現在の対象キャラクター(NPC) がまだ在場しているかを検証(切替後に退場する可能性)
         if (shopCurrentActor !== SHOP_ACTOR_REINCARNATOR) {
-            var actorNpc = (sd.关系リスト && sd.关系リスト[shopCurrentActor]) ? sd.关系リスト[shopCurrentActor] : null;
+            var actorNpc = (sd.関係リスト && sd.関係リスト[shopCurrentActor]) ? sd.関係リスト[shopCurrentActor] : null;
             if (!actorNpc) { samToast('error', '対象キャラクターは退場済み, 購入できません, 再選択してください'); return; }
         }
         // 1) stat_data のコピー上で取引結果を構築(コイン控除/バッグ格納/商品ライブラリから購入済みを一括削除)
@@ -8768,10 +8793,10 @@ function shopCredentialRefund(credentials, requirements) {
         var writeOk = writeBackMvu(function(statData) {
             // 構築済みの取引結果でキャラクター項目 + ショップ商品ライブラリを丸ごと上書きする
             var rs = result.statData;
-            // ★ 書き戻し: 角色(スペースコイン控除を含む, 角色 の買い物時は新装備を含む) + 商城(商品ライブラリは購入済みを削除済み) + 关系列表(NPCの買い物時は新装備を含む)
+            // ★ 書き戻し: 角色(スペースコイン控除を含む, 角色 の買い物時は新装備を含む) + 商城(商品ライブラリは購入済みを削除済み) + 関係リスト(NPCの買い物時は新装備を含む)
             if (rs.キャラ) statData.キャラ = rs.キャラ;
             if (rs.商城) statData.商城 = rs.商城;
-            if (rs.関係リスト) statData.关系リスト = rs.関係リスト;
+            if (rs.関係リスト) statData.関係リスト = rs.関係リスト;
             for (var ri = 0; ri < result.receipts.length; ri++) {
                 shopAppendReceipt(statData, result.receipts[ri]);
             }
@@ -8811,7 +8836,7 @@ function shopCredentialRefund(credentials, requirements) {
     /* ===== 32d. ショップ: 商品更新(本文AI generateRawを呼び出し, 新ZOD構造で商品ライブラリを生成) =====
        - 二重チェック 戦闘中/主神空間外(ボタンは無効化済み, ここはフォールバック)
        - generateRaw 経由で本文AIを呼び出し, 新構造(YAML形式)で4つの商品リストを出力させる
-       - 返却テキストを解析 → stat_data.商城へ書き込み(ZOD検証で正規化) + ローカルキャッシュをリセット + renderAll
+       - 返却テキストを解析 → stat_data.商城 へ書き込み(ZOD検証で正規化) + ローカルキャッシュをリセット + renderAll
        - 更新中はモジュールレベルの shopRefreshing フラグで描画を制御: true にすると renderAll が元のリストを隠し、
          代わりに"リクエスト中…閉じるか待機できます"のヒントを出しボタン/入力欄をグレーアウト; チャット切替/パネルを閉じて再度開いても失われない
          (フラグはモジュールレベル, renderAll の再構築ではクリアされない)
@@ -9180,6 +9205,24 @@ function shopCredentialRefund(credentials, requirements) {
         return parts.join('\n');
     }
     // 32d-4-1. 世界書の内容を取得
+    /* F4_COMMENT_COMPAT: 世界書エントリの comment は getwi() が名前一致で探す
+       ため、comment を日本語化した後も旧中国語名で解決できる必要がある。
+       正規名を先に試し、見つからなければ旧名へフォールバックする(冪等)。 */
+    var LEGACY_WORLDBOOK_TITLES = {
+        '⚙️生命階層と社会生態': '⚙️生命层级与社会生态',
+        '⚙️品質効果数値規則': '⚙️品质效果数值规则',
+        '⚙️実体生成規則': '⚙️实体生成规则',
+        '⚙️状態プロトコル': '⚙️状态协议',
+        '⚙️行為判定[mvu_plot]': '⚙️行为判定[mvu_plot]',
+        '⚙️行為判定': '⚙️行为判定'
+    };
+    async function getWorldBookContentCompat(searchTitle) {
+        var found = await getWorldBookContent(searchTitle);
+        if (found) return found;
+        var legacy = LEGACY_WORLDBOOK_TITLES[searchTitle];
+        if (!legacy) return found;
+        return await getWorldBookContent(legacy);
+    }
     async function getWorldBookContent(searchTitle) {
         var win = GS_PARENT; 
 
@@ -9805,7 +9848,7 @@ if (hasReq) {
                 try {
                     var v = c.val;
                     // ★ 職業は記録オブジェクトに変更済み: 編集モードではJSONテキストとして送信, 書き戻し前にオブジェクトへ復元を試みる
-                    if (/^(?:角色|关系列表\.[^.]+)\.职业$/.test(c.path) && typeof v === 'string') {
+                    if (/^(?:角色|関係リスト\.[^.]+)\.职业$/.test(c.path) && typeof v === 'string') {
                         var trimmed = v.trim();
                         if (trimmed === '') { v = {}; }
                         else { try { v = JSON.parse(trimmed); } catch(e2) { /* 不正なJSONは元の文字列を保持,ZOD層が拒否してフォールバックする */ } }

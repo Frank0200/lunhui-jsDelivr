@@ -1559,7 +1559,7 @@
                 <div class="form-group"><label>名称</label><input type="text" id="ci-name" class="form-control" placeholder="物資名"></div>
                 <div class="form-group"><label>品質階層</label><select id="ci-tier" class="form-control">${DB.rarityList.map(r=>`<option>${r}</option>`).join('')}</select></div>
                 <div class="form-group"><label>サブ分類</label><select id="ci-type" class="form-control"></select></div>
-                <div class="form-group"><label>ソースタグ</label><select id="ci-source" class="form-control"><option value="">无</option>${DB.sourceTags.map(s=>`<option>${s}</option>`).join('')}</select></div>
+                <div class="form-group"><label>ソースタグ</label><select id="ci-source" class="form-control"><option value="">なし</option>${DB.sourceTags.map(s=>`<option>${s}</option>`).join('')}</select></div>
                 <div class="form-group"><label>スペースコイン消費</label><input type="number" id="ci-cost" class="form-control" value="100" min="0"></div>
                 <div class="form-group"><label>消費 (EP/HP/特殊リソース)</label><input type="text" id="ci-consume" class="form-control" placeholder="例：EP 15 / HP 30" ></div>
             </div>
@@ -1825,7 +1825,7 @@
                     <h3 class="item-name">【${esc(cleanName)}】</h3>
                     <div class="header-actions">
                         <span class="rating-badge ${rankCls(rank)}" title="世界位格">${esc(rank)}</span>
-                        <span class="rating-badge rbadge-${tierHigh}" title="総合難易度">${esc(tierRaw)}级</span>
+                        <span class="rating-badge rbadge-${tierHigh}" title="総合難易度">${esc(tierRaw)}級</span>
                         <button class="expand-btn" onclick="event.stopPropagation();toggleCardExpand('plot-${p.id}')">${exp?'閉じる':'詳細'}</button>
                     </div>
                 </div>
@@ -1931,13 +1931,13 @@
         const race = $('f-race').value.trim() || '人类';
         const gender = $('f-gender').value;
         const age = $('f-age').value;
-        const tier = 'Ⅰ 级'; // 初期生命階層はⅠで固定、加点では変わらない
-        const bloodTier = 'F 级'; // 初期血統品質はFで固定、加点では変わらない
+        const tier = 'Ⅰ 級'; // 初期生命階層はⅠで固定、加点では変わらない
+        const bloodTier = 'F 級'; // 初期血統品質はFで固定、加点では変わらない
         
         let attrHtml = '';
         document.querySelectorAll('.attr-input').forEach((input, idx) => {
             const tier = calcSingleTier(input.value);
-            attrHtml += `<div class="cf-attr-box"><strong>${DB.attributes[idx]}:</strong> <span>${tier}级</span></div>`;
+            attrHtml += `<div class="cf-attr-box"><strong>${DB.attributes[idx]}:</strong> <span>${tier}級</span></div>`;
         });
 
         const consumed = DB.initSpaceCoins - currentCoins;
@@ -1992,8 +1992,8 @@
                 <div class="cf-item">
                     <div class="cf-item-head"><span style="color:var(--text-sub)">1.</span><span class="cf-item-name" style="color:#fff">${$('cp-name').value.trim()||'カスタムパートナー'}</span><span class="tier-badge t-${$('cp-tier').value}">${$('cp-tier').value}</span></div>
                     <div class="cf-text"><strong>種族:</strong> ${$('cp-race').value.trim()||'不明'} | <strong>性別:</strong> ${$('cp-gender').value}</div>
-                    <div class="cf-text"><strong>外見:</strong> ${$('cp-app').value.trim() || '无'}</div>
-                    <div class="cf-text"><strong>好きなもの:</strong> ${$('cp-like').value.trim() || '无'}</div>
+                    <div class="cf-text"><strong>外見:</strong> ${$('cp-app').value.trim() || 'なし'}</div>
+                    <div class="cf-text"><strong>好きなもの:</strong> ${$('cp-like').value.trim() || 'なし'}</div>
                     <div class="cf-item-props"><p>${$('cp-bg').value.trim()||'背景ストーリーはまだありません...'}</p></div>
                 </div>`;
         } 
@@ -2060,7 +2060,7 @@
                 <div class="cf-section">
                     <h3 class="cf-title"><i class="fa-solid fa-dna"></i> 初期血統：${race}血統</h3>
                     <div class="cf-item-props">
-                        <p><strong>品質階層:</strong> <span class="tier-badge t-${bloodTier.replace(' 级','')}">${bloodTier}</span> | <strong>体系タグ:</strong> 初期血統、${race}</p>
+                        <p><strong>品質階層:</strong> <span class="tier-badge t-${bloodTier.replace(' 級','')}">${bloodTier}</span> | <strong>体系タグ:</strong> 初期血統、${race}</p>
                         <p><strong>下層説明:</strong> 最初の基礎、されど無限の可能性</p>
                         <p style="color:var(--accent); margin-top:6px; font-weight:bold;">
                             <i class="fa-solid fa-bolt"></i> 核心の才能効果は未設定。降臨後、主神 (AI) が種族特性に応じてその場で算出し付与します。
@@ -2194,7 +2194,7 @@
                 <div style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:10px;">
                     <div class="p-item-info">
                         <span><i class="fa-solid fa-user"></i> <span class="val">${esc(pre.name || '名称未設定')}</span></span>
-                        <span><i class="fa-solid fa-layer-group"></i> <span class="val">${esc(pre.identity || '无')}</span></span>
+                        <span><i class="fa-solid fa-layer-group"></i> <span class="val">${esc(pre.identity || 'なし')}</span></span>
                         <span><i class="fa-solid fa-coins"></i> <span class="val">${pre.coins || 0}</span></span>
                     </div>
                     <div class="p-item-actions">
@@ -2319,7 +2319,7 @@
         const attrs = {};
         document.querySelectorAll('.attr-input').forEach((input, idx) => { attrs[DB.attributes[idx]] = parseInt(input.value||0); });
         // AI へ提示する際は品質文字を使う
-        const attrStr = Object.entries(attrs).map(([k,v])=>`${k}: ${calcSingleTier(v)}级`).join(', ');
+        const attrStr = Object.entries(attrs).map(([k,v])=>`${k}: ${calcSingleTier(v)}級`).join(', ');
         // MVU 血統の"原始属性"は文字品質の辞書であるべき(下流の resolveRealAttr がこれで tierを読む)
         const attrTierObj = {};
         Object.entries(attrs).forEach(([k,v]) => { attrTierObj[k] = calcSingleTier(v); });
@@ -2371,7 +2371,46 @@
             if (win.Mvu && win._) {
                 if (typeof win.waitGlobalInitialized === 'function') await win.waitGlobalInitialized('Mvu');
                 const c = win.Mvu.getMvuData({type:'message', message_id:'latest'});
+                /* F2_LEGACY_PATH_COMPAT: 旧セーブの簡体字 MVU キーを正規キーへ読み取り時に移行する。入力境界専用・冪等。 */
+                /* 半移行(接頭辞 JP + 葉 CN)のパスはどちらのスキーマでも解決しないため, 旧セーブだけでなく
+                   移行期に書かれたデータもここで回収する。canonical が既にあれば常にそちらを優先する。 */
+var LEGACY_KEY_PREFERRED = {"关系リスト":true};
+                var LEGACY_KEY_RENAMES = {"传闻":"噂","布告与檄文":"布告と檄文","发布者":"発布者","张贴位置":"掲示位置","街头巷议":"街頭の噂","可信度":"信頼度","来源":"出典","情报交易":"情報取引","卖家":"売り手","情报评级":"情報評価","要价":"要求価格","摘要":"要約","真实内幕":"真の内幕","关系リスト":"関係リスト","背景故事":"背景","层级":"階層","当前形态":"現在形態","标签":"タグ","标签[]":"タグ[]","类型":"タイプ","描述":"説明","品质":"品質","效果":"効果","状态":"状態","消耗":"消費","身份":"身分","身份[]":"身分[]","是否队友":"仲間","态度":"態度","外貌":"外見","喜爱":"好み","形态库":"形態庫","力量":"筋力","体质":"体力","血统":"血統","在场":"登場","着装":"服装","职业":"職業","种族":"種族","装备":"装備","持续":"持続","最终属性":"最終属性","魔法减伤率":"魔法軽減率","物理减伤率":"物理軽減率","先攻DC":"先制DC","角色":"キャラ","空间币":"スペースコイン","权限凭证":"権限証憑","任务":"任務","副本成就":"インスタンス実績","奖励":"報酬","难度":"難易度","说明":"説明","击杀":"撃破","列表":"リスト","惩罚":"罰則","交付":"納品","目标":"目標","委托方":"依頼元","隐藏真相":"隠された真実","成员商库":"メンバー商品庫","道具列表":"道具リスト","道具列表[]":"道具リスト[]","价格":"価格","技能列表":"技能リスト","技能列表[]":"技能リスト[]","升级列表":"升級リスト","升级列表[]":"升級リスト[]","所属大类":"所属カテゴリ","替换目标":"置換対象","血统列表":"血統リスト","血统列表[]":"血統リスト[]","装备列表":"装備リスト","装备列表[]":"装備リスト[]","设置":"設定","单一世界":"単一世界","世界超稳":"世界超安定","法则":"法則","法则[]":"法則[]","后台":"バックステージ","货币":"通貨","购买力基准":"購買力基準","经济波动":"経済変動","历法":"暦法","闰年规则":"閏年規則","月份天数":"月日数","月份天数[]":"月日数[]","时间":"時間","势力":"勢力","领地":"領地","实力":"実力","风险":"リスク","稳定":"安定","异端雷达":"異端レーダー","当前模式":"現在モード","名单":"名簿","经历":"経歴","阵营":"陣営","因果轨道":"因果軌道","当前阶段":"現在段階","故事线":"ストーリーライン","偏移记录":"偏移記録","引发者":"誘発者","影响程度":"影響度","下一节点":"次ノード","系统状态":"システム状態","待播报记录":"配信待ち記録","当前轮次":"現在ラウンド","上次世界日期":"前回世界日付","试炼任务名单":"試練任務名簿","试炼任务名单[]":"試練任務名簿[]","试炼已完成":"試練完了","是否可试炼":"試練可能","是否试炼任务":"試練任務中","是否在主神空间":"主神空間滞在中","是否战斗中":"戦闘中","游玩天数":"プレイ日数","待办事件":"待機イベント","待办事件[]":"待機イベント[]","建设序列":"建設シーケンス","产出":"産出","功能":"機能","阶段":"段階","下次产出日期":"次回産出日","下次产出游天":"次回産出游日","能源":"エネルギー","当前":"現在","所属对象":"所属対象","所属对象[]":"所属対象[]","完整度":"完全度","消耗单元":"消耗ユニット","余量":"残量","主体规模":"主体規模","驻扎人员":"駐留人員","关系列表":"関係リスト"};
+                                                                                                function normalizeLegacyWorldKeys(stat) {
+                    if (!stat || typeof stat !== 'object') return stat;
+                    var seen = new Set();
+                    (function walk(node) {
+                        if (!node || typeof node !== 'object' || seen.has(node)) return;
+                        seen.add(node);
+                        if (Array.isArray(node)) { for (var i = 0; i < node.length; i++) walk(node[i]); return; }
+                        /* Two legacy spellings can target the SAME canonical key, so the pass runs in
+                           two phases: preferred sources first, then the rest.  A source only fills the
+                           canonical slot if neither a real canonical value nor a preferred source
+                           already claimed it.  Both legacy keys are always removed. */
+                        var preexisting = {};
+                        var claimed = {};
+                        var keys = Object.keys(node);
+                        for (var p = 0; p < keys.length; p++) preexisting[keys[p]] = true;
+                        var phases = [LEGACY_KEY_PREFERRED, null];
+                        for (var ph = 0; ph < phases.length; ph++) {
+                            for (var k = 0; k < keys.length; k++) {
+                                var from = keys[k];
+                                var to = LEGACY_KEY_RENAMES[from];
+                                if (!to || to === from) continue;
+                                var preferred = Object.prototype.hasOwnProperty.call(LEGACY_KEY_PREFERRED, from);
+                                if (ph === 0 ? !preferred : preferred) continue;
+                                if (!Object.prototype.hasOwnProperty.call(node, from)) continue;
+                                if (!preexisting[to] && !claimed[to]) { node[to] = node[from]; claimed[to] = true; }
+                                delete node[from];
+                            }
+                        }
+                        var next = Object.keys(node);
+                        for (var j = 0; j < next.length; j++) walk(node[next[j]]);
+                    })(stat);
+                    return stat;
+                }
                 const _set = win._.set;
+                normalizeLegacyWorldKeys(c && c.stat_data);
 
                 // 設定
                 _set(c, 'stat_data.設定.世界超安定', wsLocked);
@@ -2379,7 +2418,7 @@
 
                 // キャラクター資産と血統 ( HP/EP などの他属性を上書きしないよう配慮)
                 _set(c, 'stat_data.キャラ.種族', race);
-                _set(c, 'stat_data.キャラ.身分', [identity, gender, age+'岁']);
+                _set(c, 'stat_data.キャラ.身分', [identity, gender, age+'歳']);
                 _set(c, 'stat_data.キャラ.スペースコイン', currentCoins);
                 
                 _set(c, 'stat_data.キャラ.道具', itemObj);
@@ -2397,7 +2436,7 @@
 
                 // パートナー注入(陣営は最終確認時のキャラ陣営を採用し, 作成後に陣営を変えて不整合になるのを防ぐ)
                 if (partnerNode && Array.isArray(partnerNode.身分)) partnerNode.身分[0] = $('f-identity').value;
-                if (partnerNode) _set(c, `stat_data.关系リスト.${partnerNode.姓名}`, partnerNode);
+                if (partnerNode) _set(c, `stat_data.関係リスト.${partnerNode.姓名}`, partnerNode);
 
                 // 世界信息精准注入
                 if (singleWorldEnabled) {
@@ -2423,7 +2462,7 @@
                         // p.risk はリスク/結果の提示であり、世界法則の配列には含まれない。
                         _set(c, 'stat_data.世界.法則', parseOpeningWorldLaws(p.law));
                         // 干渉モード + 空の名簿；異端の身分は続く主神任務で初期化される
-                        _set(c, 'stat_data.世界.異端レーダー.現在模式', p.ecology || p.eco || '');
+                        _set(c, 'stat_data.世界.異端レーダー.現在モード', p.ecology || p.eco || '');
                         _set(c, 'stat_data.世界.異端レーダー.名簿', {});
                     }
                 }
@@ -2444,7 +2483,7 @@
 时间锚点: ${$('sw-time').value.trim() || '未設定'}
 主线状态: ${$('sw-mainstate').value.trim() || '未設定'}
 切入身份: ${$('sw-identity').value.trim() || 'キャラクター'}
-主神任务: ${$('sw-goal').value.trim() || '无'}`;
+主神任务: ${$('sw-goal').value.trim() || 'なし'}`;
         } else if (selectedPlot) {
             const p = DB.plots.find(x => x.id === selectedPlot);
             if (p) {
@@ -2453,7 +2492,7 @@
                 // 余計な装飾を除いた名前を抽出し, 評価は世界位格(ローマ数字)を使う
                 const cleanName = p.name.match(/【(.*?)】/)?.[1] || p.name;
                 const rank = p.rank || 'Ⅰ';
-                const tier = (p.tier || 'F~E').replace(/\s+/g,'').replace('~','-') + '级';
+                const tier = (p.tier || 'F~E').replace(/\s+/g,'').replace('~','-') + '級';
 
                 worldText = `【${cleanName}】 (世界位格: ${rank})
 副本难度: ${tier}
@@ -2472,14 +2511,14 @@
             const pTier = partnerNode.階層 || 'Ⅰ';
             const pRace = partnerNode.種族 || '不明';
             const pId = (partnerNode.身分 && partnerNode.身分[0]) || '未設定';
-            const pApp = partnerNode.外見 || '无';
-            const pLike = partnerNode.好み || '无';
-            const pBg = partnerNode.背景 || '无';
-            partnerText = `姓名: ${pName}
+            const pApp = partnerNode.外見 || 'なし';
+            const pLike = partnerNode.好み || 'なし';
+            const pBg = partnerNode.背景 || 'なし';
+            partnerText = `名前: ${pName}
 種族: ${pRace}
 身分: ${pId}
-階層: ${pTier}级
-外貌特征: ${pApp}
+階層: ${pTier}級
+外見特徴: ${pApp}
 好み: ${pLike}
 背景: ${pBg}`;
         }
@@ -2491,15 +2530,15 @@
 （注：システムはすでにキャラクターの初期装備、アイテム、血統、絆の対象を下層データベースへ直接書き込んでいる。人物と絆の基本属性は既に存在するため、初期化時の置き換えは禁止。そのまま抽出して使用すること。）
 
 【角色信息】
-姓名: ${name}
-性别: ${gender}
-年龄: ${age}岁
+名前: ${name}
+性別: ${gender}
+年齢: ${age}歳
 種族: ${race}
 身分: ${identity}
 
 【初始血统】
 名称: ${bloodlineName}
-品質: ${tier}级
+品質: ${tier}級
 説明: 最初の基礎、されど無限の可能性
 
 【协同实体 (伙伴)】
@@ -2511,9 +2550,9 @@ ${worldText}
 ---
 【系统指令与叙事要求】：
 没入感の高い開幕シーンを生成すること。
-初回降臨時は、キャラクターが記入した【种族】特性に基づき、「${bloodlineName}」のために 1~2 個の【${tier}级】強度制限に合う専用血統効果を設計し、物語の中で覚醒の異象を演出すること！
+初回降臨時は、キャラクターが記入した【种族】特性に基づき、「${bloodlineName}」のために 1~2 個の【${tier}級】強度制限に合う専用血統効果を設計し、物語の中で覚醒の異象を演出すること！
 ${envInstruction}
-${partnerNode ? `[協働実体補完指令]：キャラクターのそばには専属パートナー「${partnerNode.姓名 || '名称未設定'}」が存在する。この実体は現在、基本概念（階層、陣営、背景ストーリー、好み）のみを持ち、具体的な戦闘データを欠いている。その資料と【${partnerNode.階層 || '不明'}级】の強度制限に基づき、**空白の戦術モジュールを自動で推演し補完すること**：
+${partnerNode ? `[協働実体補完指令]：キャラクターのそばには専属パートナー「${partnerNode.姓名 || '名称未設定'}」が存在する。この実体は現在、基本概念（階層、陣営、背景ストーリー、好み）のみを持ち、具体的な戦闘データを欠いている。その資料と【${partnerNode.階層 || '不明'}級】の強度制限に基づき、**空白の戦術モジュールを自動で推演し補完すること**：
 1. 人設に合い、階層制限に適合する【血统】と【技能】を付与する。
 2. 1~2 件の階層に合う【初始装备/武器】を装備させる。
 【叙事要求】：開幕シーンでは、时间锚点に沿ってパートナーとキャラクターの登場関係を合理的に配置すること。登場時には、外見の細部と動作描写を通じて、パートナーに補完された外見や着装などを自然に示し、その性格、現在のキャラクターへの信頼状態、および本心を明確に提示すること。` : ''}`;

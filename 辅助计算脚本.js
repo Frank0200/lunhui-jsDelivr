@@ -81,12 +81,50 @@
         if (stat[CHARACTER_KEY_CANONICAL] === undefined || stat[CHARACTER_KEY_CANONICAL] === null) stat[CHARACTER_KEY_CANONICAL] = legacy;
         return stat;
     }
+    /* F2_LEGACY_PATH_COMPAT: 旧セーブの簡体字 MVU キーを正規キーへ読み取り時に移行する。入力境界専用・冪等。 */
+    /* 半移行(接頭辞 JP + 葉 CN)のパスはどちらのスキーマでも解決しないため, 旧セーブだけでなく
+       移行期に書かれたデータもここで回収する。canonical が既にあれば常にそちらを優先する。 */
+var LEGACY_KEY_PREFERRED = {"关系リスト":true};
+    var LEGACY_KEY_RENAMES = {"传闻":"噂","布告与檄文":"布告と檄文","发布者":"発布者","张贴位置":"掲示位置","街头巷议":"街頭の噂","可信度":"信頼度","来源":"出典","情报交易":"情報取引","卖家":"売り手","情报评级":"情報評価","要价":"要求価格","摘要":"要約","真实内幕":"真の内幕","关系リスト":"関係リスト","背景故事":"背景","层级":"階層","当前形态":"現在形態","标签":"タグ","标签[]":"タグ[]","类型":"タイプ","描述":"説明","品质":"品質","效果":"効果","状态":"状態","消耗":"消費","身份":"身分","身份[]":"身分[]","是否队友":"仲間","态度":"態度","外貌":"外見","喜爱":"好み","形态库":"形態庫","力量":"筋力","体质":"体力","血统":"血統","在场":"登場","着装":"服装","职业":"職業","种族":"種族","装备":"装備","持续":"持続","最终属性":"最終属性","魔法减伤率":"魔法軽減率","物理减伤率":"物理軽減率","先攻DC":"先制DC","角色":"キャラ","空间币":"スペースコイン","权限凭证":"権限証憑","任务":"任務","副本成就":"インスタンス実績","奖励":"報酬","难度":"難易度","说明":"説明","击杀":"撃破","列表":"リスト","惩罚":"罰則","交付":"納品","目标":"目標","委托方":"依頼元","隐藏真相":"隠された真実","成员商库":"メンバー商品庫","道具列表":"道具リスト","道具列表[]":"道具リスト[]","价格":"価格","技能列表":"技能リスト","技能列表[]":"技能リスト[]","升级列表":"升級リスト","升级列表[]":"升級リスト[]","所属大类":"所属カテゴリ","替换目标":"置換対象","血统列表":"血統リスト","血统列表[]":"血統リスト[]","装备列表":"装備リスト","装备列表[]":"装備リスト[]","设置":"設定","单一世界":"単一世界","世界超稳":"世界超安定","法则":"法則","法则[]":"法則[]","后台":"バックステージ","货币":"通貨","购买力基准":"購買力基準","经济波动":"経済変動","历法":"暦法","闰年规则":"閏年規則","月份天数":"月日数","月份天数[]":"月日数[]","时间":"時間","势力":"勢力","领地":"領地","实力":"実力","风险":"リスク","稳定":"安定","异端雷达":"異端レーダー","当前模式":"現在モード","名单":"名簿","经历":"経歴","阵营":"陣営","因果轨道":"因果軌道","当前阶段":"現在段階","故事线":"ストーリーライン","偏移记录":"偏移記録","引发者":"誘発者","影响程度":"影響度","下一节点":"次ノード","系统状态":"システム状態","待播报记录":"配信待ち記録","当前轮次":"現在ラウンド","上次世界日期":"前回世界日付","试炼任务名单":"試練任務名簿","试炼任务名单[]":"試練任務名簿[]","试炼已完成":"試練完了","是否可试炼":"試練可能","是否试炼任务":"試練任務中","是否在主神空间":"主神空間滞在中","是否战斗中":"戦闘中","游玩天数":"プレイ日数","待办事件":"待機イベント","待办事件[]":"待機イベント[]","建设序列":"建設シーケンス","产出":"産出","功能":"機能","阶段":"段階","下次产出日期":"次回産出日","下次产出游天":"次回産出游日","能源":"エネルギー","当前":"現在","所属对象":"所属対象","所属对象[]":"所属対象[]","完整度":"完全度","消耗单元":"消耗ユニット","余量":"残量","主体规模":"主体規模","驻扎人员":"駐留人員","关系列表":"関係リスト"};
+                        function normalizeLegacyWorldKeys(stat) {
+        if (!stat || typeof stat !== 'object') return stat;
+        var seen = new Set();
+        (function walk(node) {
+            if (!node || typeof node !== 'object' || seen.has(node)) return;
+            seen.add(node);
+            if (Array.isArray(node)) { for (var i = 0; i < node.length; i++) walk(node[i]); return; }
+            /* Two legacy spellings can target the SAME canonical key, so the pass runs in
+               two phases: preferred sources first, then the rest.  A source only fills the
+               canonical slot if neither a real canonical value nor a preferred source
+               already claimed it.  Both legacy keys are always removed. */
+            var preexisting = {};
+            var claimed = {};
+            var keys = Object.keys(node);
+            for (var p = 0; p < keys.length; p++) preexisting[keys[p]] = true;
+            var phases = [LEGACY_KEY_PREFERRED, null];
+            for (var ph = 0; ph < phases.length; ph++) {
+                for (var k = 0; k < keys.length; k++) {
+                    var from = keys[k];
+                    var to = LEGACY_KEY_RENAMES[from];
+                    if (!to || to === from) continue;
+                    var preferred = Object.prototype.hasOwnProperty.call(LEGACY_KEY_PREFERRED, from);
+                    if (ph === 0 ? !preferred : preferred) continue;
+                    if (!Object.prototype.hasOwnProperty.call(node, from)) continue;
+                    if (!preexisting[to] && !claimed[to]) { node[to] = node[from]; claimed[to] = true; }
+                    delete node[from];
+                }
+            }
+            var next = Object.keys(node);
+            for (var j = 0; j < next.length; j++) walk(node[next[j]]);
+        })(stat);
+        return stat;
+    }
     function getStatData() {
         try {
             var win = getMvuGlobal();
             if (win && win.Mvu && typeof win.Mvu.getMvuData === 'function') {
                 var r = win.Mvu.getMvuData({ type: 'message', message_id: 'latest' });
-                if (r && r.stat_data) { normalizeLegacyCharacterKey(r.stat_data); return r.stat_data; }
+                if (r && r.stat_data) { normalizeLegacyCharacterKey(r.stat_data); normalizeLegacyWorldKeys(r.stat_data); return r.stat_data; }
                 if (r) return r;
             }
             if (typeof GS_PARENT.getMessageVar === 'function') return GS_PARENT.getMessageVar('stat_data');
@@ -259,8 +297,8 @@
             }
             
             // 2. NPC の道具と状態を整理
-            if (statData.关系リスト) {
-                Object.values(statData.关系リスト).forEach(npc => {
+            if (statData.関係リスト) {
+                Object.values(statData.関係リスト).forEach(npc => {
                     if (!npc) return;
                     cleanupZeroQuantityItems(npc);
                     if (shouldAdvanceTurn) {
@@ -327,8 +365,8 @@
      */
     function syncRemovedRelationshipPeople(statData, statDataBefore) {
         if (!statData || !statDataBefore) return [];
-        const beforeRelations = statDataBefore.关系リスト;
-        const currentRelations = statData.关系リスト;
+        const beforeRelations = statDataBefore.関係リスト;
+        const currentRelations = statData.関係リスト;
         const backendPeople = statData.世界?.バックステージ?.人物;
         if (!beforeRelations || typeof beforeRelations !== 'object' || Array.isArray(beforeRelations)) return [];
         if (!currentRelations || typeof currentRelations !== 'object' || Array.isArray(currentRelations)) return [];
@@ -371,7 +409,7 @@
         if (!roster || typeof roster !== 'object' || Array.isArray(roster)) return { 死亡: [], 删除关系: [], 删除后台: [] };
 
         const beforeRoster = statDataBefore?.世界?.異端レーダー?.名簿 || {};
-        const relations = statData.关系リスト && typeof statData.关系リスト === 'object' ? statData.关系リスト : {};
+        const relations = statData.関係リスト && typeof statData.関係リスト === 'object' ? statData.関係リスト : {};
         const backendPeople = statData.世界?.バックステージ?.人物 && typeof statData.世界.バックステージ.人物 === 'object' ? statData.世界.バックステージ.人物 : {};
         const nameKey = (value) => String(value || '').toLowerCase().replace(/[\\/／·・._\-\s]+/g, '');
         const uniqueMatch = (bucket, name) => {
@@ -707,8 +745,8 @@
         }
 
         // —— 4. 関係リストの登場中 NPC をすべてロールバック ——
-        const rel = statData?.关系リスト;
-        const relBefore = statDataBefore?.关系リスト;
+        const rel = statData?.関係リスト;
+        const relBefore = statDataBefore?.関係リスト;
         if (rel && typeof rel === 'object' && relBefore && typeof relBefore === 'object') {
             for (const [name, npc] of Object.entries(rel)) {
                 if (!npc || typeof npc !== 'object') continue;
@@ -1021,9 +1059,9 @@
     };
     function clampNativeNpcToWorldTier(statData, statDataBefore) {
         if (!statData) return;
-        const rel = statData.关系リスト;
+        const rel = statData.関係リスト;
         if (!rel || typeof rel !== 'object') return;
-        const relBefore = statDataBefore && statDataBefore.关系リスト;
+        const relBefore = statDataBefore && statDataBefore.関係リスト;
         const inMainSpace = !!(statData.システム状態 && statData.システム状態.主神空間滞在中 === true);
         if (inMainSpace) return;
         const worldTier = statData.世界 && statData.世界.位格;
@@ -1076,10 +1114,10 @@
         if (!statDataBefore) return;
         const mode = statData.設定?.難易度 || '体験';
         if (!['体験', '正常', '困難', '挑戦'].includes(mode)) return;
-        const before = statDataBefore.关系リスト || {};
+        const before = statDataBefore.関係リスト || {};
         const steps = { '体験': 0, '正常': 2, '困難': 4, '挑戦': 6 }[mode];
         const boostedAttrs = [...ATTR_NAMES, ...DERIVED_ATTRS];
-        for (const [name, npc] of Object.entries(statData.关系リスト || {})) {
+        for (const [name, npc] of Object.entries(statData.関係リスト || {})) {
             if (!npc || typeof npc !== 'object' || Object.hasOwn(before, name)) continue;
             if (npc.仲間 === true || !(Number(npc.好感度) < 0)) continue;
             const life = LIFE_TIER_ORDER.indexOf(normalizeLifeTier(npc.階層));
@@ -1587,8 +1625,8 @@
             recalcCharacter(statData.キャラ, 'キャラ', statDataBefore?.キャラ);
         }
         // 関係リストの全NPC（未登場でも属性の再計算が必要。パネルでの確認用。AI へ表示するかは変数の可視性で制御する）
-        const rel = statData.关系リスト;
-        const relBefore = statDataBefore?.关系リスト;
+        const rel = statData.関係リスト;
+        const relBefore = statDataBefore?.関係リスト;
         if (rel && typeof rel === 'object') {
             Object.entries(rel).forEach(([name, npc]) => {
                 if (!npc || typeof npc !== 'object') return;
@@ -1899,9 +1937,9 @@
 
     /** 死亡 NPC の整理 (誤削除防止強化版) */
     function cleanupDeadNPCs(statData) {
-        if (!statData || !statData.关系リスト) return;
-        Object.keys(statData.关系リスト).forEach(npcName => {
-            const npc = statData.关系リスト[npcName];
+        if (!statData || !statData.関係リスト) return;
+        Object.keys(statData.関係リスト).forEach(npcName => {
+            const npc = statData.関係リスト[npcName];
             if (!npc) return;
             
             // 1. 最終保護 チームメイト、または好感度 > 30の場合は絶対に削除しない（蘇生アイテム/スキルのために肉体を保持する）;登場中は処理しない
@@ -1921,7 +1959,7 @@
 
             // 3. いずれかの死亡条件を満たし、保護もない場合はメモリから直接抹消する
             if (isHpDead || isExplicitlyDead) {
-                delete statData.关系リスト[npcName];
+                delete statData.関係リスト[npcName];
                 console.log(`[戦死整理] 敵対または通行人の NPC "${npcName}" は死亡確認済み（蘇生価値なし）のため、バックエンドで自動削除した。`);
             }
         });
@@ -1986,8 +2024,8 @@
         }
 
         let hasHostileOnScene = false;
-        if (statData.关系リスト && typeof statData.关系リスト === 'object') {
-            hasHostileOnScene = Object.values(statData.关系リスト).some(npc =>
+        if (statData.関係リスト && typeof statData.関係リスト === 'object') {
+            hasHostileOnScene = Object.values(statData.関係リスト).some(npc =>
                 npc && npc.登場 !== false && isHostileAlive(npc)
             );
         }
@@ -2006,7 +2044,7 @@
                 combat.現在ラウンド = 1; // 戦闘に入った直後
                 // console.log(`[戦闘システム] 戦闘に入り、現在のラウンドを 1に初期化`);
             } else {
-                const beforeRound = safeNum(combatBefore.当前轮次, 1);
+                const beforeRound = safeNum(combatBefore.現在ラウンド, 1);
                 const aiRound = safeNum(combat.現在ラウンド, 1);
                 // バックエンドが強力に引き継いで増加させ、AI による二重加算を防ぐ
                 if (aiRound <= beforeRound) {
@@ -2034,8 +2072,8 @@
 
                 // 2. すべてのNPCの一時生命値をクリアする
                 //    注意：このフレームの recalc は完了済み；集団単位の THP はゼロ化された後、同一フレームで 数量 に従って再充填する必要がある
-                if (statData.关系リスト) {
-                    Object.entries(statData.关系リスト).forEach(([npcName, npc]) => {
+                if (statData.関係リスト) {
+                    Object.entries(statData.関係リスト).forEach(([npcName, npc]) => {
                         if (!npc || npc.登場 === false) return;
                         if (typeof npc.THP !== 'undefined') npc.THP = 0;
                         // 集団：THP をゼロにした後、現在の 数量 に従って再充填する（人数は戦闘中に THP から逆算済みのため、満員には戻さない）
@@ -2108,10 +2146,10 @@
         // キャラクターのクールダウン減少を実行する
         tickCooldowns(statData.キャラ, statDataBefore?.キャラ, "キャラ");
         // 登場中の NPC のクールダウン減少を実行する
-        if (statData.关系リスト) {
-            Object.entries(statData.关系リスト).forEach(([npcName, npc]) => {
+        if (statData.関係リスト) {
+            Object.entries(statData.関係リスト).forEach(([npcName, npc]) => {
                 if (npc.登場 !== false) {
-                    tickCooldowns(npc, statDataBefore?.关系リスト?.[npcName], `NPC:${npcName}`);
+                    tickCooldowns(npc, statDataBefore?.関係リスト?.[npcName], `NPC:${npcName}`);
                 }
             });
         }

@@ -101,7 +101,7 @@
     const COLD_TEMP_PERSON_GRACE_HOURS = 30 * 24;
     const COLD_TEMP_PERSON_TARGET = 32;
     const TERMINAL_PERSON_STATUS = /^(?:已结束|结束|已离场|离场|已离开|离开|退休|已退休|失效|已失效|消失|已消失|死亡)$/;
-    const TECHNICAL_BOOK = [/^\[variables\]/i,/^\[mvu_update\]/i,/^output_format_/i,/^⚙️额外思考(?:\.|$)/,/^行动选项_/i,/^【(?:主神任务|结算任务|试炼任务|选择世界)】/];
+    const TECHNICAL_BOOK = [/^\[variables\]/i,/^\[mvu_update\]/i,/^output_format_/i,/^⚙️(?:追加思考|额外思考)(?:\.|$)/,/^行动选项_/i,/^【(?:主神任务|结算任务|试炼任务|选择世界)】/];
     const isTechnicalBook = title => TECHNICAL_BOOK.some(rule => rule.test(String(title || '').trim()));
     // チャットインターフェースは生のメッセージを返し、酒場の表示用正規表現は適用されない。送信とキーワード走査はこの抽出結果を共有する。
     function extractWorldProse(value) {
@@ -257,7 +257,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
             "[\"轮回战场V3.6.1\",\"8412\"]",
             "[\"轮回战场V3.6.1\",\"559085\"]"
         ];
-    const BUILTIN_DEFAULT_WORLD_BOOK_EXCLUSIONS = new Set(['任务与委托系统']);
+    const BUILTIN_DEFAULT_WORLD_BOOK_EXCLUSIONS = new Set(['任务与委托系统', '任務と依頼システム']);
     const USER_DEFAULT_PROMPT_DOCUMENT_ID='user-default';
     const CORE_WORLD_RULES = `【世界引擎核心约束】
 1. 事実：当前变量と確認済みのストーリー > 明確な世界書 > モデルの常識；計画は事実ではなく、確認済みの差異を原著の常識で上書きしてはならない。
@@ -401,7 +401,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
                 .filter(([name,area])=>plain(area)&&area.类型!=='勢力'&&related(location,name))
                 .sort((a,b)=>String(b[0]).length-String(a[0]).length)[0];
         const areaName=String(areaPair?.[0]||''),area=areaPair?.[1]||{};
-        const relationByKey=new Map(Object.entries(stat?.关系リスト||{}).map(([name,record])=>[key(name),{名称:name,记录:record}]));
+        const relationByKey=new Map(Object.entries(stat?.関係リスト||{}).map(([name,record])=>[key(name),{名称:name,记录:record}]));
         const alienByKey=new Map(Object.entries(stat?.世界?.異端レーダー?.名簿||{}).map(([name,record])=>[key(name),record]));
         const playerKeys=new Set([playerName,'{{user}}','<user>','玩家'].filter(Boolean).map(key));
         const nearby=Object.entries(people)
@@ -783,7 +783,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
         return x===y||x.includes(y)||y.includes(x);
     }
     function personActivityMeta(stat,name,person) {
-        const relations=stat?.关系リスト||{},roster=((stat?.設定||{}).単一世界||(stat?.設定||{}).単一世界)?{}:(stat?.世界?.異端レーダー?.名簿||{});
+        const relations=stat?.関係リスト||{},roster=((stat?.設定||{}).単一世界||(stat?.設定||{}).単一世界)?{}:(stat?.世界?.異端レーダー?.名簿||{});
         const events=stat?.世界?.[PATH]?.事件||{},worldTime=String(stat?.世界?.時間||''),currentLocation=String(stat?.世界?.地点||'');
         const formalName=stableNameIn(relations,name),alienName=stableNameIn(roster,name),alien=alienName?roster[alienName]:null;
         const activeAlien=!!(alien&&alien.状態!=='死亡'),deadAlien=!!(alien&&alien.状態==='死亡');
@@ -874,7 +874,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
         const people=state.人物||(state.人物={});
         for(const item of required||[]){
             if(stableNameIn(people,item.名称))continue;
-            const relationName=stableNameIn(stat.关系リスト||{},item.雷达名称),relation=relationName?(stat.关系リスト||{})[relationName]:null;
+            const relationName=stableNameIn(stat.関係リスト||{},item.雷达名称),relation=relationName?(stat.関係リスト||{})[relationName]:null;
             const seed=normalizeBackendRecord('人物',{所属世界:stat.世界?.名称||'',地点:String(relation?.地点||''),目標:'',行动:'',公开动态:''});
             people[item.名称]=seed;
             patches.push({op:'add',path:pointer(['世界',PATH,'人物',item.名称]),value:copy(seed)});
@@ -900,7 +900,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
             const state=stat?.世界?.[PATH]||{};
             if(plain(state[p[2]]))pools.push(...Object.keys(state[p[2]]));
             if(p[2]==='人物'){
-                pools.push(...Object.keys(stat?.关系リスト||{}));
+                pools.push(...Object.keys(stat?.関係リスト||{}));
                 pools.push(...Object.keys(stat?.世界?.異端レーダー?.名簿||{}));
             }
             const key=nameKey(p[3]),matches=[...new Set(pools)].filter(name=>nameKey(name)===key);
@@ -962,7 +962,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
     }
     function normalizeBackendState(stat) {
         const state=stat?.世界?.[PATH]; if(!state)return stat;
-        // v3 → v4：旧「公開摘要」はそのまま因果轨道.現在段階の説明へ移行し、その後で重複する二つの引き継ぎフィールドを削除する。
+        // v3 → v4：旧「公開摘要」はそのまま因果軌道.現在段階の説明へ移行し、その後で重複する二つの引き継ぎフィールドを削除する。
         const legacySummary=String(state.公开摘要||'').trim();
         if(legacySummary){
             if(!plain(stat.世界.因果軌道))stat.世界.因果軌道={現在段階:'',ストーリーライン:'',次ノード:'',偏移記録:{}};
@@ -1061,8 +1061,8 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
     const MODEL_IGNORED_PATHS = [
         /^\/任务(?:\/|$)/,
         /^\/系统状态\/待播报记录$/,
-        /^\/世界\/后台\/(?:版本|已处理楼层|已处理时间|运行记录|最近变化)(?:\/|$)/,
-        /^\/世界\/后台\/剧本(?:\/|$)/
+        /^\/世界\/バックステージ\/(?:版本|已处理楼层|已处理时间|运行记录|最近变化)(?:\/|$)/,
+        /^\/世界\/バックステージ\/剧本(?:\/|$)/
     ];
     function sanitizeModelPatches(patches) {
         if(!Array.isArray(patches))return patches;
@@ -1074,7 +1074,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
         for(const raw of patches){
             if(!plain(raw)){out.push(raw);continue;}
             const patch=copy(raw);
-            if(typeof patch.path==='string')patch.path=patch.path.replace(/^\/世界\/因校轨道(?=\/|$)/,'/世界/因果轨道');
+            if(typeof patch.path==='string')patch.path=patch.path.replace(/^\/世界\/因果轨道(?=\/|$)/,'/世界/因果軌道');
             if(patch.path==='/世界/因果軌道'&&patch.op!=='remove'&&plain(patch.value)){
                 for(const key of ['現在段階','ストーリーライン','次ノード']){
                     if(Object.hasOwn(patch.value,key))out.push({op:'add',path:'/世界/因果軌道/'+key,value:copy(patch.value[key])});
@@ -1140,7 +1140,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
         if (a === '世界' && b === '異端レーダー') return parts.length === 5 && c === '名簿' && parts[4] === '状態' && !(stat.設定 || {}).単一世界;
         if (a === '噂' && ['街頭の噂','情報取引','布告と檄文'].includes(b)) return parts.length === 3;
         if (a === '资产') return parts.length === 2 && !!b;
-        // 変更を許可するのは変数AIが既に確立した NPC のみ；世界エンジンによる「关系列表」オブジェクトの新規作成は禁止。
+        // 変更を許可するのは変数AIが既に確立した NPC のみ；世界エンジンによる「関係リスト」オブジェクトの新規作成は禁止。
         if (a === '関係リスト') return parts.length === 3 && RELATION_SYNC_KEYS.has(c) && !!get(stat,[a,b]);
         if (a === '任務') return parts.length === 4 && ['リスト','インスタンス実績'].includes(b) && d === '状態' && !!get(stat,[a,b,c]);
         return false;
@@ -1998,9 +1998,9 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
         const auditNames=new Set(npcBuildAudit(stat).map(item=>nameKey(item.名称)));
         for(const item of result.关系||[]){
             if(item.操作==='撤销本轮')continue;
-            const target=stableNameIn(stat.关系リスト||{},item.名称);
+            const target=stableNameIn(stat.関係リスト||{},item.名称);
             if(!target){warnings.push('関係オブジェクトが存在しないため、世界エンジンによる新規作成は禁止：'+item.名称);continue;}
-            const npc=stat.关系リスト[target],fields=resultFields(item,RELATION_SYNC_FIELDS);
+            const npc=stat.関係リスト[target],fields=resultFields(item,RELATION_SYNC_FIELDS);
             if(!Object.keys(fields).length){warnings.push('空の関係更新を無視：'+target);continue;}
             for(const [field,value] of Object.entries(fields)){
                 if(RELATION_AUDIT_ONLY_FIELDS.has(field)&&!auditNames.has(nameKey(target))){
@@ -2052,7 +2052,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
         for (const [name,item] of Object.entries(stat.世界.勢力 || {})) if (!QUALITY_RANKS.includes(item.実力) || !range(item.声望,-5000,10000)) throw new Error('勢力の品質または声望が範囲外です：'+name+'、实力='+String(item.実力)+'、声望='+String(item.声望)+'；实力に使用できるのは '+QUALITY_RANKS.join('/')+'、声望の範囲は -5000~10000');
         for (const [name,item] of Object.entries(stat.世界.探索 || {})) if (!QUALITY_RANKS.includes(item.リスク) || !range(item.探索度,0,100)) throw new Error('探索の品質または進捗が範囲外です：'+name+'、风险='+String(item.リスク)+'、探索度='+String(item.探索度)+'；风险に使用できるのは '+QUALITY_RANKS.join('/')+'、探索度の範囲は 0~100');
         for (const item of Object.values((stat.世界.因果軌道 || {}).偏移記録 || {})) if (!range(item.影響度,-100,120)) throw new Error('因果偏移が範囲外です');
-        for (const item of Object.values(stat.关系リスト || {})) if (!range(item.好感度,-100,100)) throw new Error('人物の好感度が範囲外です');
+        for (const item of Object.values(stat.関係リスト || {})) if (!range(item.好感度,-100,100)) throw new Error('人物の好感度が範囲外です');
         for (const item of Object.values((stat.任務 || {}).リスト || {})) if (!['進行中','提出可能','決算可能','失败'].includes(item.状態)) throw new Error('任務状態が無効です');
         for (const item of Object.values((stat.任務 || {}).インスタンス実績 || {})) if (!['未達成','達成済み'].includes(item.状態)) throw new Error('実績状態が無効です');
         for (const category of ['街頭の噂','情報取引','布告と檄文']) {
@@ -2390,7 +2390,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
         return {名称:name,审计级别:level,階層:String(npc.階層||'Ⅰ'),当前组件:counts,缺口:gaps,建议字段:Array.from(suggest),当前构筑:projectCharacterForAudit(npc)};
     }
     function npcBuildAudit(stat,limit=NPC_BUILD_AUDIT_LIMIT) {
-        const relations=stat?.关系リスト||{},backend=stat?.世界?.[PATH]||{},people=backend.人物||{},events=backend.事件||{},roster=((stat?.設定||{}).単一世界||(stat?.設定||{}).単一世界)?{}:(stat?.世界?.異端レーダー?.名簿||{});
+        const relations=stat?.関係リスト||{},backend=stat?.世界?.[PATH]||{},people=backend.人物||{},events=backend.事件||{},roster=((stat?.設定||{}).単一世界||(stat?.設定||{}).単一世界)?{}:(stat?.世界?.異端レーダー?.名簿||{});
         const currentLocation=String(stat?.世界?.地点||''),worldTime=String(stat?.世界?.時間||'');
         const activeEventNames=new Set(Object.entries(events).filter(([,e])=>e&&['待发生','進行中'].includes(e.状態)&&['当前事件','近期节点'].includes(e.分类)).map(([eventName])=>eventName));
         const currentParticipants=new Set();
@@ -2692,6 +2692,44 @@ ${schemaText}`;
                 if (stat[CHARACTER_KEY_CANONICAL] === undefined || stat[CHARACTER_KEY_CANONICAL] === null) stat[CHARACTER_KEY_CANONICAL] = legacy;
                 return stat;
             }
+            /* F2_LEGACY_PATH_COMPAT: 旧セーブの簡体字 MVU キーを正規キーへ読み取り時に移行する。入力境界専用・冪等。 */
+            /* 半移行(接頭辞 JP + 葉 CN)のパスはどちらのスキーマでも解決しないため, 旧セーブだけでなく
+               移行期に書かれたデータもここで回収する。canonical が既にあれば常にそちらを優先する。 */
+var LEGACY_KEY_PREFERRED = {"关系リスト":true};
+            var LEGACY_KEY_RENAMES = {"传闻":"噂","布告与檄文":"布告と檄文","发布者":"発布者","张贴位置":"掲示位置","街头巷议":"街頭の噂","可信度":"信頼度","来源":"出典","情报交易":"情報取引","卖家":"売り手","情报评级":"情報評価","要价":"要求価格","摘要":"要約","真实内幕":"真の内幕","关系リスト":"関係リスト","背景故事":"背景","层级":"階層","当前形态":"現在形態","标签":"タグ","标签[]":"タグ[]","类型":"タイプ","描述":"説明","品质":"品質","效果":"効果","状态":"状態","消耗":"消費","身份":"身分","身份[]":"身分[]","是否队友":"仲間","态度":"態度","外貌":"外見","喜爱":"好み","形态库":"形態庫","力量":"筋力","体质":"体力","血统":"血統","在场":"登場","着装":"服装","职业":"職業","种族":"種族","装备":"装備","持续":"持続","最终属性":"最終属性","魔法减伤率":"魔法軽減率","物理减伤率":"物理軽減率","先攻DC":"先制DC","角色":"キャラ","空间币":"スペースコイン","权限凭证":"権限証憑","任务":"任務","副本成就":"インスタンス実績","奖励":"報酬","难度":"難易度","说明":"説明","击杀":"撃破","列表":"リスト","惩罚":"罰則","交付":"納品","目标":"目標","委托方":"依頼元","隐藏真相":"隠された真実","成员商库":"メンバー商品庫","道具列表":"道具リスト","道具列表[]":"道具リスト[]","价格":"価格","技能列表":"技能リスト","技能列表[]":"技能リスト[]","升级列表":"升級リスト","升级列表[]":"升級リスト[]","所属大类":"所属カテゴリ","替换目标":"置換対象","血统列表":"血統リスト","血统列表[]":"血統リスト[]","装备列表":"装備リスト","装备列表[]":"装備リスト[]","设置":"設定","单一世界":"単一世界","世界超稳":"世界超安定","法则":"法則","法则[]":"法則[]","后台":"バックステージ","货币":"通貨","购买力基准":"購買力基準","经济波动":"経済変動","历法":"暦法","闰年规则":"閏年規則","月份天数":"月日数","月份天数[]":"月日数[]","时间":"時間","势力":"勢力","领地":"領地","实力":"実力","风险":"リスク","稳定":"安定","异端雷达":"異端レーダー","当前模式":"現在モード","名单":"名簿","经历":"経歴","阵营":"陣営","因果轨道":"因果軌道","当前阶段":"現在段階","故事线":"ストーリーライン","偏移记录":"偏移記録","引发者":"誘発者","影响程度":"影響度","下一节点":"次ノード","系统状态":"システム状態","待播报记录":"配信待ち記録","当前轮次":"現在ラウンド","上次世界日期":"前回世界日付","试炼任务名单":"試練任務名簿","试炼任务名单[]":"試練任務名簿[]","试炼已完成":"試練完了","是否可试炼":"試練可能","是否试炼任务":"試練任務中","是否在主神空间":"主神空間滞在中","是否战斗中":"戦闘中","游玩天数":"プレイ日数","待办事件":"待機イベント","待办事件[]":"待機イベント[]","建设序列":"建設シーケンス","产出":"産出","功能":"機能","阶段":"段階","下次产出日期":"次回産出日","下次产出游天":"次回産出游日","能源":"エネルギー","当前":"現在","所属对象":"所属対象","所属对象[]":"所属対象[]","完整度":"完全度","消耗单元":"消耗ユニット","余量":"残量","主体规模":"主体規模","驻扎人员":"駐留人員","关系列表":"関係リスト"};
+                                                                        function normalizeLegacyWorldKeys(stat) {
+                if (!stat || typeof stat !== 'object') return stat;
+                var seen = new Set();
+                (function walk(node) {
+                    if (!node || typeof node !== 'object' || seen.has(node)) return;
+                    seen.add(node);
+                    if (Array.isArray(node)) { for (var i = 0; i < node.length; i++) walk(node[i]); return; }
+                    /* Two legacy spellings can target the SAME canonical key, so the pass runs in
+                       two phases: preferred sources first, then the rest.  A source only fills the
+                       canonical slot if neither a real canonical value nor a preferred source
+                       already claimed it.  Both legacy keys are always removed. */
+                    var preexisting = {};
+                    var claimed = {};
+                    var keys = Object.keys(node);
+                    for (var p = 0; p < keys.length; p++) preexisting[keys[p]] = true;
+                    var phases = [LEGACY_KEY_PREFERRED, null];
+                    for (var ph = 0; ph < phases.length; ph++) {
+                        for (var k = 0; k < keys.length; k++) {
+                            var from = keys[k];
+                            var to = LEGACY_KEY_RENAMES[from];
+                            if (!to || to === from) continue;
+                            var preferred = Object.prototype.hasOwnProperty.call(LEGACY_KEY_PREFERRED, from);
+                            if (ph === 0 ? !preferred : preferred) continue;
+                            if (!Object.prototype.hasOwnProperty.call(node, from)) continue;
+                            if (!preexisting[to] && !claimed[to]) { node[to] = node[from]; claimed[to] = true; }
+                            delete node[from];
+                        }
+                    }
+                    var next = Object.keys(node);
+                    for (var j = 0; j < next.length; j++) walk(node[next[j]]);
+                })(stat);
+                return stat;
+            }
             /* BATCH_B_AUDIT_TIER_COMPAT: 旧セーブの 审计级别 を正規値へ読み取り時に移行する。入力境界専用・冪等。 */
             var AUDIT_TIER_CANONICAL = 'エリート級';
             var AUDIT_TIER_LEGACY = '精英级';
@@ -2703,8 +2741,8 @@ ${schemaText}`;
                 return record;
             }
             const raw = mvu.getMvuData({type:'message',message_id:Number(id)});
-            if (raw && raw.stat_data) normalizeLegacyCharacterKey(raw.stat_data);
-            if (raw && raw.stat_data && raw.stat_data.世界) { const _bt = raw.stat_data.世界.后台; if (_bt && _bt.人物) for (const _k of Object.keys(_bt.人物)) normalizeLegacyAuditTier(_bt.人物[_k]); }
+            if (raw && raw.stat_data) { normalizeLegacyCharacterKey(raw.stat_data); normalizeLegacyWorldKeys(raw.stat_data); }
+            if (raw && raw.stat_data && raw.stat_data.世界) { const _bt = raw.stat_data.世界.バックステージ; if (_bt && _bt.人物) for (const _k of Object.keys(_bt.人物)) normalizeLegacyAuditTier(_bt.人物[_k]); }
             if (!raw || !raw.stat_data || !raw.stat_data.世界) throw new Error('現在のフロアはまだ MVUが初期化されていません');
             const context = this.host.SillyTavern && this.host.SillyTavern.getContext ? this.host.SillyTavern.getContext() : {};
             const chatFn = this.fn('getCurrentChatId');
@@ -3096,7 +3134,6 @@ ${schemaText}`;
             structuralFixes.push(...repairCausalProjection(state));
             structuralFixes.push(...repairMacroPredecessors(state));
             structuralFixes.push(...repairExplicitEventLinks(state));
-            if(state.設定)delete state.設定.API;
             if(state.設定?.世界超安定===true)state.世界.安定=100;
             delete state.商城;
             const count=Math.max(1,Math.min(100,Number(this.config.contextTurns)||6));
@@ -4196,7 +4233,7 @@ ${schemaText}`;
                 if(anchor&&selected)this.monthOffset=(selected.y-anchor.y)*monthsPerYear+selected.m-anchor.m;
             }
             const dateLabel=str=>{const d=parseDate(str);return d?d.m+'月'+d.d+'日':str||'時間未補完';};
-            // 安定段階と防御強度は ⚙️世界因果与法则协议 から取得；ここでは現在の段階のみを表示する。
+            // 安定段階と防御強度は ⚙️世界因果と法則プロトコル から取得；ここでは現在の段階のみを表示する。
             const stabilityStages=[
                 {min:111,max:120,title:'黄金の祝福 | 安定強化',effects:['世界は外来干渉をほぼ消化し、原生の因果は高強度で収束している','輪廻者への能動的な掃討圧力はないが、外来の力は完全な原生法則に拘束される']},
                 {min:101,max:110,title:'世界の加護 | 安定強化',effects:['因果構造は原初の基準を上回り、秩序と資源の循環は健全化しつつある','世界による輪廻者への能動的な拒絶反応は非常に低い']},
@@ -4738,7 +4775,7 @@ ${schemaText}`;
         }
         isNpcBuildAuditEnabled() { return this.config.npcBuildAuditEnabled===true; }
         isNpcAuditWorldbook(entry) {
-            return ['实体生成规则','NPC生成规则','状态协议'].includes(normalizeWorldbookEntryTitle(entry.title));
+            return ['実体生成規則','实体生成规则','NPC生成規則','NPC生成规则','状態プロトコル','状态协议'].includes(normalizeWorldbookEntryTitle(entry.title));
         }
         syncNpcAuditWorldbookSelection(catalogue=this.bookCatalogue||[]) {
             const matches=catalogue.filter(entry=>this.isNpcAuditWorldbook(entry));
@@ -4853,7 +4890,7 @@ ${schemaText}`;
                 const block=this.host.document.createElement('section');
                 block.className='we-section';block.setAttribute('data-npc-audit-setting','');
                 block.innerHTML='<div class="we-section-head"><h2>NPC構築監査 <span class="we-pill future">実験的機能</span></h2><small>オプション機能 · 既定はオフ</small></div>'
-                    +'<div class="we-setting-row"><div class="we-setting-copy"><b>ホット NPC の構築を自動補完</b><small>オフのときは職業・血統・装備・スキル・形態を走査・補写しません；関係は実際のシナリオに従って通常どおり疎に同期されます。オンにした場合のみ、ホット NPC に対して構築ギャップ監査を実行します。实体生成规则・NPC生成规则・状态协议の資料チェックはこのスイッチに同期します。</small></div>'
+                    +'<div class="we-setting-row"><div class="we-setting-copy"><b>ホット NPC の構築を自動補完</b><small>オフのときは職業・血統・装備・スキル・形態を走査・補写しません；関係は実際のシナリオに従って通常どおり疎に同期されます。オンにした場合のみ、ホット NPC に対して構築ギャップ監査を実行します。実体生成規則・NPC生成規則・状態プロトコルの資料チェックはこのスイッチに同期します。</small></div>'
                     +'<div class="we-setting-actions"><button class="we-setting-btn we-switch '+(enabled?'on':'')+'" data-action="npc-audit-toggle" aria-pressed="'+enabled+'"><span>'+(enabled?'有効':'無効')+'</span><span class="we-switch-track"><i></i></span></button></div></div>';
                 const sections=Array.from(main.children),modelSection=sections.find(section=>section.querySelector?.('h2')?.textContent?.trim()==='模型接口');
                 main.insertBefore(block,modelSection||null);
@@ -5058,7 +5095,7 @@ ${schemaText}`;
     const TASK_AWARENESS_RULES=`【任务感知 · 只读】
 任务列表是世界因果来源之一。世界推进不得创建、删除或修改任务，也不得推进任务状态、交付、结算或奖励；任务影响只通过事件、人物行动、势力地区、探索与传播表现。事件可用“关联任务”引用当前任務.リスト中已存在的任務名，作为因果出典；禁止引用不存在的任务。
 情报交易由世界引擎生成或刷新；购买、扣款、消费性删除及购买后创建任务由MVU/变量AI处理，世界引擎下一轮只读接续。副本成就、击杀、奖励与惩罚不进入世界推进上下文。`;
-    const TASK_WORLD_BOOK_TITLE='任务与委托系统';
+    const TASK_WORLD_BOOK_TITLE='任務と依頼システム';
     // 旧版では正式な任務ルールを組み込み既定資料から除外していた；現在は読み取り可能な権威ルールとして復元する。
     BUILTIN_DEFAULT_WORLD_BOOK_EXCLUSIONS.delete(TASK_WORLD_BOOK_TITLE);
 
@@ -6256,7 +6293,7 @@ ${schemaText}`;
         const compiled=compileWorldResultBeforeWorldTimeOwnership(stat,result);
         if(proposal){
             const old=stat?.世界?.時間;
-            if(String(old??'')!==proposal)compiled.patches.unshift({op:old===undefined?'add':'replace',path:'/世界/时间',value:proposal});
+            if(String(old??'')!==proposal)compiled.patches.unshift({op:old===undefined?'add':'replace',path:'/世界/時間',value:proposal});
             compiled.result.时间=proposal;
         }
         return compiled;
