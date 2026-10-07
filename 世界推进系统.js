@@ -426,7 +426,27 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
                 };
             })
             .slice(0,8);
-        const objectList=(value,limit=8)=>Array.isArray(value)?value.filter(plain).slice(0,limit).map(copy):[];
+        /* D5_ENGINE_RECORD_KEY_COMPAT: 世界エンジン自身の記録モデル(世界.バックステージ.人物/勢力地区)は
+           簡体字のフィールド名(类型/身份)を使う。F5B の走査除外により LEGACY_KEY_RENAMES はこの部分木を
+           通らないため、読み取り境界で日本語綴り(タイプ/身分)へ寄せる。入力境界専用・冪等: 旧綴りが無ければ
+           即 return し、両方あるときは日本語綴りを優先する。 */
+        const RECORD_KEY_RENAMES={类型:'タイプ',身份:'身分'};
+        function normalizeLegacyRecordKeys(record){
+            if(!plain(record))return record;
+            var present=false;
+            var keys=Object.keys(RECORD_KEY_RENAMES);
+            for(var i=0;i<keys.length;i++){if(Object.prototype.hasOwnProperty.call(record,keys[i])){present=true;break;}}
+            if(!present)return record;
+            for(var k=0;k<keys.length;k++){
+                var legacy=keys[k];
+                if(!Object.prototype.hasOwnProperty.call(record,legacy))continue;
+                var canonical=RECORD_KEY_RENAMES[legacy],value=record[legacy];
+                delete record[legacy];
+                if(record[canonical]===undefined||record[canonical]===null)record[canonical]=value;
+            }
+            return record;
+        }
+        const objectList=(value,limit=8)=>Array.isArray(value)?value.filter(plain).slice(0,limit).map(item=>normalizeLegacyRecordKeys(copy(item))):[];
         return {
             地区:areaName,
             地区动态:String(area.公开动态||area.进展||''),
@@ -4293,7 +4313,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             };
             const contextRows=context=>{
                 const rows=[];
-                for(const link of context?.背景关联||[])rows.push('<div class="we-context-row"><span class="we-context-kind">'+text(link.类型||'関連')+'</span><span class="we-context-copy"><b>'+text(link.名称||'名称未設定の関連')+'</b><small>'+text(link.关系||'継続的な関連')+'</small></span></div>');
+                for(const link of context?.背景关联||[])rows.push('<div class="we-context-row"><span class="we-context-kind">'+text(link.タイプ||'関連')+'</span><span class="we-context-copy"><b>'+text(link.名称||'名称未設定の関連')+'</b><small>'+text(link.关系||'継続的な関連')+'</small></span></div>');
                 for(const eventName of context?.关联事件||[])rows.push('<button class="we-context-row" data-jump-event="'+text(eventName)+'"><span class="we-context-kind">事件</span><span class="we-context-copy"><b>'+text(eventName)+'</b><small>関連する世界イベントを表示 →</small></span></button>');
                 return rows.length?'<div class="we-context-list">'+rows.join('')+'</div>':empty('背景関連なし','世界エンジンは継続的な組織/社交関係とイベント関連のみを記録し、人物の背景設定は重複して扱いません。');
             };
