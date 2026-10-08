@@ -3475,7 +3475,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 this.render(); this.schedule();
             });
             const events = this.env.tavern_events || this.host.tavern_events || {};
-            for (const key of ['CHAT_CHANGED','MESSAGE_SWIPED','MESSAGE_DELETED']) bind(events[key], () => { this.cancel(); this.resetInspection(); this.status = '已切换上下文'; this.render(); });
+            for (const key of ['CHAT_CHANGED','MESSAGE_SWIPED','MESSAGE_DELETED']) bind(events[key], () => { this.cancel(); this.resetInspection(); this.status = 'コンテキスト切替済み'; this.render(); });
             this.keyHandler = event => { if (event.key === 'Escape' && this.isOpen()) { event.stopImmediatePropagation(); this.close(); } };
             this.host.document.addEventListener('keydown',this.keyHandler,true);
         }
@@ -4238,15 +4238,39 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             runButton.textContent=this.busy?(this.committing?'保存中…':stopping?'停止中…':'進行を停止'):'世界を進行';
             runButton.setAttribute('aria-label',runButton.textContent);
 
-            const tabs=[['世界推进','◈'],['角色管理','♙'],['探索と勢力','⌖'],['世界事件','▤'],['资产','▣'],['噂','◎'],['プロンプトプリセット','✎'],['リクエスト検査','⌕'],['运行记录','≋','歴史記憶'],['設定','⚙']];
-            this.panel.querySelector('nav').innerHTML='<div class="we-navtitle">世界档案</div>'+tabs.map(([t,i,label])=>'<button data-tab="'+t+'" aria-selected="'+(this.tab===t)+'"><span class="we-tab-icon" aria-hidden="true">'+i+'</span>'+(label||t)+'</button>').join('');
+
+            /* ---------------------------------------------------------------------------
+               表示ラベル正規化。入力は旧中国語ラベルと新日本語ラベルの両方を受け付け、表示は常に
+               日本語にする (旧チャット・旧セーブ・モデルの癖のいずれでも中国語を出さない)。
+               ここに載るのは「表示専用」の文字列だけである:
+                 * タブ id / ディレクトリ id / フィルタ値 / エンジンの列挙値は data-* と === 比較に
+                   使われる KEY であり、この表では一切書き換えない (描画ラベルだけを写す);
+                 * fields()/details() のオブジェクトリテラルキーは text(k) にしか使われない。
+               16.html の DISPLAY_LABELS と同じ設計である。
+               --------------------------------------------------------------------------- */
+            const DISPLAY_LABELS={
+                '世界推进':'世界推進','角色管理':'キャラクター管理','因果档案':'因果記録',
+                '资产':'資産','运行记录':'歴史記憶','世界档案':'世界記録','热点':'ホットスポット',
+                '当前事件':'現在のイベント','近期节点':'直近ノード','宏观节点':'マクロノード',
+                '待发生':'未発生','场外':'場外','无主':'無主','共同持有':'共同保有',
+                '分类':'分類','档案类型':'記録種別','事件描述':'イベント説明','前因':'前因',
+                '参与者':'参加者','预计结束':'終了予定','下次检查':'次回確認','可见影响':'可視影響',
+                '默认走向':'既定の展開','更新时间':'更新時刻','公开动态':'公開動向',
+                '开始时间':'開始時刻','时间':'時刻','范围':'範囲','受众':'対象','资源':'資源',
+                '认知':'認知','认知来源':'認知の出典','登场条件':'登場条件','关联事件':'関連イベント',
+                '引发行动':'誘発行動','控制方':'支配側','争夺方':'争奪側','接口':'インターフェース',
+                '模型':'モデル'
+            };
+            const displayLabel=v=>{const s=v==null?'':String(v);return Object.prototype.hasOwnProperty.call(DISPLAY_LABELS,s)?DISPLAY_LABELS[s]:s;};
+            const tabs=[['世界推进','◈','世界推進'],['角色管理','♙','キャラクター管理'],['探索と勢力','⌖'],['世界事件','▤'],['资产','▣','資産'],['噂','◎'],['プロンプトプリセット','✎'],['リクエスト検査','⌕'],['运行记录','≋','歴史記憶'],['設定','⚙']];
+            this.panel.querySelector('nav').innerHTML='<div class="we-navtitle">'+displayLabel('世界档案')+'</div>'+tabs.map(([t,i,label])=>'<button data-tab="'+t+'" aria-selected="'+(this.tab===t)+'"><span class="we-tab-icon" aria-hidden="true">'+i+'</span>'+(label||t)+'</button>').join('');
             if(this.tab==='プロンプトプリセット'&&main.querySelector('textarea')&&!force)return;
             const text=v=>escape(v==null?'':v);
             const exists=v=>v!==''&&v!=null&&(!Array.isArray(v)||v.length)&&(!plain(v)||Object.keys(v).length);
-            const pill=(v,kind='')=>'<span class="we-pill '+kind+'">'+text(v)+'</span>';
+            const pill=(v,kind='')=>'<span class="we-pill '+kind+'">'+text(displayLabel(v))+'</span>';
             const empty=(title,desc='初回の推演後、根拠のある世界記録がここに表示されます。')=>'<div class="we-empty"><b>'+text(title)+'</b>'+text(desc)+'</div>';
-            const value=v=>Array.isArray(v)?(v.every(x=>!plain(x))?'<div class="we-chips">'+v.map(x=>pill(x,'dim')).join('')+'</div>':v.map(x=>'<div class="we-card">'+fields(x)+'</div>').join('')):plain(v)?fields(v):text(v);
-            const fields=obj=>'<dl>'+Object.entries(obj||{}).filter(([,v])=>exists(v)).map(([k,v])=>'<dt>'+text(k)+'</dt><dd>'+value(v)+'</dd>').join('')+'</dl>';
+            const value=v=>Array.isArray(v)?(v.every(x=>!plain(x))?'<div class="we-chips">'+v.map(x=>pill(x,'dim')).join('')+'</div>':v.map(x=>'<div class="we-card">'+fields(x)+'</div>').join('')):plain(v)?fields(v):text(displayLabel(v));
+            const fields=obj=>'<dl>'+Object.entries(obj||{}).filter(([,v])=>exists(v)).map(([k,v])=>'<dt>'+text(displayLabel(k))+'</dt><dd>'+value(v)+'</dd>').join('')+'</dl>';
             const details=(id,obj,title='完全な記録を表示')=>Object.values(obj).some(exists)?'<details data-detail="'+text(id)+'"'+(opened.has(id)?' open':'')+'><summary>'+text(title)+'</summary>'+fields(obj)+'</details>':'';
             const section=(title,body,hint='')=>'<section class="we-section"><div class="we-section-head"><h2>'+text(title)+'</h2><small>'+text(hint)+'</small></div>'+body+'</section>';
             const entries=obj=>Object.entries(obj||{});
@@ -4368,7 +4392,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             };
             const matched=(name,obj)=>!this.query||(name+' '+Object.values(obj).filter(v=>typeof v==='string').join(' ')).toLowerCase().includes(this.query.toLowerCase());
             const calendarCandidates=events.filter(([n,e])=>matched(n,e)&&((this.filter||'全部')==='全部'||e.状態===this.filter));
-            const tools=(filters=[])=>'<div class="we-tools"><input data-search aria-label="記録を検索" placeholder="名称・地点・内容を検索…" value="'+text(this.query||'')+'">'+filters.map(f=>'<button data-filter="'+f+'" class="'+((this.filter||'全部')===f?'active':'')+'">'+f+'</button>').join('')+'</div>';
+            const tools=(filters=[])=>'<div class="we-tools"><input data-search aria-label="記録を検索" placeholder="名称・地点・内容を検索…" value="'+text(this.query||'')+'">'+filters.map(f=>'<button data-filter="'+f+'" class="'+((this.filter||'全部')===f?'active':'')+'">'+text(displayLabel(f))+'</button>').join('')+'</div>';
             const calendar=()=>{
                 const today=parseDate(w.時間);
                 if(!today){const semantic=events.filter(([,e])=>!parseDate(e.时间||e.开始时间)&&String(e.时间||e.开始时间||'').trim()).slice(0,12);return '<div class="we-calendar"><h3>作品内タイムライン</h3><p class="we-muted">現在のアンカー · '+text(w.時間||'インスタンス時間なし')+'</p>'+(semantic.length?'<div class="we-timeline">'+semantic.map(([n,e])=>'<p><b>'+text(e.时间||e.开始时间)+'</b><br>'+text(n)+'</p>').join('')+'</div>':'<p class="we-muted">作品内の時間表記を持つイベントはありません</p>')+'</div>';}
@@ -4458,7 +4482,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 const auditPanel=chosenAudit?section('NPC構築監査',
                     '<div class="we-card"><div class="we-card-top"><h3>'+text(chosenAudit.監査級)+'</h3>'+pill(chosenAudit.缺口.length?'待補強':'構築完了',chosenAudit.缺口.length?'future':'dim')+'</div>'
                     +fields({階層:chosenAudit.階層,現在のコンポーネント:chosenAudit.現在のコンポーネント})
-                    +(chosenAudit.缺口.length?'<div class="we-chips">'+chosenAudit.缺口.map(x=>pill(x,'future')).join('')+'</div><p class="we-muted">进入世界推进请求的热人物会由后台优先补齐缺口；難易度スクリプトは既存コンポーネントの品質調整のみを担当します。</p>':'<p class="we-muted">現在の構築はこの階層の監査最低要件を満たしています。</p>')+'</div>',
+                    +(chosenAudit.缺口.length?'<div class="we-chips">'+chosenAudit.缺口.map(x=>pill(x,'future')).join('')+'</div><p class="we-muted">世界進行リクエストのホット人物はバックグラウンドで缺口を優先補完します；難易度スクリプトは既存コンポーネントの品質調整のみを担当します。</p>':'<p class="we-muted">現在の構築はこの階層の監査最低要件を満たしています。</p>')+'</div>',
                     '正式な関係人物のみ · NPC生成ルールを再利用'
                 ):'';
                 const backgroundPanel=chosen?section('背景関連',contextRows(chosenContext),(chosenContext?.背景关联?.length||0)+' 関係 · '+(chosenContext?.关联事件?.length||0)+' イベント'):'';
@@ -4472,7 +4496,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                     const status=present?'登場':p.状態||'场外';
                     const source=meta.正式?'正式記録':meta.异端?'異端 · 世界の人物':'世界の人物';
                     const summary=p.行动||p.公开动态||rel.態度||'次の世界推演を待機中';
-                    return '<button class="we-roster-person '+(chosen?.[0]===n?'active':'')+'" data-person="'+text(n)+'"><span class="we-roster-copy"><b>'+text(n)+'</b><small>⌖ '+text(p.地点||'地点不明')+' · '+text(status)+'</small><em>'+text(summary)+'</em></span>'+pill(source,meta.异端?'future':'dim')+'</button>';
+                    return '<button class="we-roster-person '+(chosen?.[0]===n?'active':'')+'" data-person="'+text(n)+'"><span class="we-roster-copy"><b>'+text(n)+'</b><small>⌖ '+text(p.地点||'地点不明')+' · '+text(displayLabel(status))+'</small><em>'+text(summary)+'</em></span>'+pill(source,meta.异端?'future':'dim')+'</button>';
                 }).join('')+'</div>':empty('条件に一致する人物がいません','フィルターを調整するか、世界の人物が活動範囲に入るのを待ってください。');
                 html+=tools(['全部','登場','场外'])+'<div class="we-columns"><div>'
                     +section('人物名簿',roster,'正式 '+formalCount+' · 世界の人物 '+worldCount)
@@ -4508,7 +4532,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 const chosenFaction=factionList.find(([n])=>n===this.selectedFaction)||factionList[0];
 
                 html+='<div class="we-notice">ここに表示されるのは決算台帳であり、地図データベースではありません： <b>世界.探索</b> 内の全体的なランドマークだけが探索報酬の対象です；バックステージにまだ投影されていない地区は探索名簿に現れません。勢力の声望も、勢力からプレイヤーへの実際の関係決算のみを記録します。</div>';
-                html+='<div class="we-tools">'+['探索','热点','勢力'].map(t=>'<button data-directory="'+t+'" class="'+(dir===t?'active':'')+'">'+t+'</button>').join('')+'</div>';
+                html+='<div class="we-tools">'+['探索','热点','勢力'].map(t=>'<button data-directory="'+t+'" class="'+(dir===t?'active':'')+'">'+text(displayLabel(t))+'</button>').join('')+'</div>';
 
                 if(dir==='探索'){
                     const cards=exploration.map(([n,r])=>{
@@ -6970,7 +6994,7 @@ Schema、不正な状態、因果参照、明確な日付の衝突はハード�
         const world=stat?.世界||{},offsets=causalOffsetEntries(stat),latest=offsets.slice(0,CAUSAL_OVERVIEW_LIMIT);
         const stable=world.安定!==null&&world.安定!==''&&Number.isFinite(Number(world.安定))?Number(world.安定):null;
         const rows=latest.map(([name,record])=>'<button class="we-causal-jump" data-tab="因果档案"><span><b>'+causalOverviewEscape(name)+'</b><small>'+causalOverviewEscape(record?.引发者||'引發者未記録')+'</small></span><strong>'+causalOverviewEscape(causalImpactLabel(record?.影响程度))+'</strong><p>'+causalOverviewEscape(record?.描述||'偏移の説明はまだありません')+'</p></button>').join('');
-        return '<div class="we-causal-summary"><button class="we-stability-compact" data-tab="因果档案"><span><small>世界安定値</small><strong>'+causalOverviewEscape(stable===null?'未記録':stable)+'</strong></span><em>因果档案を開く →</em></button>'
+        return '<div class="we-causal-summary"><button class="we-stability-compact" data-tab="因果档案"><span><small>世界安定値</small><strong>'+causalOverviewEscape(stable===null?'未記録':stable)+'</strong></span><em>因果記録を開く →</em></button>'
             +(rows?'<div class="we-causal-latest">'+rows+'</div>':'<div class="we-empty"><b>因果偏移はまだありません</b><small>重大かつ確認済みの因果変化がここに記録されます。</small></div>')
             +'<button class="we-link-btn" data-tab="因果档案">全 '+offsets.length+' 件の偏移・ストーリーラインと世界法則を見る →</button></div>';
     }
@@ -7006,7 +7030,7 @@ Schema、不正な状態、因果参照、明確な日付の衝突はハード�
             const nav=this.panel?.querySelector?.('nav');if(!nav)return;
             let button=nav.querySelector('[data-tab="因果档案"]');
             if(!button){
-                button=this.host.document.createElement('button');button.dataset.tab='因果档案';button.innerHTML='<span class="we-tab-icon" aria-hidden="true">◇</span>因果档案';
+                button=this.host.document.createElement('button');button.dataset.tab='因果档案';button.innerHTML='<span class="we-tab-icon" aria-hidden="true">◇</span>因果記録';
                 const worldButton=nav.querySelector('[data-tab="世界推进"]');
                 if(worldButton)worldButton.insertAdjacentElement('afterend',button);else nav.appendChild(button);
             }

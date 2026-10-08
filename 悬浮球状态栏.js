@@ -1775,6 +1775,23 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         }
         `;
     }
+
+    /* ---------------------------------------------------------------------------
+       表示ラベル正規化。入力は旧中国語ラベルと新日本語ラベルの両方を受け付け、表示は常に日本語に
+       する (旧チャット・旧セーブ・モデルの癖のいずれでも中国語を出さない)。
+       ここに載るのは「表示専用」の文字列だけである。MVU のキー (キャラ.最終属性.力量修正 など) は
+       ZOD が宣言する保存キーであり、この表では一切書き換えない — 描画ラベルだけを写す。
+       日本語形はカード自身の語彙に合わせた: 基礎属性 / 派生属性 (worldbook で各14回・9回使用)、
+       力量→筋力・体质→体力 (LEGACY_KEY_RENAMES と同じ対応)、補正値 (✨ 補正値 セクション見出し)。
+       --------------------------------------------------------------------------- */
+    var DISPLAY_LABELS = {
+        '力量修正': '筋力補正', '敏捷修正': '敏捷補正', '体质修正': '体力補正',
+        '精神修正': '精神補正', '魅力修正': '魅力補正'
+    };
+    function displayLabel(v) {
+        var s = (v == null ? '' : String(v));
+        return Object.prototype.hasOwnProperty.call(DISPLAY_LABELS, s) ? DISPLAY_LABELS[s] : s;
+    }
     function initSamsaraCSS() {
         var old = document.getElementById('samsara-theme-style');
         if (old) old.remove();
@@ -5197,13 +5214,13 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         baseHtml += '</div>';
         // 階層プログレスバー: 現在階層(キャラ.階層,読み取り専用) → 次階層; 中央に基础属性の合計ポイントと進捗を表示
         html += renderTierProgressBar(p, fa, sd.システム状態 || {});
-        html += secBlock('💪 基础属性', baseHtml);
+        html += secBlock('💪 基礎属性', baseHtml);
         // 2.補正値(6項目)
         var modHtml = '<div class="sam-grid-2">';
         ['力量修正','敏捷修正','体质修正','精神修正','魅力修正'].forEach(function(an) {
             var v = safeNum(fa[an], 0);
             var path = 'キャラ.最終属性.'+an;
-            modHtml += '<div class="sam-row"><span class="k">'+esc(an)+'</span><span class="v">'+(editMode && !isReadonlyPath(path) ? editInput(path, v, 'number') : '<span class="sam-edit-readonly">'+v+'</span>')+'</span></div>';
+            modHtml += '<div class="sam-row"><span class="k">'+esc(displayLabel(an))+'</span><span class="v">'+(editMode && !isReadonlyPath(path) ? editInput(path, v, 'number') : '<span class="sam-edit-readonly">'+v+'</span>')+'</span></div>';
         });
         modHtml += '</div>';
         html += secBlock('✨ 補正値', modHtml);
@@ -5245,7 +5262,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             + '<div>各階位の最大防御基準（DEF/MDEF が対応値に達すると軽減率が最大）：</div>'
             + '<div style="color:var(--sam-text);margin-top:2px;letter-spacing:0.3px;">Ⅰ:70　Ⅱ:200　Ⅲ:480　Ⅳ:1280　Ⅴ:3300　Ⅵ:9200　Ⅶ:24000　Ⅷ:70000　Ⅸ:150000</div>'
             + '</div>';
-        html += secBlock('⚡ 衍生属性', derHtml);
+        html += secBlock('⚡ 派生属性', derHtml);
         // 注: "現在形態"欄は削除済み — トップのアバター横に形態名を表示し, アビリティパネルの発動ボタンで一元管理する
         return html;
     }
@@ -5969,7 +5986,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         var integCls = assetIntegClass(integ);
         var integW = Math.max(0, Math.min(100, integ));
         var owners = normalizeAssetOwnersUi(a.所属対象);
-        var ownerHead = owners.length === 0 ? '无主' : (owners.length === 1 ? displayPlayerIdentity(owners[0]) : '共同管理 ' + owners.length);
+        var ownerHead = owners.length === 0 ? '無主' : (owners.length === 1 ? displayPlayerIdentity(owners[0]) : '共同管理 ' + owners.length);
 
         // ヘッダー: アイコン + 名前 + タイプバッジ + 完全度 + (編集モード)削除ボタン
         var assetDelBtn = editMode ? '<button type="button" class="sam-fc-del-btn sam-asset-del" data-asset-del="' + esc(path) + '" title="この資産を削除">✕</button>' : '';
@@ -6696,7 +6713,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             html += '<div class="sam-nd-sec-lbl">📊 最終属性</div>';
             if (attrKeys.length) {
                 html += '<div class="sam-nd-attrs">';
-                attrKeys.forEach(function(k){ html += '<div class="sam-nd-attr"><span class="k">'+esc(k)+'</span><span class="v">'+safeNum(attrs[k],0)+'</span></div>'; });
+                attrKeys.forEach(function(k){ html += '<div class="sam-nd-attr"><span class="k">'+esc(displayLabel(k))+'</span><span class="v">'+safeNum(attrs[k],0)+'</span></div>'; });
                 html += '</div>';
             }
             if (wpnKeys.length) {
