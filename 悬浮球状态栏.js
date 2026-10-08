@@ -1986,16 +1986,16 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
     /* 血統融合の規則ライブラリ: 同級 / 高低級 の2系統の結果式、融合ポッドの規則パネル表示 + フロントの確率アルゴリズムに使用 */
     var BLOOD_FUSION_RULES = {
         same: [ // 同級血統の融合
-            { name:'完美升阶', weight:20, cls:'r-good', list:['品質+1階','五維を目標品質の正常域まで補完','A/B 双方の優良詞条を融合','双方の血統が形態傾向を持つ場合、融合形態を1つ生成可能、形態の階層と属性は独立に判定'] },
-            { name:'瑕疵升阶', weight:35, cls:'r-mid', list:['品質+1階','五維を目標品質の最低域まで補完','A/B 双方の通常詞条を融合','高リスクの負面コスト詞条を1条付加'] },
-            { name:'变异觉醒', weight:30, cls:'r-mid', list:['品質不変','属性変化は融合度に依存','双方の全詞条を消去','変異詞条をランダム生成','融合結果に応じて新形態の覚醒を判定、形態の階層と属性は独立に判定'] },
-            { name:'基因崩溃', weight:15, cls:'r-bad', list:['A は原状維持','B は永久消耗','収益は発生しない'] }
+            { name:'完全昇階', weight:20, cls:'r-good', list:['品質+1階','五維を目標品質の正常域まで補完','A/B 双方の優良詞条を融合','双方の血統が形態傾向を持つ場合、融合形態を1つ生成可能、形態の階層と属性は独立に判定'] },
+            { name:'瑕疵昇階', weight:35, cls:'r-mid', list:['品質+1階','五維を目標品質の最低域まで補完','A/B 双方の通常詞条を融合','高リスクの負面コスト詞条を1条付加'] },
+            { name:'変異覚醒', weight:30, cls:'r-mid', list:['品質不変','属性変化は融合度に依存','双方の全詞条を消去','変異詞条をランダム生成','融合結果に応じて新形態の覚醒を判定、形態の階層と属性は独立に判定'] },
+            { name:'遺伝子崩壊', weight:15, cls:'r-bad', list:['A は原状維持','B は永久消耗','収益は発生しない'] }
         ],
         diff: [ // 高低級
-            { name:'稳定强化', weight:35, cls:'r-good', list:['品質不変','五維に B の 20% を加算','B の適合パッシブを1条融合','A/B 血統に形態が存在する場合、融合結果に応じて継承・改造を決定、形態の階層と属性は独立に判定'] },
-            { name:'词条变异', weight:35, cls:'r-mid', list:['品質不変','属性は A のまま不変','詞条能力を再構築'] },
-            { name:'基因排斥', weight:20, cls:'r-bad', list:['品質不変','属性は A のまま不変','負面の遺伝子不純物詞条を生成'] },
-            { name:'崩坏消散', weight:10, cls:'r-bad', list:['A は原状維持','B は永久消耗','収益は発生しない'] }
+            { name:'安定強化', weight:35, cls:'r-good', list:['品質不変','五維に B の 20% を加算','B の適合パッシブを1条融合','A/B 血統に形態が存在する場合、融合結果に応じて継承・改造を決定、形態の階層と属性は独立に判定'] },
+            { name:'詞条変異', weight:35, cls:'r-mid', list:['品質不変','属性は A のまま不変','詞条能力を再構築'] },
+            { name:'遺伝子拒絶', weight:20, cls:'r-bad', list:['品質不変','属性は A のまま不変','負面の遺伝子不純物詞条を生成'] },
+            { name:'崩壊消散', weight:10, cls:'r-bad', list:['A は原状維持','B は永久消耗','収益は発生しない'] }
         ]
     };
     /* フロントの確率アルゴリズム: weight の重みで確定結果を1つ roll する('脚本/脚本测试.js' のアルゴリズムと同期)
@@ -2288,10 +2288,10 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         }
         var ar = BLOODLINE_RANK[String(a.data.品質 || 'F').toUpperCase()] || 1, br = BLOODLINE_RANK[String(b.data.品質 || 'F').toUpperCase()] || 1;
         if (ar < br) { var swap = a; a = b; b = swap; }
-        // AI インターフェースのチェックは roll の後に延期: 基因崩溃/崩坏消散 は AI を呼ばない(純ローカル書き戻し)ため不要; その他の結果はインターフェースを要求
+        // AI インターフェースのチェックは roll の後に延期: 遺伝子崩壊/崩壊消散 は AI を呼ばない(純ローカル書き戻し)ため不要; その他の結果はインターフェースを要求
         var _mode0 = (ar === br) ? 'same' : 'diff';
         var _roll0 = bloodFusionRoll(_mode0);
-        var _isNoAIResult = _roll0 && (_roll0.name === '基因崩溃' || _roll0.name === '崩坏消散');
+        var _isNoAIResult = _roll0 && (_roll0.name === '遺伝子崩壊' || _roll0.name === '崩壊消散');
         // 追加モデル設定が有効なら自ホストAPI、そうでなければ generateRaw で融合結果を生成
         if (!_isNoAIResult && !isApiConfigEnabled() && !shopGetAI()) { samToast('error', '融合アルゴリズム API が検出できません(設定で「追加モデル設定」を有効にしてください)'); return; }
         if (!_isNoAIResult && isApiConfigEnabled() && !getApiConfig().model) { samToast('error', '追加モデル設定は有効ですがモデルが未選択です。先に設定パネルでモデルを選択してください'); return; }
@@ -2324,7 +2324,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             var preOk = writeBackMvu(function(statData) {
                 statData.キャラ = statData.キャラ || {};
                 statData.キャラ.権限証憑 = statData.キャラ.権限証憑 || {};
-                if (!shopCredentialConsume(statData.キャラ.権限証憑, preCredentialRequirements)) throw new Error('权限凭证扣除失败');
+                if (!shopCredentialConsume(statData.キャラ.権限証憑, preCredentialRequirements)) throw new Error('権限証憑の控除に失敗');
                 statData.キャラ.スペースコイン = Math.max(0, safeNum(statData.キャラ.スペースコイン, 0) - prePrice);
                 var _lib = shopGetActorLibRaw(statData.商城, preActor);
                 if (_lib && Array.isArray(_lib.血統リスト)) {
@@ -2357,10 +2357,10 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         if (a && a.owned) bloodFusionConsumedNames.push(a.name);
         if (b && b.owned) bloodFusionConsumedNames.push(b.name);
 
-        // ★ ショートパス: roll で【基因崩溃 / 崩坏消散】が出た場合は AI 描画の呼び出しが不要,
+        // ★ ショートパス: roll で【遺伝子崩壊 / 崩壊消散】が出た場合は AI 描画の呼び出しが不要,
         //   規則は "A は原状維持 / B は永久消耗 / 収益なし" — 融合中ダイアログを出し → 10s カウントダウン後に書き戻し(B のみ削除、新血統なし、形態なし)
         var rollName0 = bloodFusionResult ? bloodFusionResult.name : '';
-        if (rollName0 === '基因崩溃' || rollName0 === '崩坏消散') {
+        if (rollName0 === '遺伝子崩壊' || rollName0 === '崩壊消散') {
             closeModal();
             renderAll();
             showModal('血統融合中', '<div class="sam-shop-refreshing"><div class="sam-fusion-pulse">🧬</div><br>主神が法則に従って血統データを融合しています…<br>ウィンドウを閉じても、結果は返り次第自動で書き込まれます。<button type="button" class="sam-shop-stop-btn" data-sam-act="blood-fusion-stop">⏹ 融合を停止(停止した場合はここをクリックして復帰)</button></div></div>');
@@ -2476,7 +2476,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             + 'フィールドの型は厳密に従ってください:\n'
             + '  - 品質: 文字列, F / E / D / C / B / A / S / SS / SSS のみ\n'
             + '  - タグ: インライン配列 [\'标签1\', \'标签2\'...]\n'
-            + '  - 原始属性: インラインオブジェクト、段階付けは《品質効果数値規則》に従う; 血統は五維（力量、敏捷、体质、精神、魅力）を完全に含むこと、装備は有効な非0項目のみ記述\n'
+            + '  - 原始属性: インラインオブジェクト、段階付けは《品質効果数値規則》に従う; 血統は五維（筋力、敏捷、体力、精神、魅力）を完全に含むこと、装備は有効な非0項目のみ記述\n'
             + '  - 効果: インラインオブジェクト {效果名: \'説明\'}, キーは文字列, 値は文字列の説明\n'
             + '  - 価格: 数値(スペースコイン)\n'
             + '  - 説明/消費: 字符串\n'
@@ -2510,7 +2510,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 + '     * 形態の階層は血統品質とキャラクターの現在の生命階層から独立し、形態自身の戦闘位格に従って生成する。\n'
                 + '     * 形態の原始属性は自身の特徴と戦闘定位に従って生成し、主血統の属性を複製・継承・微調整してはならない。\n'
                 + 'YAML 形式のみを出力すること, フィールドは以下のとおり:\n'
-                + '融合结果: ' + result.name + '\n'
+                + '融合結果: ' + result.name + '\n'
                 + '血統リスト:\n'
                 + '  - 名称: 最終血統の名称\n'
                 + '    品質: F\n'
@@ -2536,7 +2536,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 + '       説明: 簡潔な説明\n'
                 + '       消費: 无}\n'
                 + '    説明: 簡潔な説明\n'
-                + '注意: "基因崩溃" と "崩坏消散" は新しい血統を生まない, ただし結果として A の元血統を返す必要がある(説明の中で B が永久消耗することを述べる)。\n\n'
+                + '注意: "遺伝子崩壊" と "崩壊消散" は新しい血統を生まない, ただし結果として A の元血統を返す必要がある(説明の中で B が永久消耗することを述べる)。\n\n'
                 + 'A=' + JSON.stringify(a)
                 + '\nB=' + JSON.stringify(b);
         }
@@ -2571,10 +2571,10 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         }
         // 既存の形態名(AIの重複回避+構築適合を支援)
         var formData = p.形態庫 || {};
-        if (Object.keys(formData).length) parts.push('已有形态:\n' + formatDict(formData));
+        if (Object.keys(formData).length) parts.push('既存形態:\n' + formatDict(formData));
         
         var playerCtx = parts.join('\n');
-        var userPrompt = '\n【当前玩家数据】\n' + (playerCtx || '(无)') + '\n';
+        var userPrompt = '\n【当前玩家数据】\n' + (playerCtx || '(なし)') + '\n';
         userPrompt += bloodFusionBuildPrompt(a, b, _mode0, bloodFusionResult);
         // console.log(sysPrompt, userPrompt);
         // try/await を元の then/catch, 失敗時はスペースコイン+商品在庫をロールバック
@@ -2655,7 +2655,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 if (b.owned) delete _fch.血統[b.name];
                 _fch.血統[resultName] = result;
                 if (bloodFusionSnap && bloodFusionShopItem) {
-                    shopAppendReceipt(statData, shopReceiptLine('血统融合', bloodFusionShopItem.name+' → '+resultName, bloodFusionSnap.price, statData.キャラ.スペースコイン, (bloodFusionActionActor === SHOP_ACTOR_REINCARNATOR ? 'キャラ' : bloodFusionActionActor)));
+                    shopAppendReceipt(statData, shopReceiptLine('血統融合', bloodFusionShopItem.name+' → '+resultName, bloodFusionSnap.price, statData.キャラ.スペースコイン, (bloodFusionActionActor === SHOP_ACTOR_REINCARNATOR ? 'キャラ' : bloodFusionActionActor)));
                 }
                 // 升级列表の整理: "类型=血统 の昇級項目" かつ replace_target が今回消費された元血統名に一致 → 削除
                 var _fulib = shopGetActorLibRaw(statData.商城, _fActor);
@@ -2776,7 +2776,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             statData.キャラ.スペースコイン = Math.max(0, safeNum(statData.キャラ.スペースコイン, 0) - safeNum(item.price, 0));
             var _dlib = shopGetActorLibRaw(statData.商城, dpActor);
             if (_dlib && Array.isArray(_dlib.血統リスト)) _dlib.血統リスト = _dlib.血統リスト.filter(function(x){ return safeStr(x.名称) !== item.name; });
-            shopAppendReceipt(statData, shopReceiptLine('购买血统', item.name, item.price, statData.キャラ.スペースコイン, (dpActor === SHOP_ACTOR_REINCARNATOR ? 'キャラ' : dpActor)));
+            shopAppendReceipt(statData, shopReceiptLine('血統購入', item.name, item.price, statData.キャラ.スペースコイン, (dpActor === SHOP_ACTOR_REINCARNATOR ? 'キャラ' : dpActor)));
         });
         if (ok) { closeModal(); bloodFusionShopItem = null; shopCart = []; renderAll(); samToast('success', '血統を購入しました：'+item.name); }
     }
@@ -2841,7 +2841,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                     return true;
                 });
             }
-            shopAppendReceipt(statData, shopReceiptLine('替换血统', targetName+' → '+item.name, item.price, statData.キャラ.スペースコイン, (rpActor === SHOP_ACTOR_REINCARNATOR ? 'キャラ' : rpActor)));
+            shopAppendReceipt(statData, shopReceiptLine('血統置換', targetName+' → '+item.name, item.price, statData.キャラ.スペースコイン, (rpActor === SHOP_ACTOR_REINCARNATOR ? 'キャラ' : rpActor)));
         });
         if (ok) { closeModal(); bloodFusionShopItem = null; shopCart = []; renderAll(); samToast('success', '血統を置換しました：'+targetName+' → '+item.name); }
     }
@@ -2978,7 +2978,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                     copy.状態 = 0;
                     npc.装備[key] = copy;
                     delete mc.装備[key];
-                    movedParts.push('装备「' + key + '」');
+                    movedParts.push('装備「' + key + '」');
                 });
                 // アイテム: 数量単位で転送(NPCが既に持つ場合は加算, 無ければ新規作成; キャラクター側は減算し, 0なら削除)
                 bpKeys.forEach(function(key) {
@@ -2996,11 +2996,11 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                     }
                     b.数量 = have - move;
                     if (b.数量 <= 0) delete mc.道具[key];
-                    movedParts.push('道具「' + key + '」×' + move);
+                    movedParts.push('アイテム「' + key + '」×' + move);
                 });
                 // ★ フロントからNPCへの物資贈与 → 配信待ち記録に登録(今回の書き戻しと同じタイミングで保存, 本文モデルの叙述後に自動クリア)
                 if (movedParts.length) {
-                    shopAppendReceipt(statData, '[赠送][キャラ] 向「' + npcName + '」转移 ' + movedParts.join('、'));
+                    shopAppendReceipt(statData, '[赠送][キャラ] 「' + npcName + '」へ譲渡 ' + movedParts.join('、'));
                 }
             });
             if (ok) {
@@ -3175,11 +3175,11 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 }
                 b.数量 = have - move;
                 if (b.数量 <= 0) delete npc.道具[key];
-                lootedParts.push('道具「' + key + '」×' + move);
+                lootedParts.push('アイテム「' + key + '」×' + move);
             });
             // ★ フロントでのNPCからの物資取得 → 配信待ち記録に登録(今回の書き戻しと同じタイミングで保存, 本文モデルの叙述後に自動クリア)
             if (lootedParts.length) {
-                shopAppendReceipt(statData, '[获取][キャラ] 从「' + npcName + '」处获得 ' + lootedParts.join('、'));
+                shopAppendReceipt(statData, '[获取][キャラ] から「' + npcName + '」を獲得 ' + lootedParts.join('、'));
             }
         });
         if (ok) {
@@ -3596,28 +3596,28 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             shopReqText = req;
             
             var content = ''
-                + '属性系统 (底层定义):\n'
-                + '  基礎五維 (判定根拠):\n'
-                + '    筋力: 近战/负重/破坏\n'
-                + '    敏捷: 平衡/潜行/瞄准\n'
-                + '    体力: 生命/耐性/恢复\n'
-                + '    精神: 施法/察觉/意志\n'
-                + '    魅力: 社交/欺骗/威吓\n'
-                + '  资源属性:\n'
-                + '    HP: 生命值，HP≤0即判定死亡\n'
-                + '    HP_MAX: 生命值上限\n'
-                + '    THP: 临时生命值/护盾，受到伤害时优先扣减，不叠加，脱战归零\n'
-                + '    EP: 能量值，用于技能消耗\n'
-                + '    EP_MAX: 能量值上限\n'
+                + '属性システム (下層定義):\n'
+                + '  基礎五維 (判定基準):\n'
+                + '    筋力: 近接/重量/破壊\n'
+                + '    敏捷: 平衡/隠密/照準\n'
+                + '    体力: 生命/耐性/回復\n'
+                + '    精神: 詠唱/察知/意志\n'
+                + '    魅力: 社交/欺瞞/威圧\n'
+                + '  資源属性:\n'
+                + '    HP: 生命値、HP≤0で死亡判定\n'
+                + '    HP_MAX: 生命値の上限\n'
+                + '    THP: 一時生命値/シールド、ダメージを受けた際に優先して減算、重複せず、戦闘離脱でゼロに戻る\n'
+                + '    EP: エネルギー値、スキル消費に使用\n'
+                + '    EP_MAX: エネルギー値の上限\n'
                 + '  衍生属性:\n'
-                + '    ATK: 物理攻击\n'
+                + '    ATK: 物理攻撃\n'
                 + '    DEF: 物理防御\n'
-                + '    MATK: 法术攻击\n'
-                + '    MDEF: 法术防御\n'
-                + '    AP: 法术强度乘区\n'
-                + '  行动属性 (全局禁止添加):\n'
-                + '    先制DC: 行动顺序\n'
-                + '    防御DC: 被命中难度\n';
+                + '    MATK: 術法攻撃\n'
+                + '    MDEF: 術法防御\n'
+                + '    AP: 術法強度の乗算区画\n'
+                + '  行動属性 (グローバルで追加禁止):\n'
+                + '    先制DC: 行動順\n'
+                + '    防御DC: 被命中難易度\n';
             // 世界書の内容を取得する呼び出し
             content += await getWorldBookContentCompat('⚙️生命階層と社会生態'); 
             content += await getWorldBookContentCompat('⚙️品質効果数値規則'); 
@@ -5912,7 +5912,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         return out;
     }
     function assetOwnerChips(owners) {
-        if (!owners.length) return '<span class="sam-asset-owner-chip unowned">无主</span>';
+        if (!owners.length) return '<span class="sam-asset-owner-chip unowned">無主</span>';
         return '<span class="sam-asset-owner-list">' + owners.map(function(owner) {
             var player = isPlayerIdentity(owner);
             var label = displayPlayerIdentity(owner);
@@ -9187,23 +9187,23 @@ function shopCredentialRefund(credentials, requirements) {
 
         // 既存の装備/スキル/血統名(AIの重複回避+ビルド適合を支援)
         var blData = p.血統 || {};
-        if (Object.keys(blData).length) parts.push('已有血统:\n' + formatDict(blData));
+        if (Object.keys(blData).length) parts.push('既存血統:\n' + formatDict(blData));
         
         var skData = p.技能 || {};
-        if (Object.keys(skData).length) parts.push('已有技能:\n' + formatDict(skData));
+        if (Object.keys(skData).length) parts.push('既存スキル:\n' + formatDict(skData));
         
         var eqData = p.装備 || {};
-        if (Object.keys(eqData).length) parts.push('已有装备:\n' + formatDict(eqData));
+        if (Object.keys(eqData).length) parts.push('既存装備:\n' + formatDict(eqData));
         
         var invData = p.道具 || {};
-        if (Object.keys(invData).length) parts.push('已有物品:\n' + formatDict(invData));
+        if (Object.keys(invData).length) parts.push('既存アイテム:\n' + formatDict(invData));
 
         var statusData = p.状態 || {};
-        if (Object.keys(statusData).length) parts.push('已有状态:\n' + formatDict(statusData));
+        if (Object.keys(statusData).length) parts.push('既存状態:\n' + formatDict(statusData));
 
         // 既存の 形态库(AIがビルドに合わせ重複を避けるため; 形態アップグレード機能はこれに基づき"替换目标"を記入する)
         var formData = p.形態庫 || {};
-        if (Object.keys(formData).length) parts.push('已有形态:\n' + formatDict(formData));
+        if (Object.keys(formData).length) parts.push('既存形態:\n' + formatDict(formData));
         
         // 世界/任務コンテキスト
         var w = sd.世界 || {};
@@ -9333,7 +9333,7 @@ function shopCredentialRefund(credentials, requirements) {
             + '  - 階層: 文字列, Ⅰ / Ⅱ / Ⅲ / Ⅳ / Ⅴ / Ⅵ / Ⅶ / Ⅷ / Ⅸ のみ\n'
             + '  - 品質: 文字列, F / E / D / C / B / A / S / SS / SSSのみ\n'
             + '  - タグ: インライン配列 [\'标签1\', \'标签2\'...]\n'
-            + '  - 原始属性: インラインオブジェクト、段階付けは《品質効果数値規則》に従う；血統は五維（力量、敏捷、体质、精神、魅力）を完全に含むこと、【形态】は五維を完全に含み関連する【衍生属性】を付加する、装備は有効な非0項目のみ記述。\n'
+            + '  - 原始属性: インラインオブジェクト、段階付けは《品質効果数値規則》に従う；血統は五維（筋力、敏捷、体力、精神、魅力）を完全に含むこと、【形态】は五維を完全に含み関連する【衍生属性】を付加する、装備は有効な非0項目のみ記述。\n'
             + '  - 効果: インラインオブジェクト {效果名: \'説明\'}, キーは文字列, 値は文字列の説明\n'
             + '  - 価格: 数値(スペースコイン)\n'
             + '  - 説明/消費: 字符串\n'
@@ -9349,7 +9349,7 @@ function shopCredentialRefund(credentials, requirements) {
         // —— ユーザープロンプト: プレイヤーコンテキスト + 要件 + 出力テンプレート例 ——
         // ★ 複数角色: コンテキストは現在選択中の角色を基準にする; AIはこれに基づきその角色向けに商品/アップグレード案を生成する
         var playerCtx = shopBuildPlayerContext(sd, shopCurrentActor);
-        var userPrompt = '\n【当前角色数据】\n' + (playerCtx || '(无)') + '\n';
+        var userPrompt = '\n【当前角色数据】\n' + (playerCtx || '(なし)') + '\n';
         userPrompt += '\n【输出结构】\n以下はフィールド形式のデモのみ、具体的な段階は商品の位置づけに応じて生成すること。\n'
             + '血統リスト:\n'
             + '  - 名称: 血統名\n'

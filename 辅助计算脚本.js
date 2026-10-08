@@ -1220,9 +1220,9 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                     タイプ: 'バフ',
                     品質: TIER_ORDER[Math.min(8, baseRank + extraRule.qualityOffset)],
                     持続: '持続',
-                    出典: '难度机制',
+                    出典: '難易度メカニクス',
                     原始属性: Object.fromEntries(extraRule.attrs.map(attr => [attr, extraRule.attrTier])),
-                    効果: '全属性强化'
+                    効果: '全属性強化'
                 };
             }
             function upgrade(item, kind) {
@@ -1785,7 +1785,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         const removed = [];
         Object.keys(beforeAssets).forEach(name => {
             if (Object.prototype.hasOwnProperty.call(currentAssets, name)) return;
-            tombstones[name] = String(statData.世界.時間 || '已删除');
+            tombstones[name] = String(statData.世界.時間 || '削除済み');
             removed.push(name);
         });
         // ユーザー/MVU が明示的に同名資産を再構築した場合は墓碑を解除する。
@@ -1802,7 +1802,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         const playDays = Number(sys.プレイ日数 || 0);
         if (!(playDays > 0)) return;
         const cycle = 7;
-        const formatRemaining = (nextPlay) => `${Math.max(0, Math.ceil(nextPlay - playDays))}天后`;
+        const formatRemaining = (nextPlay) => `${Math.max(0, Math.ceil(nextPlay - playDays))}日後`;
 
         Object.entries(assets).forEach(([assetName, asset]) => {
             if (!asset || typeof asset !== 'object' || !isPlayerOwnedAsset(asset)) return;
@@ -1823,7 +1823,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 if (!Number.isFinite(nextPlay) || nextPlay <= 0) {
                     // 旧形式の相対表示/プレイ日表示に対応；旧世界の絶対日付はもうスケジュールに関与しない。
                     const shown = String(seq.次回産出日 || '').trim();
-                    const remainingMatch = shown.match(/^(\d+)\s*天后$/);
+                    const remainingMatch = shown.match(/^(\d+)\s*(?:天后|日後)$/);
                     const legacyPlayMatch = shown.match(/^第?\s*(\d+)\s*游玩日$/);
                     if (remainingMatch) nextPlay = playDays + Number(remainingMatch[1]);
                     else if (legacyPlayMatch) nextPlay = Number(legacyPlayMatch[1]);
@@ -1834,14 +1834,23 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
 
                 if (playDays >= nextPlay) {
                     const harvestCount = Math.floor((playDays - nextPlay) / cycle) + 1;
-                    const prefix = `【自动收菜】${assetName}-${seqName}`;
-                    const pendingIndex = asset.待機イベント.findIndex(item => String(item || '').startsWith(prefix));
+                    const prefix = `【自動収穫】${assetName}-${seqName}`;
+                    const legacyPrefix = `【自动收菜】${assetName}-${seqName}`;
+                    let pendingIndex = asset.待機イベント.findIndex(item => String(item || '').startsWith(prefix));
+                    // 旧セーブ互換: 旧中国語プレフィックスの保留レコードを新形式へ一度だけ正規化する(冪等)
+                    if (pendingIndex < 0) {
+                        const legacyIndex = asset.待機イベント.findIndex(item => String(item || '').startsWith(legacyPrefix));
+                        if (legacyIndex >= 0) {
+                            asset.待機イベント[legacyIndex] = prefix + String(asset.待機イベント[legacyIndex] || '').slice(legacyPrefix.length);
+                            pendingIndex = legacyIndex;
+                        }
+                    }
                     let totalCount = harvestCount;
                     if (pendingIndex >= 0) {
-                        const oldCount = String(asset.待機イベント[pendingIndex] || '').match(/共\s*(\d+)\s*份/);
+                        const oldCount = String(asset.待機イベント[pendingIndex] || '').match(/共\s*(\d+)\s*(?:份|件)/);
                         if (oldCount) totalCount += Number(oldCount[1]);
                     }
-                    const todoMsg = `${prefix}：${output}（共${totalCount}份，待玩家领取）`;
+                    const todoMsg = `${prefix}：${output}（全${totalCount}件、受取待ち）`;
                     if (pendingIndex >= 0) asset.待機イベント[pendingIndex] = todoMsg;
                     else asset.待機イベント.push(todoMsg);
 

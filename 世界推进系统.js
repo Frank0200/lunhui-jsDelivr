@@ -361,7 +361,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
         return false;
     }
     function ensurePresetStructure(value) {
-        const current=splitPresetSegments(value||DEFAULT_PRESET).map(segment=>segment.title==='势力与地区'?{...segment,title:'探索与势力'}:segment);
+        const current=splitPresetSegments(value||DEFAULT_PRESET).map(segment=>segment.title==='勢力と地区'?{...segment,title:'探索と勢力'}:segment);
         const defaults=splitPresetSegments(DEFAULT_PRESET);
         const titles=new Set(current.map(s=>s.title).filter(Boolean));
         for(const segment of defaults)if(segment.title&&!titles.has(segment.title))current.push(segment);
@@ -420,7 +420,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
                     关系:key(other.地点)===key(location)?'直近':'同地区',
                     身分:identity,
                     行动:String(other.行动||other.公开动态||relation.態度||''),
-                    可查看档案:!!profile,
+                    閲覧可能プロフィール:!!profile,
                     档案名称:String(profile?.名称||''),
                     档案类型:profile?'正式プロフィール':'現場タグ'
                 };
@@ -455,7 +455,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
             环境状态:Array.isArray(area.环境状态)?area.环境状态.filter(Boolean).slice(0,6):[],
             背景关联:objectList(person.背景关联,8),
             关联事件:Array.isArray(person.关联事件)?person.关联事件.filter(Boolean).slice(0,8):[],
-            身边人物:nearby,
+            近傍人物:nearby,
             现场群体:objectList(area.现场群体,8)
         };
     }
@@ -585,7 +585,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
     }
     function compactWorldLifecycle(stat) {
         const state=stat?.世界?.[PATH];
-        if(!state)return {归档事件:[],回收传播:[],回收人物:[],回收探索:[]};
+        if(!state)return {アーカイブ済みイベント:[],回収伝播:[],回收人物:[],回收探索:[]};
         const now=worldDateKey(stat?.世界?.時間),removed=[];
         for(const [name,record] of Object.entries(state.传播||{})){
             if(propagationEnded(record,now)){delete state.传播[name];removed.push(name);}
@@ -594,7 +594,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
         const removedPeople=pruneColdTemporaryPeople(stat);
         // まず終了済みの事件とコールド人物を回収し、その後でどの探索区域が実際にストーリー上の関連を失ったかを判定する。
         const removedExploration=pruneColdExploration(stat);
-        return {归档事件:archived,回收传播:removed,回收人物:removedPeople,回收探索:removedExploration};
+        return {アーカイブ済みイベント:archived,回収伝播:removed,回收人物:removedPeople,回收探索:removedExploration};
     }
     function storyStages(value) {
         return String(value||'').split(/\s*(?:→|⇒|->|=>|\n)\s*/).map(x=>x.trim()).filter(x=>x&&!/^(待初始化|无|未知)$/.test(x));
@@ -623,7 +623,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
             if(touched===null)continue;
             const threshold=event.分类==='当前事件'?STALE_CURRENT_EVENT_HOURS:STALE_NEAR_EVENT_HOURS;
             const age=now-touched;
-            if(age>threshold)out.push({名称,分类:event.分类,状態:event.状态,时间:event.时间||event.开始时间||'',更新时间:event.更新时间||'',已陈旧小时:age,説明:'局所的な活動が長期間にわたり进行中のまま留まっている；終了/中止とするか、継続を確認して現在の世界時間、現在の進展、次回チェックまで更新すべき。'});
+            if(age>threshold)out.push({名称,分类:event.分类,状態:event.状态,时间:event.时间||event.开始时间||'',更新时间:event.更新时间||'',陳腐化時間:age,説明:'局所的な活動が長期間にわたり进行中のまま留まっている；終了/中止とするか、継続を確認して現在の世界時間、現在の進展、次回チェックまで更新すべき。'});
         }
         return out;
     }
@@ -742,39 +742,39 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
             出典:'マクロイベント図'
         }:null;
         return {
-            当前时间锚点:stat.世界.時間,
+            現在時刻アンカー:stat.世界.時間,
             因果轨道节点数:orbitStages.length,
             因果轨道需重建:orbitProjectionInvalid,
             需要初始化:near.length===0&&macro.length===0,
-            当前活动事件数:waiting.filter(([,e])=>e.状態==='進行中').length,
+            現在活動中イベント数:waiting.filter(([,e])=>e.状態==='進行中').length,
             近期节点数:near.length,
             宏观节点数:macro.length,
-            需要补充远期:macroOpen.length<3,
+            長期補完が必要:macroOpen.length<3,
             下一宏观节点:nextMacro,
-            桥接区间:{
+            ブリッジ区間:{
                 起点:stat.世界.時間,
                 终点:nextMacro?.时间||'マクロノード未設定',
-                边界事件:nextMacro?.名称||''
+                境界イベント:nextMacro?.名称||''
             },
-            需要展开的宏观节点:expand.map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,前因:e.前因})),
-            需语义复核节点:semantic.map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,下次检查:e.下次检查})),
+            展開が必要なマクロノード:expand.map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,前因:e.前因})),
+            意味再確認が必要なノード:semantic.map(([名称,e])=>({名称,时间:e.时间||e.开始时间,条件:e.条件,下次检查:e.下次检查})),
             説明:'まず因果軌道、現在の事実、モデルが既に持つ世界/原著知識でマクロ骨格を構築する；世界書が存在する場合は補足的な補正にのみ用いる。その後、現在時刻から次の宏观节点までの間の直近の事件、人物、勢力、伝播だけを展開する。非グレゴリオ暦や作品内時間は作品の意味論で比較し、無理にグレゴリオ暦へ書き換えない。'
         };
     }
     function emptyState() {
-        return { 版本:5, 已处理楼层:'', 已处理时间:'', 事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 历史总结:{}, 传播:{}, 最近变化:[], 资产墓碑:{} };
+        return { 版本:5, 処理済みフロア:'', 処理済み時刻:'', 事件:{}, 人物:{}, 势力地区:{}, 历史:{}, 历史总结:{}, 传播:{}, 最近变化:[], 资产墓碑:{} };
     }
     // 明示的な区切りで分かれた段階だけを分割し、自然言語の段落を複数の事件と推測したり、根拠なく日付を割り当てたりしない。
     function importStory(stat) {
         const orbit=stat.世界.因果軌道||{},events=stat.世界.バックステージ?.事件||{};
-        if(Object.values(events).some(e=>e.分类==='主线节点'))return [];
+        if(Object.values(events).some(e=>e.分类==='メインノード'))return [];
         const stages=storyStages(orbit.ストーリーライン);
         if(stages.length<2||stages.length>30)return [];
         const index=stages.findIndex(n=>n===orbit.次ノード);
         const remaining=index>=0?stages.slice(index):stages;
         let previous='';
         return remaining.filter(name=>!Object.hasOwn(events,name)).map(name=>{
-            const value={...copy(RECORDS.事件),説明:name,分类:'主线节点',前因:previous?[previous]:[],条件:previous?'先行ノード「'+previous+'」が本段階へ進むための条件を満たす':'世界設定と本文に基づいてトリガー条件を明確化する',下次检查:'今回の初回スケジューリング'};
+            const value={...copy(RECORDS.事件),説明:name,分类:'メインノード',前因:previous?[previous]:[],条件:previous?'先行ノード「'+previous+'」が本段階へ進むための条件を満たす':'世界設定と本文に基づいてトリガー条件を明確化する',下次检查:'今回の初回スケジューリング'};
             previous=name;
             return {op:'add',path:'/世界/バックステージ/事件/'+name.replace(/~/g,'~0').replace(/\//g,'~1'),value};
         });
@@ -882,7 +882,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
             if(!alien||alien.状態==='死亡')continue;
             const personName=stableNameIn(people,alienName)||alienName,person=people[personName]||{};
             required.push({
-                名称:personName,雷达名称:alienName,出典:String(alien.出典||''),経歴:String(alien.経歴||''),陣営:String(alien.陣営||''),職業:String(alien.職業||''),階層:String(alien.階層||''),
+                名称:personName,レーダー名称:alienName,出典:String(alien.出典||''),経歴:String(alien.経歴||''),陣営:String(alien.陣営||''),職業:String(alien.職業||''),階層:String(alien.階層||''),
                 当前活动:{地点:String(person.地点||''),目標:String(person.目标||''),行动:String(person.行动||''),更新时间:String(person.更新时间||'')},
                 要求:'今回、この異端の活動再確認を WorldResult.人物 に提出しなければならない；少なくとも空でない地点、目標、行動を与え、更新時間を現在の世界時間どおりに正確に書く。今回すでに死亡が確認された場合は、異端状態を死亡に更新するだけとし、人物活動は提出しない。'
             });
@@ -894,7 +894,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
         const people=state.人物||(state.人物={});
         for(const item of required||[]){
             if(stableNameIn(people,item.名称))continue;
-            const relationName=stableNameIn(stat.関係リスト||{},item.雷达名称),relation=relationName?(stat.関係リスト||{})[relationName]:null;
+            const relationName=stableNameIn(stat.関係リスト||{},item.レーダー名称),relation=relationName?(stat.関係リスト||{})[relationName]:null;
             const seed=normalizeBackendRecord('人物',{所属世界:stat.世界?.名称||'',地点:String(relation?.地点||''),目標:'',行动:'',公开动态:''});
             people[item.名称]=seed;
             patches.push({op:'add',path:pointer(['世界',PATH,'人物',item.名称]),value:copy(seed)});
@@ -904,7 +904,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
     function ensureActiveAlienActivity(next,required,acceptedResult,worldTime) {
         const roster=next?.世界?.異端レーダー?.名簿||{},people=next?.世界?.[PATH]?.人物||{},proposals=acceptedResult?.人物||[],missing=[];
         for(const item of required||[]){
-            const rosterName=stableNameIn(roster,item.雷达名称||item.名称),alien=rosterName?roster[rosterName]:null;
+            const rosterName=stableNameIn(roster,item.レーダー名称||item.名称),alien=rosterName?roster[rosterName]:null;
             if(!alien||alien.状態==='死亡')continue;
             const personName=stableNameIn(people,item.名称)||stableNameIn(people,rosterName),person=personName?people[personName]:null;
             const proposal=proposals.find(p=>nameKey(p.名称)===nameKey(item.名称)||nameKey(p.名称)===nameKey(rosterName));
@@ -1021,7 +1021,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
         if(raw==='宏观节点')return obviouslyLocalMacro(name,event)?(event?.状态==='進行中'?'当前事件':'近期节点'):'宏观节点';
         if(raw==='当前事件')return '当前事件';
         if(raw==='近期节点')return event?.状态==='進行中'?'当前事件':'近期节点';
-        if(raw==='近期事件'||raw==='主线节点'||!EVENT_CATEGORIES.has(raw))return event?.状态==='進行中'?'当前事件':'近期节点';
+        if(raw==='近期事件'||raw==='メインノード'||!EVENT_CATEGORIES.has(raw))return event?.状态==='進行中'?'当前事件':'近期节点';
         return raw;
     }
     function normalizeEventLayers(stat) {
@@ -1081,7 +1081,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
     const MODEL_IGNORED_PATHS = [
         /^\/任务(?:\/|$)/,
         /^\/系统状态\/待播报记录$/,
-        /^\/世界\/バックステージ\/(?:版本|已处理楼层|已处理时间|运行记录|最近变化)(?:\/|$)/,
+        /^\/世界\/バックステージ\/(?:版本|已处理楼层|已处理时间|処理済みフロア|処理済み時刻|运行记录|最近变化)(?:\/|$)/,
         /^\/世界\/バックステージ\/剧本(?:\/|$)/
     ];
     function sanitizeModelPatches(patches) {
@@ -1123,11 +1123,11 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
         let payload;try{payload=JSON.parse(baseInput);}catch(_){payload={原始请求:baseInput};}
         const feedback=retryFeedback(error,error?.rejectedSlices,Array.isArray(retryPlan)?retryPlan:[]);
         const plan=feedback.actions;
-        payload.纠错重试={
+        payload.誤り訂正再試行={
             当前尝试:attempt+1,
             最大尝试次数:maxAttempts,
             上次拒绝原因:feedback.summary,
-            具体问题:feedback.issues.length?feedback.issues:undefined,
+            具体的な問題:feedback.issues.length?feedback.issues:undefined,
             上次模型回复:String(lastReply||'').slice(-12000),
             已接受业务结果:acceptedResult?copy(acceptedResult):undefined,
             补充清单:plan.length?copy(plan):undefined,
@@ -1137,8 +1137,8 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
                     :'只补充或修正导致拒绝的业务片段。已接受业务结果默认保留，不要整份重写；同名实体只提交需要覆盖的字段。若某个本轮提案应撤回，用 操作=撤销本轮。仍只输出一个 WorldResult JSON。')
                 :'修正格式或业务错误后重新输出一个 WorldResult JSON；不要解释错误，不要输出存储路径。'
         };
-        if(payload.纠错重试.已接受业务结果===undefined)delete payload.纠错重试.已接受业务结果;
-        if(payload.纠错重试.补充清单===undefined)delete payload.纠错重试.补充清单;
+        if(payload.誤り訂正再試行.已接受业务结果===undefined)delete payload.誤り訂正再試行.已接受业务结果;
+        if(payload.誤り訂正再試行.补充清单===undefined)delete payload.誤り訂正再試行.补充清单;
         return JSON.stringify(payload,null,2);
     }
     // 世界叙事・世界経済・共有資産台帳を許可；プレイヤー属性、保有残高、報酬付与、時計は依然として書込み許可リスト外。
@@ -1393,7 +1393,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
         const aliases={
             所在世界:'所属世界',
             已知信息:'认知',
-            下次检查条件:'下次检查',
+            次回チェック条件:'下次检查',
             事实:'内容'
         };
         for(const source of list){
@@ -2063,7 +2063,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
         if(monthDays.length&&hasMonthDay(stat.世界.時間)&&!calendarDate(stat.世界.時間,calendar))throw new Error('世界時間が暦の月長に違反しています：'+stat.世界.時間);
         if(monthDays.length){
             for(const [name,event] of Object.entries(state.事件)){
-                for(const value of [event.时间,event.开始时间,event.结束时间]){
+                for(const value of [event.时间,event.开始时间,event.終了時刻]){
                     if(hasMonthDay(value)&&!calendarDate(value,calendar))throw new Error('イベント日付が世界暦に違反しています：'+name+' = '+value);
                 }
             }
@@ -2222,7 +2222,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
         if(bad.length)throw new Error('时间越界记录仍未修复：'+bad.map(item=>item.タイプ+'/'+item.名称+'('+item.字段+'='+item.值+')').join('、'));
     }
     function ensureMacroBackbone(next,timeline,required=true) {
-        if(!required||!timeline?.需要补充远期)return;
+        if(!required||!timeline?.長期補完が必要)return;
         const allMacro=Object.entries(next?.世界?.[PATH]?.事件||{}).filter(([,e])=>e.分类==='宏观节点'&&e.状態!=='已取消');
         const activeMacro=allMacro.filter(([,e])=>e.状態==='進行中');
         const futureMacro=allMacro.filter(([,e])=>e.状態==='待发生');
@@ -2407,7 +2407,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
             const stage=counts.形态>0||/(?:阶段|二阶段|变身|形态|解放|觉醒|狂暴|转阶段|状态切换)/i.test(combatText);
             if(!stage){gaps.push('Boss段階/形態/状態変化の仕組みが不足');suggest.add('形態庫');suggest.add('状態');suggest.add('技能');}
         }
-        return {名称:name,审计级别:level,階層:String(npc.階層||'Ⅰ'),当前组件:counts,缺口:gaps,建议字段:Array.from(suggest),当前构筑:projectCharacterForAudit(npc)};
+        return {名称:name,監査級:level,階層:String(npc.階層||'Ⅰ'),現在のコンポーネント:counts,缺口:gaps,推奨フィールド:Array.from(suggest),当前构筑:projectCharacterForAudit(npc)};
     }
     function npcBuildAudit(stat,limit=NPC_BUILD_AUDIT_LIMIT) {
         const relations=stat?.関係リスト||{},backend=stat?.世界?.[PATH]||{},people=backend.人物||{},events=backend.事件||{},roster=((stat?.設定||{}).単一世界||(stat?.設定||{}).単一世界)?{}:(stat?.世界?.異端レーダー?.名簿||{});
@@ -2433,9 +2433,9 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
             if(linked)reasons.push('現在/近期イベントの参加者');
             if(here)reasons.push(npc.登場?'現在登場中':'現在地点に関連');
             if(updated)reasons.push('今回の人物動態を更新済み');
-            const levelWeight=(assessment.审计级别==='首領/Boss級'||assessment.审计级别==='首领/Boss级')?40:(assessment.审计级别==='エリート級'||assessment.审计级别==='精英级')?20:0;
+            const levelWeight=(assessment.監査級==='首領/Boss級'||assessment.監査級==='首领/Boss级')?40:(assessment.監査級==='エリート級'||assessment.監査級==='精英级')?20:0;
             const priority=(activeAlien?80:0)+(linked?60:0)+(here?40:0)+(updated?20:0)+levelWeight+assessment.缺口.length;
-            rows.push({...assessment,触发依据:reasons,__priority:priority});
+            rows.push({...assessment,発火根拠:reasons,__priority:priority});
         }
         return rows.sort((a,b)=>b.__priority-a.__priority||a.名称.localeCompare(b.名称,'zh-CN')).slice(0,Math.max(0,Number(limit)||0)).map(item=>{const out={...item};delete out.__priority;return out;});
     }
@@ -2448,7 +2448,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
             const after=npcBuildAssessment(next,target,next.関係リスト[target]);
             if(!after)continue;
             const proposal=proposals.find(item=>nameKey(item.名称)===nameKey(before.名称));
-            const touched=proposal&&before.建议字段.some(field=>Object.hasOwn(proposal,field));
+            const touched=proposal&&before.推奨フィールド.some(field=>Object.hasOwn(proposal,field));
             if(!touched||after.缺口.length>=before.缺口.length)failed.push(before.名称);
         }
         if(failed.length)throw new Error('NPC构筑审计未推进：'+failed.join('、')+'；列挙された各監査対象について、今回のラウンドで少なくとも実ギャップをひとつ補ってください。好感度・HP・無関係なフィールドだけの変更は禁止です');
@@ -2501,9 +2501,9 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
             次ノード:orbit.次ノード,
             偏移記録:Object.fromEntries(recent.map(([name,item])=>[name,copy(item)])),
             偏移摘要:{
-                记录总数:entries.length,
-                隐藏旧记录数:Math.max(0,entries.length-recent.length),
-                累计影响:total,
+                記録総数:entries.length,
+                隠蔽旧記録数:Math.max(0,entries.length-recent.length),
+                累計影響:total,
                 当前稳定:currentStability
             }
         };
@@ -2512,7 +2512,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
         const src=plain(stat)?stat:{},world=plain(src.世界)?src.世界:{},backend=plain(world[PATH])?world[PATH]:{};
         const projectedBackend={
             版本:backend.版本,
-            已处理时间:backend.已处理时间,
+            処理済み時刻:backend.処理済み時刻,
             事件:copy(backend.事件||{}),
             人物:projectHotWorldPeople(src),
             势力地区:copy(backend.势力地区||{}),
@@ -2520,7 +2520,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
             传播:tailRecord(backend.传播,HOT_PROPAGATION_TARGET)
         };
         // 初期の世界エンジンは地区に「資源点」を誤って追加していた。旧セーブとの互換のため保持するが、モデルには送信しない。資産は既存のトップレベル資産台帳のみを読む。
-        for(const area of Object.values(projectedBackend.势力地区||{}))if(plain(area))delete area.资源点;
+        for(const area of Object.values(projectedBackend.势力地区||{}))if(plain(area))delete area.資源ポイント;
         const out={
             世界:{
                 时间:world.時間,
@@ -2541,7 +2541,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
             キャラ:projectCharacterForWorld(src.キャラ),
             関係リスト:{},
             资产:projectAssetsForWorld(src.资产),
-            资产删除保护:Object.keys(backend.资产墓碑||{}).filter(name=>!stableNameIn(src.资产||{},name)).slice(-50),
+            資産削除保護:Object.keys(backend.资产墓碑||{}).filter(name=>!stableNameIn(src.资产||{},name)).slice(-50),
             噂:copy(src.噂||{}),
             システム状態:{
                 戦闘中:!!src.システム状態?.戦闘中,
@@ -2556,7 +2556,7 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
         if(!Object.keys(out.キャラ||{}).length)delete out.キャラ;
         if(!Object.keys(out.関係リスト).length)delete out.関係リスト;
         if(!Object.keys(out.资产).length)delete out.资产;
-        if(!out.资产删除保护.length)delete out.资产删除保护;
+        if(!out.資産削除保護.length)delete out.資産削除保護;
         if(!Object.keys(out.噂).length)delete out.噂;
         return out;
     }
@@ -2757,14 +2757,14 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 })(stat, '');
                 return stat;
             }
-            /* BATCH_B_AUDIT_TIER_COMPAT: 旧セーブの 审计级别 を正規値へ読み取り時に移行する。入力境界専用・冪等。 */
+                        /* BATCH_B_AUDIT_TIER_COMPAT: 旧セーブの 审计级别 キーと旧値(精英级/首领\/Boss级/杂兵级)を正規キー 監査級・正規値(エリート級/首領\/Boss級/雑兵級)へ読み取り時に移行する。入力境界専用・冪等: 旧キーが無ければ即 return し、正規キーが既にあれば常にそちらを優先し、旧キーは必ず削除する。 */
+            var AUDIT_TIER_KEY_CANONICAL = '監査級', AUDIT_TIER_KEY_LEGACY = '审计级别';
             var AUDIT_TIER_CANONICAL = 'エリート級';
             var AUDIT_TIER_LEGACY = '精英级';
             function normalizeLegacyAuditTier(record) {
                 if (!record || typeof record !== 'object') return record;
-                if (record.审计级别 === AUDIT_TIER_LEGACY) record.审计级别 = AUDIT_TIER_CANONICAL;
-                if (record.审计级别 === '首领/Boss级') record.审计级别 = '首領/Boss級';
-                if (record.审计级别 === '杂兵级') record.审计级别 = '雑兵級';
+                if (Object.prototype.hasOwnProperty.call(record, AUDIT_TIER_KEY_LEGACY)) { var legacyTier = record[AUDIT_TIER_KEY_LEGACY]; delete record[AUDIT_TIER_KEY_LEGACY]; if (record[AUDIT_TIER_KEY_CANONICAL] === undefined || record[AUDIT_TIER_KEY_CANONICAL] === null) record[AUDIT_TIER_KEY_CANONICAL] = legacyTier; }
+                var tier = record[AUDIT_TIER_KEY_CANONICAL]; if (tier === AUDIT_TIER_LEGACY) record[AUDIT_TIER_KEY_CANONICAL] = AUDIT_TIER_CANONICAL; else if (tier === '首领/Boss级') record[AUDIT_TIER_KEY_CANONICAL] = '首領/Boss級'; else if (tier === '杂兵级') record[AUDIT_TIER_KEY_CANONICAL] = '雑兵級';
                 return record;
             }
             const raw = mvu.getMvuData({type:'message',message_id:Number(id)});
@@ -2903,7 +2903,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                     let err='';try{err=await response.text();}catch(_){}
                     lastError='HTTP '+response.status+': '+response.statusText+(err?' / '+err.slice(0,300):'');
                     if(mode!=='plain'&&this.structuredUnsupported(response.status,err)){delete this.apiModeCache[cacheKey];continue;}
-                    this.lastTransportInfo={接口:'世界進行システム専用 API',模型:api.model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:null};
+                    this.lastTransportInfo={接口:'世界進行システム専用 API',模型:api.model,構造化モード:mode,尝试模式:copy(modeAttempts),usage:null};
                     throw new Error(lastError);
                 }
                 const data=await response.json(),message=data?.choices?.[0]?.message;
@@ -2911,7 +2911,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 const content=typeof raw==='string'?raw:(plain(raw)?JSON.stringify(raw):message?.parsed?JSON.stringify(message.parsed):'');
                 if(!content)throw new Error('専用 API の返却内容が空です');
                 if(wants)this.apiModeCache[cacheKey]=mode;
-                this.lastTransportInfo={接口:'世界進行システム専用 API',模型:api.model,结构化模式:mode,尝试模式:copy(modeAttempts),usage:normalizeTokenUsage(data?.usage)};
+                this.lastTransportInfo={接口:'世界進行システム専用 API',模型:api.model,構造化モード:mode,尝试模式:copy(modeAttempts),usage:normalizeTokenUsage(data?.usage)};
                 return content;
             }
             throw new Error(lastError||'専用 API は現在の構造化出力モードに対応していません');
@@ -2919,12 +2919,12 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         async requestAI(system,input,options={}) {
             if(this.usesDedicatedApi()){
                 const api=this.normalizeDedicatedApi(this.config.dedicatedApi);
-                this.lastTransportInfo={接口:'世界進行システム専用 API',模型:api.model,结构化模式:'請求中',尝试模式:[],usage:null};
+                this.lastTransportInfo={接口:'世界進行システム専用 API',模型:api.model,構造化モード:'請求中',尝试模式:[],usage:null};
                 return this.requestDedicatedApi(system,input,options);
             }
             const terminal=this.host.Samsara&&this.host.Samsara.terminal;
             if(!terminal||typeof terminal.request!=='function'||!terminal.apiReady?.())throw new Error('请在主神终端设置中启用额外模型并选择模型');
-            this.lastTransportInfo={接口:'主神端末の追加モデル',模型:'',结构化模式:options.structured==='auto'?'auto（主神端末がネゴシエート）':'plain',尝试模式:[],usage:null};
+            this.lastTransportInfo={接口:'主神端末の追加モデル',模型:'',構造化モード:options.structured==='auto'?'auto（主神端末がネゴシエート）':'plain',尝试模式:[],usage:null};
             return terminal.request(system,input,options);
         }
         setPreset(text) {
@@ -3178,14 +3178,14 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 .filter(f=>f.正文).slice(-count);
             if(!floors.length)throw new Error('使用可能なAI本文を読み取れませんでした：階層が空か、思考・変数更新・パネルのみです。チャット内容を確認してください');
             const timeline=timelineState(state);
-            const needBackbone=timeline.需要初始化||timeline.需要补充远期;
+            const needBackbone=timeline.需要初始化||timeline.長期補完が必要;
             const openMacro=Object.entries(state.世界[PATH].事件).filter(([,event])=>event.分类==='宏观节点'&&['進行中','待发生'].includes(event.状态));
             const activeMacroCount=openMacro.filter(([,event])=>event.状态==='進行中').length;
-            const macroRequirement=this.config.requireMacroBackbone!==false&&timeline.需要补充远期?{
-                已有可推进宏观节点:openMacro.map(([名称,event])=>({名称,状態:event.状态})),
+            const macroRequirement=this.config.requireMacroBackbone!==false&&timeline.長期補完が必要?{
+                進行可能な既存マクロノード:openMacro.map(([名称,event])=>({名称,状態:event.状态})),
                 至少补充节点数:Math.max(0,3-openMacro.length),
                 交付要求:macroBackbonePlan(openMacro.length,activeMacroCount,openMacro.length-activeMacroCount),
-                规划与发生:'今回は必ず骨格を補完すること。時間が進んでいない、本文にマクロな変化がない、業務上の変化がない、といった理由で省略してはならない。待発生ノードの確立は将来の計画であり、次のマクロ境界の後に置いてよく、イベントが今発生することを意味しない。直近の細部と既に発生した事実は、依然として今回の時間容量と次のマクロ境界に制約される。数を埋めるために原作の日付を前倒ししたり、未来イベントの結果を先に決算してはならない。更新時間には現在の世界時間を用いる。',
+                計画と発生:'今回は必ず骨格を補完すること。時間が進んでいない、本文にマクロな変化がない、業務上の変化がない、といった理由で省略してはならない。待発生ノードの確立は将来の計画であり、次のマクロ境界の後に置いてよく、イベントが今発生することを意味しない。直近の細部と既に発生した事実は、依然として今回の時間容量と次のマクロ境界に制約される。数を埋めるために原作の日付を前倒ししたり、未来イベントの結果を先に決算してはならない。更新時間には現在の世界時間を用いる。',
                 验收:'既存の状態と今回の結果を統合したうえで数える。今回のラウンドで既存のマクロノードを終了または取消した場合、ウィンドウから外れた分を補足しなければならない。リトライ時は受理済みの業務結果と最新の補完リストに従い、受理済みノードを重複作成しない。'
             }:undefined;
             const proseScan=floors.map(f=>f.正文).join('\n');
@@ -3196,15 +3196,15 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             const unscheduled=unscheduledEvents(state);
             const staleActive=staleActiveEvents(state);
             const timeAnomalies=temporalAnomalies(state);
-            const capacity=worldTimeCapacity(state.世界[PATH].已处理时间,state.世界.時間);
+            const capacity=worldTimeCapacity(state.世界[PATH].処理済み時刻,state.世界.時間);
             const npcAudit=npcBuildAudit(state);
             const input=JSON.stringify({
-                输入语义:{
+                入力セマンティクス:{
                     世界书:'任意の設定/原作との差異/時間資料。既に発生した事実ではなく、世界ブックがなくても正常に推演しなければならない。',
                     当前变量:'世界進行専用のホットデータ投影。世界、人物能力、完全な資産台帳、アクティブな伝播、直近の因果偏移、および「直近の原始アンカー + より古いルート要約」から成る階層的な長期歴史記憶を含む。原始履歴は永久にMVUに残り、上位の要約に取り込まれた旧ノードは再びホットコンテキストへ入らない。資産はWorldResult.资产と同一のトップレベル台帳で双方向に同期する。提供されていない任務/ショップ/純決算データはこのエンジンの責務ではない。',
-                    正文楼层:'すでに演出されたストーリー。現在の事実と時間スパンを確認するために用い、舞台裏の日常として語り直さない。',
-                    程序结构修复:'エンジンがすでに行った確定的な訂正。出力でプログラムが降格/修正した旧エラーを復元してはならない。',
-                    时间线调度:'プログラムが算出したマクロ境界と期限付き再検証要求。意味的な推演はモデルが担い、スケジュールプロトコルを再定義しない。',
+                    本文フロア:'すでに演出されたストーリー。現在の事実と時間スパンを確認するために用い、舞台裏の日常として語り直さない。',
+                    プログラム構造修復:'エンジンがすでに行った確定的な訂正。出力でプログラムが降格/修正した旧エラーを復元してはならない。',
+                    タイムライン編成:'プログラムが算出したマクロ境界と期限付き再検証要求。意味的な推演はモデルが担い、スケジュールプロトコルを再定義しない。',
                     WorldResult:'唯一の業務成果物。 JSON Pointer、add/replace パス、プログラムログを含まない。',
                     角色管理:'NPC構築監査が提供された場合、列挙された既存NPCのギャップのみを扱う。完全な構築資料は監査対象の中でのみ提供し、全NPCが重複してコンテキストを占有するのを避ける。'
                 },
@@ -3212,22 +3212,22 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 世界书:books.map(b=>String(b.内容||'')).filter(Boolean),
                 当前变量:projectWorldContext(state),
                 角色管理:npcAudit.length?{NPC构筑审计:npcAudit}:undefined,
-                正文楼层:floors,
-                程序结构修复:structuralFixes,
-                本轮时间容量:capacity,
-                时间线调度:timeline,
-                推演阶段:{宏观优先:true,宏观骨架状态:needBackbone?'確立または補足が必要':'利用可能なマクロ骨格あり',近期细节边界:timeline.下一宏观节点?.名称||'まず次のマクロノードを確立',知识来源:'現在確認済みの事実 > 明示された世界ブック設定（あれば） > モデルが持つ原作/世界知識 > 慎重な推論'},
-                正文可见投影规则:{
+                本文フロア:floors,
+                プログラム構造修復:structuralFixes,
+                今回の時間容量:capacity,
+                タイムライン編成:timeline,
+                推演阶段:{マクロ優先:true,宏观骨架状态:needBackbone?'確立または補足が必要':'利用可能なマクロ骨格あり',近期詳細境界:timeline.下一宏观节点?.名称||'まず次のマクロノードを確立',知識の出典:'現在確認済みの事実 > 明示された世界ブック設定（あれば） > モデルが持つ原作/世界知識 > 慎重な推論'},
+                本文可視投影規則:{
                     当前时间:state.世界.時間,
                     当前地点:state.世界.地点,
                     要求:'非戦闘の本文は完全な因果軌道を読み取る。現在段階は現在の情勢に、ストーリーライン/次ノードは長期的な語りの方向に、偏移記録は章をまたぐ因果記憶に用いる。これらは計画の根拠であり、キャラクターの予知や背後情報の自動把握を意味しない。本文はさらに、進行中の現在イベントの公開フィールドと、プログラムが選別した場外シーンを読み取る。各ホット地区には共有環境/現場集団が一度だけ現れ、人物リストは各自の行動事実のみを運び、関連イベントは索引としてのみ扱う。アクティブな異端は常にその所在ホットシーンに保持される。以上はいずれも語りの連続性のために用いられ、キャラクターが既知であることを意味しない。現在のシーンに影響しうる現在イベントは、公開の兆候と可視の影響を維持すべきである。隠された条件、既定の展開、未来のマクロイベントの詳細を公開フィールドに詰め込んではならない。'
                 },
-                可选宏观资料补充:needBackbone,
-                本轮必须复核的到期事件:due,
-                本轮必须补全的事件时间锚点:unscheduled,
-                本轮必须复核的超期活动事件:staleActive,
-                本轮必须修复的时间越界记录:timeAnomalies,
-                本轮必须维持的异端活动:alienActivity,
+                任意マクロ資料補足:needBackbone,
+                今回再確認必須の期限到来イベント:due,
+                今回補完必須のイベント時刻アンカー:unscheduled,
+                今回再確認必須の期限超過活動イベント:staleActive,
+                今回修正必須の時刻範囲外記録:timeAnomalies,
+                今回維持必須の異端活動:alienActivity,
                 生命周期整理:lifecycle,
                 説明:'現在変数は確認済みのホット事実であり、重複決算しない。アーカイブ済みの旧イベントと回収済みの伝播を再作成しない。世界ブックが空でも阻害要因にならない。業務上の事実のみを提出し、保存パスはプログラムがコンパイルする。'
             },null,2);
@@ -3235,7 +3235,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             const macroPrompt=macroRequirement?(this.config.macroPrompt??DEFAULT_MACRO_PROMPT):'';
             const corePrompt=this.config.corePrompt??CORE_WORLD_RULES;
             const system=this.config.preset+(corePrompt?'\n\n'+corePrompt:'')+(macroPrompt?'\n\n'+macroPrompt:'')+(stabilityPrompt?'\n\n'+stabilityPrompt:'')+(npcAudit.length?'\n\n'+(this.config.npcAuditPrompt??NPC_BUILD_AUDIT_RULES):'')+'\n\n【WorldResult 业务输出协议】\n'+((this.config.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'\n\n【Canonical WorldResult JSON Schema】\nプログラムが実際に使用するフィールド定義（文章による説明では変更できません）：\n'+JSON.stringify(WORLD_RESULT_SCHEMA,null,2));
-            return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,unscheduled,staleActive,timeAnomalies,alienActivity,npcAudit:copy(npcAudit),timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',结构化输出:'auto',接口来源:this.apiSourceLabel(),读取判定:copy(books.report||[]),世界书读取:{实际读取:books.length,检查条目:(books.report||[]).length,跳过:Math.max(0,(books.report||[]).length-books.length)},世界书条目:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,估算Tokens:estimateTokens(b.内容)})),正文楼层:floors.map(f=>({楼层:f.楼层,キャラ:f.キャラ,估算Tokens:estimateTokens(f.正文)})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),待补时间锚点:unscheduled.map(e=>e.名称),超期活动事件:staleActive.map(e=>e.名称),时间越界记录:timeAnomalies.map(e=>e.タイプ+'/'+e.名称),程序结构修复:copy(structuralFixes),生命周期整理:copy(lifecycle),NPC构筑审计:npcAudit.map(x=>({名称:x.名称,审计级别:x.审计级别,缺口:copy(x.缺口)})),本轮时间容量:copy(capacity),可选宏观资料补充:needBackbone,观测:requestTokenTelemetry(system,input,WORLD_RESULT_SCHEMA)}};
+            return {system,input,schema:copy(WORLD_RESULT_SCHEMA),seedPatches,due,unscheduled,staleActive,timeAnomalies,alienActivity,npcAudit:copy(npcAudit),timeline:copy(timeline),manifest:{输出协议:'WorldResult v1',構造化出力:'auto',接口来源:this.apiSourceLabel(),読取判定:copy(books.report||[]),世界書読取:{実測読取:books.length,チェック項目:(books.report||[]).length,スキップ:Math.max(0,(books.report||[]).length-books.length)},世界書エントリ:books.map(b=>({世界书:b.世界书,条目ID:b.条目ID,名称:b.名称,估算Tokens:estimateTokens(b.内容)})),本文フロア:floors.map(f=>({楼层:f.楼层,キャラ:f.キャラ,估算Tokens:estimateTokens(f.正文)})),导入节点:seedPatches.map(p=>tokens(p.path).at(-1)),到期节点:due.map(e=>e.名称),補完待ち時刻アンカー:unscheduled.map(e=>e.名称),超期活动事件:staleActive.map(e=>e.名称),时间越界记录:timeAnomalies.map(e=>e.タイプ+'/'+e.名称),プログラム構造修復:copy(structuralFixes),生命周期整理:copy(lifecycle),NPC构筑审计:npcAudit.map(x=>({名称:x.名称,監査級:x.監査級,缺口:copy(x.缺口)})),今回の時間容量:copy(capacity),任意マクロ資料補足:needBackbone,观测:requestTokenTelemetry(system,input,WORLD_RESULT_SCHEMA)}};
         }
         schedule() {
             if (this.disposed || this.committing || !this.isEnabled()) return;
@@ -3252,12 +3252,12 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 const base = this.snapshot(), reason = this.blocked(base);
                 if (reason) { this.status = reason; return false; }
                 const old = Object.assign(emptyState(),base.stat.世界[PATH] || {});
-                if (old.已处理楼层 === base.fingerprint) {
+                if (old.処理済みフロア === base.fingerprint) {
                     const recoveryStat=copy(base.stat);
                     recoveryStat.世界[PATH]=Object.assign(emptyState(),recoveryStat.世界[PATH]||{});
                     normalizeBackendState(recoveryStat);
                     const recoveryTimeline=timelineState(recoveryStat);
-                    const needsMacroRepair=this.config.requireMacroBackbone!==false&&(recoveryTimeline.需要补充远期||recoveryTimeline.因果轨道需重建);
+                    const needsMacroRepair=this.config.requireMacroBackbone!==false&&(recoveryTimeline.長期補完が必要||recoveryTimeline.因果轨道需重建);
                     const needsScheduleRepair=unscheduledEvents(recoveryStat).length>0;
                     const needsLifecycleRepair=staleActiveEvents(recoveryStat).length>0||temporalAnomalies(recoveryStat).length>0;
                     const needsAlienRepair=activeAlienActivityRequirements(recoveryStat).some(item=>{
@@ -3291,7 +3291,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                         观测:requestTokenTelemetry(request.system,attemptInput,request.schema),
                         尝试序号:attempt+1,
                         最大尝试次数:maxAttempts,
-                        失败记录:copy(this.lastRetryLog)
+                        失敗記録:copy(this.lastRetryLog)
                     });
                     actualRequest.manifest.观测.请求类型=attempt===0?'初回リクエスト':'訂正リトライ';
                     this.lastAttemptCount=attempt+1;
@@ -3307,9 +3307,9 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                         if(token!==this.generation||this.controller.signal.aborted)throw new Error('请求已取消');
                         this.lastReply=received;this.lastFailure='';
                         const elapsed=Math.max(0,Date.now()-attemptStarted),transport=this.lastTransportInfo||{},usage=transport.usage||null,observation=actualRequest.manifest.观测;
-                        Object.assign(observation,{接口来源:transport.接口||this.apiSourceLabel(),模型:transport.模型||'',结构化实际模式:transport.结构化模式||'不明',模式尝试:copy(transport.尝试模式||[]),耗时毫秒:elapsed,输出估算Tokens:estimateTokens(received)});
-                        if(usage){observation.实际输入Tokens=usage.inputTokens;observation.实际输出Tokens=usage.outputTokens;observation.实际总Tokens=usage.totalTokens;}
-                        attemptTelemetry={尝试:attempt+1,结果:'検収待ち',输入估算Tokens:observation.请求估算Tokens,输出估算Tokens:observation.输出估算Tokens,API输入Tokens:usage?.inputTokens??null,API输出Tokens:usage?.outputTokens??null,API总Tokens:usage?.totalTokens??null,接口:observation.接口来源,模型:observation.模型,结构化模式:observation.结构化实际模式,模式尝试:copy(observation.模式尝试||[]),耗时毫秒:elapsed};
+                        Object.assign(observation,{接口来源:transport.接口||this.apiSourceLabel(),模型:transport.模型||'',構造化実測モード:transport.構造化モード||'不明',模式尝试:copy(transport.尝试模式||[]),所要ミリ秒:elapsed,出力推定Tokens:estimateTokens(received)});
+                        if(usage){observation.実測入力Tokens=usage.inputTokens;observation.実測出力Tokens=usage.outputTokens;observation.実測合計Tokens=usage.totalTokens;}
+                        attemptTelemetry={尝试:attempt+1,结果:'検収待ち',入力推定Tokens:observation.请求估算Tokens,出力推定Tokens:observation.出力推定Tokens,API入力Tokens:usage?.inputTokens??null,API出力Tokens:usage?.outputTokens??null,API合計Tokens:usage?.totalTokens??null,接口:observation.接口来源,模型:observation.模型,構造化モード:observation.構造化実測モード,模式尝试:copy(observation.模式尝试||[]),所要ミリ秒:elapsed};
                         this.lastAttemptTelemetry.push(attemptTelemetry);
 
                         const reply=parseReply(received);
@@ -3378,8 +3378,8 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                             const total=Object.values(offsets).reduce((n,r)=>n+(Number(r.影響度)||0),0);
                             next.世界.安定=Math.max(0,Math.min(120,100+total));
                         }
-                        next.世界[PATH].已处理楼层=base.fingerprint;
-                        next.世界[PATH].已处理时间=base.stat.世界.時間;
+                        next.世界[PATH].処理済みフロア=base.fingerprint;
+                        next.世界[PATH].処理済み時刻=base.stat.世界.時間;
                         const changes=committedPatches.map(p=>{
                             const parts=tokens(p.path),back=parts[1]===PATH,asset=parts[0]==='资产';
                             return {时间:base.stat.世界.時間,类别:asset?'资产':back?parts[2]:parts[1],名称:asset?parts[1]:back?parts[3]:parts[2],字段:asset?'资产':parts.at(-1),操作:p.op==='add'?'新增':p.op==='remove'?'移除':'更新',内容:typeof p.value==='string'?p.value:plain(p.value)?(p.value.説明||p.value.行动||p.value.事实||p.value.目標||p.value.状態||p.value.内容||'记录已更新'):''};
@@ -3404,8 +3404,8 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                         if(attemptTelemetry){attemptTelemetry.结果='拒否';attemptTelemetry.原因=String(error.message||error);}
                         else{
                             const elapsed=Math.max(0,Date.now()-attemptStarted),transport=this.lastTransportInfo||{},observation=actualRequest.manifest.观测;
-                            Object.assign(observation,{接口来源:transport.接口||this.apiSourceLabel(),模型:transport.模型||'',结构化实际模式:transport.结构化模式||'未返却',模式尝试:copy(transport.尝试模式||[]),耗时毫秒:elapsed});
-                            this.lastAttemptTelemetry.push({尝试:attempt+1,结果:'リクエスト失敗',输入估算Tokens:observation.请求估算Tokens,输出估算Tokens:0,API输入Tokens:null,API输出Tokens:null,API总Tokens:null,接口:observation.接口来源,模型:observation.模型,结构化模式:observation.结构化实际模式,模式尝试:copy(observation.模式尝试||[]),耗时毫秒:elapsed,原因:String(error.message||error)});
+                            Object.assign(observation,{接口来源:transport.接口||this.apiSourceLabel(),模型:transport.模型||'',構造化実測モード:transport.構造化モード||'未返却',模式尝试:copy(transport.尝试模式||[]),所要ミリ秒:elapsed});
+                            this.lastAttemptTelemetry.push({尝试:attempt+1,结果:'リクエスト失敗',入力推定Tokens:observation.请求估算Tokens,出力推定Tokens:0,API入力Tokens:null,API出力Tokens:null,API合計Tokens:null,接口:observation.接口来源,模型:observation.模型,構造化モード:observation.構造化実測モード,模式尝试:copy(observation.模式尝试||[]),所要ミリ秒:elapsed,原因:String(error.message||error)});
                         }
                         lastError=error;
                         lastRejectedReply=received||this.lastReply||'';
@@ -4016,7 +4016,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 const a=button.dataset.action;
                 if(button.dataset.directory){this.directoryTab=button.dataset.directory;this.render();return;}
                 if(button.dataset.area){this.selectedArea=button.dataset.area;this.directoryTab='探索';this.render();return;}
-                if(button.dataset.faction){if(button.hasAttribute('data-asset-owner'))this.tab='探索与势力';this.selectedFaction=button.dataset.faction;this.directoryTab='勢力';this.render();return;}
+                if(button.dataset.faction){if(button.hasAttribute('data-asset-owner'))this.tab='探索と勢力';this.selectedFaction=button.dataset.faction;this.directoryTab='勢力';this.render();return;}
                 if(button.dataset.jumpPerson){this.selectedPerson=button.dataset.jumpPerson;this.tab='角色管理';this.filter='全部';this.query='';this.selectedDate='';this.render(true);return;}
                 if(button.dataset.jumpEvent){
                     this.jumpEvent=button.dataset.jumpEvent;this.tab='世界推进';this.filter='全部';this.query='';
@@ -4110,10 +4110,10 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 }
                 else if(a==='book-all'||a==='book-none'){this.panel.querySelectorAll('[data-book]').forEach(e=>{e.checked=a==='book-all'&&!e.disabled;});}
                 else if(a==='preview'){
-                    const settings=this.tab==='提示词预设'?this.readPromptEditor():null;
+                    const settings=this.tab==='プロンプトプリセット'?this.readPromptEditor():null;
                     if(settings)this.applyPromptSettings(settings);
                     this.promptDraft=null;
-                    this.buildRequest(this.snapshot()).then(r=>{this.previewRequest=r;this.tab='请求检查';this.render(true);}).catch(e=>{this.status=e.message;this.panel.querySelector('footer span').textContent=this.status;});
+                    this.buildRequest(this.snapshot()).then(r=>{this.previewRequest=r;this.tab='リクエスト検査';this.render(true);}).catch(e=>{this.status=e.message;this.panel.querySelector('footer span').textContent=this.status;});
                 }
                 else if(button.dataset.fontOption){
                     const scale=button.dataset.fontOption;
@@ -4238,9 +4238,9 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             runButton.textContent=this.busy?(this.committing?'保存中…':stopping?'停止中…':'進行を停止'):'世界を進行';
             runButton.setAttribute('aria-label',runButton.textContent);
 
-            const tabs=[['世界推进','◈'],['角色管理','♙'],['探索与势力','⌖'],['世界事件','▤'],['资产','▣'],['噂','◎'],['提示词预设','✎'],['请求检查','⌕'],['运行记录','≋','歴史記憶'],['設定','⚙']];
+            const tabs=[['世界推进','◈'],['角色管理','♙'],['探索と勢力','⌖'],['世界事件','▤'],['资产','▣'],['噂','◎'],['プロンプトプリセット','✎'],['リクエスト検査','⌕'],['运行记录','≋','歴史記憶'],['設定','⚙']];
             this.panel.querySelector('nav').innerHTML='<div class="we-navtitle">世界档案</div>'+tabs.map(([t,i,label])=>'<button data-tab="'+t+'" aria-selected="'+(this.tab===t)+'"><span class="we-tab-icon" aria-hidden="true">'+i+'</span>'+(label||t)+'</button>').join('');
-            if(this.tab==='提示词预设'&&main.querySelector('textarea')&&!force)return;
+            if(this.tab==='プロンプトプリセット'&&main.querySelector('textarea')&&!force)return;
             const text=v=>escape(v==null?'':v);
             const exists=v=>v!==''&&v!=null&&(!Array.isArray(v)||v.length)&&(!plain(v)||Object.keys(v).length);
             const pill=(v,kind='')=>'<span class="we-pill '+kind+'">'+text(v)+'</span>';
@@ -4302,7 +4302,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             const person=(name,p,full=false)=>{
                 const profileName=relationNamesByKey.get(nameKey(name))||'';
                 const rel=profileName?relationRoster[profileName]||{}:{};
-                return '<article class="'+(full?'we-card':'we-person')+'">'+(!full?'<div class="we-avatar">'+text(name.slice(0,1))+'</div>':'')+'<div><div class="we-card-top"><h3>'+text(name)+'</h3>'+pill(p.状態||(rel.登場?'登場':'场外'),'dim')+'</div><p>'+text(p.行动||p.公开动态||rel.態度||'行動記録なし')+'</p><div class="we-meta"><span>⌖ '+text(p.地点||'地点不明')+'</span>'+(p.预计结束?'<span>〜 '+text(dateLabel(p.预计结束))+'</span>':'')+'</div>'+(full?fields({档案类型:profileName?'正式な関係人物':'世界の活動人物',目標:p.目標,当前时间段:[p.开始时间,p.预计结束].filter(Boolean).join(' → '),下次检查:p.下次检查,所属世界:p.所属世界,好感度:rel.好感度})+details('person-'+name,{行程:p.行程,认知:p.认知,认知来源:p.认知来源,登场条件:p.登场条件,关联事件:p.关联事件,更新时间:p.更新时间,人物背景:rel.背景},'行程 · 認知 · 関連イベント'):'')+'</div></article>';
+                return '<article class="'+(full?'we-card':'we-person')+'">'+(!full?'<div class="we-avatar">'+text(name.slice(0,1))+'</div>':'')+'<div><div class="we-card-top"><h3>'+text(name)+'</h3>'+pill(p.状態||(rel.登場?'登場':'场外'),'dim')+'</div><p>'+text(p.行动||p.公开动态||rel.態度||'行動記録なし')+'</p><div class="we-meta"><span>⌖ '+text(p.地点||'地点不明')+'</span>'+(p.预计结束?'<span>〜 '+text(dateLabel(p.预计结束))+'</span>':'')+'</div>'+(full?fields({档案类型:profileName?'正式な関係人物':'世界の活動人物',目標:p.目標,現在の時間帯:[p.开始时间,p.预计结束].filter(Boolean).join(' → '),下次检查:p.下次检查,所属世界:p.所属世界,好感度:rel.好感度})+details('person-'+name,{行程:p.行程,认知:p.认知,认知来源:p.认知来源,登场条件:p.登场条件,关联事件:p.关联事件,更新时间:p.更新时间,人物背景:rel.背景},'行程 · 認知 · 関連イベント'):'')+'</div></article>';
             };
             const compactPerson=(name,p)=>{
                 const profileName=relationNamesByKey.get(nameKey(name))||'';
@@ -4323,7 +4323,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                     if(kind==='person'){
                         const meta=[item.关系,item.身分,item.档案类型||'世界の人物'].filter(Boolean).join(' · ');
                         const inner='<b>'+text(item.名称)+'</b><small>'+text(meta||'現場タグ')+'</small>'+(item.行动?'<p>'+text(item.行动)+'</p>':'');
-                        return item.可查看档案&&item.档案名称
+                        return item.閲覧可能プロフィール&&item.档案名称
                             ?'<button class="we-scene-item" data-jump-person="'+text(item.档案名称)+'">'+inner+'</button>'
                             :'<article class="we-scene-item we-scene-label">'+inner+'</article>';
                     }
@@ -4333,10 +4333,10 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 return '<div class="we-scene-lane"><div class="we-scene-lane-head"><b>'+text(title)+'</b><span>'+list.length+'</span></div>'+(body||'<div class="we-muted">記録なし</div>')+'</div>';
             };
             const sceneContextBody=context=>{
-                const hasScene=!!(context&&(context.地区||context.身边人物?.length||context.现场群体?.length));
+                const hasScene=!!(context&&(context.地区||context.近傍人物?.length||context.现场群体?.length));
                 if(!hasScene)return empty('周辺の展開なし','人物はまだ利用可能な地区の現場に一致していません；パネルを埋めるために周辺情報を捏造することはありません。');
                 const control=[context.控制方?'制圧 · '+context.控制方:'',context.争夺方?.length?'争奪 · '+context.争夺方.join('、'):''].filter(Boolean).join(' · ');
-                return '<div class="we-scene-hero"><div class="we-scene-head"><div><small>現在の世界現場</small><h3>'+text(context.地区||'名称未設定の地区')+'</h3></div><small>'+text(control||'制圧関係は未記録')+'</small></div>'+(context.地区动态?'<p>'+text(context.地区动态)+'</p>':'')+(context.环境状态?.length?'<div class="we-chips">'+context.环境状态.map(x=>pill(x,'dim')).join('')+'</div>':'')+'</div><div class="we-scene-grid">'+sceneLane('周辺の人物',context.身边人物,'person')+sceneLane('現場集団',context.现场群体,'group')+'</div>';
+                return '<div class="we-scene-hero"><div class="we-scene-head"><div><small>現在の世界現場</small><h3>'+text(context.地区||'名称未設定の地区')+'</h3></div><small>'+text(control||'制圧関係は未記録')+'</small></div>'+(context.地区动态?'<p>'+text(context.地区动态)+'</p>':'')+(context.环境状态?.length?'<div class="we-chips">'+context.环境状态.map(x=>pill(x,'dim')).join('')+'</div>':'')+'</div><div class="we-scene-grid">'+sceneLane('周辺の人物',context.近傍人物,'person')+sceneLane('現場集団',context.现场群体,'group')+'</div>';
             };
             const areaSceneBody=record=>{
                 const groups=Array.isArray(record?.现场群体)?record.现场群体:[];
@@ -4354,7 +4354,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                         +(task?'<p>'+text(task.目標||'目標は未記録')+'</p>'+fields({依頼元:task.依頼元,難易度:task.難易度,納品:task.納品}):'<p class="we-muted">現在の任務リストに該当する任務が見つからないため、イベント内の関連名称を保持します。</p>')+'</details>';
                 }).join('')+'</div>';
             };
-            const eventCard=(name,e)=>'<article class="we-card" data-event-card="'+text(name)+'"><div class="we-card-top"><h3>'+text(name)+'</h3><div class="we-card-tags">'+pill(e.分类||'近期节点',e.分类==='宏观节点'?'future':'dim')+pill(e.状態,e.状態==='待发生'?'future':e.状態==='進行中'?'':'dim')+'</div></div><div class="we-meta"><span>◷ '+text(eventScheduleLabel(e))+'</span><span>⌖ '+text(e.地点||'地点不明')+'</span></div><p>'+text(e.公开征兆||e.説明||'明確なイベント内容を待機中')+'</p>'+eventTasks(name,e)+details('event-'+name,{事件描述:e.説明,分类:e.分类,前因:e.前因,触发条件:e.条件,参与者:e.参与者,预计结束:e.预计结束,下次检查:e.下次检查,可见影响:e.可见影响,默认走向:e.默认走向,已确认结果:e.结果,更新时间:e.更新时间},'因果関連とイベント詳細')+'</article>';
+            const eventCard=(name,e)=>'<article class="we-card" data-event-card="'+text(name)+'"><div class="we-card-top"><h3>'+text(name)+'</h3><div class="we-card-tags">'+pill(e.分类||'近期节点',e.分类==='宏观节点'?'future':'dim')+pill(e.状態,e.状態==='待发生'?'future':e.状態==='進行中'?'':'dim')+'</div></div><div class="we-meta"><span>◷ '+text(eventScheduleLabel(e))+'</span><span>⌖ '+text(e.地点||'地点不明')+'</span></div><p>'+text(e.公开征兆||e.説明||'明確なイベント内容を待機中')+'</p>'+eventTasks(name,e)+details('event-'+name,{事件描述:e.説明,分类:e.分类,前因:e.前因,発火条件:e.条件,参与者:e.参与者,预计结束:e.预计结束,下次检查:e.下次检查,可见影响:e.可见影响,默认走向:e.默认走向,確認済み結果:e.结果,更新时间:e.更新时间},'因果関連とイベント詳細')+'</article>';
             const timelineCards=list=>{
                 const groups=[
                     ['現在進行中',list.filter(([,e])=>e.状態==='進行中'||(e.状態==='待发生'&&e.分类==='当前事件'))],
@@ -4429,8 +4429,8 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 html+='<div class="we-dashboard"><div class="we-command-main">'
                     +'<section class="we-section we-timeline-board" data-detail="world-calendar"><div class="we-section-head"><h2>イベントタイムライン</h2><small>'+events.length+' イベント · '+future.length+' 将来 · '+macroCount+' マクロ</small></div><div class="we-calendar-layout"><div class="we-calendar-slot">'+calendar()+'</div><div class="we-timeline-slot">'+tools(['全部','進行中','待发生','已完成','已取消'])+'<div class="we-tools"><span>'+text(this.calendarMode==='undated'?'日付未定 / 作品内時間':this.selectedDate||'全期間')+'</span><button data-action="today">今日へ戻る</button><button data-action="clear-date">全期間</button><button data-action="undated">日付未定のイベント</button></div>'+'<div class="we-timeline">'+(timelineCards(shown.slice(0,this.eventLimit||12))||empty('条件に一致するイベントはありません'))+'</div>'+(shown.length>(this.eventLimit||12)?'<button class="we-btn" data-action="more-events">さらに表示（全 '+shown.length+' 件）</button>':'')+'</div></div></section>'
                     +'</div><aside class="we-command-side">'
-                    +section('因果状态',causalHtml,'安定と軌道偏移')
-                    +section('货币与经济',exists(w.通貨)?fields({货币体系:w.通貨?.体系,購買力基準:w.通貨?.購買力基準,経済変動:w.通貨?.経済変動}):empty('通貨資料なし','世界進行は設定や経済情勢が明確になった時点で保守します。'),'世界進行が保守')
+                    +section('因果状態',causalHtml,'安定と軌道偏移')
+                    +section('通貨と経済',exists(w.通貨)?fields({通貨体系:w.通貨?.体系,購買力基準:w.通貨?.購買力基準,経済変動:w.通貨?.経済変動}):empty('通貨資料なし','世界進行は設定や経済情勢が明確になった時点で保守します。'),'世界進行が保守')
                     +(exists(w.法則)?section('世界法則',prose(w.法則),'現在有効なルール · '+(Array.isArray(w.法則)?w.法則.length:1)+' 件'):'')
                     +section('人物の動向',(compactPeople.length?'<div class="we-people-strip">'+compactPeople.map(([n,p])=>compactPerson(n,p)).join('')+'</div><button class="we-link-btn" data-tab="角色管理">人物名簿を表示 →</button>':empty('人物の動向なし')),'主要 NPC')
                     +'</aside></div>';
@@ -4456,8 +4456,8 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 const chosenAudit=this.isNpcBuildAuditEnabled()&&chosenRelation?npcBuildAssessment(s,chosen[0],chosenRelation):null;
                 const chosenAlien=chosen?alienByKey.get(nameKey(chosen[0]))?.记录:null;
                 const auditPanel=chosenAudit?section('NPC構築監査',
-                    '<div class="we-card"><div class="we-card-top"><h3>'+text(chosenAudit.审计级别)+'</h3>'+pill(chosenAudit.缺口.length?'待補強':'構築完了',chosenAudit.缺口.length?'future':'dim')+'</div>'
-                    +fields({階層:chosenAudit.階層,当前组件:chosenAudit.当前组件})
+                    '<div class="we-card"><div class="we-card-top"><h3>'+text(chosenAudit.監査級)+'</h3>'+pill(chosenAudit.缺口.length?'待補強':'構築完了',chosenAudit.缺口.length?'future':'dim')+'</div>'
+                    +fields({階層:chosenAudit.階層,現在のコンポーネント:chosenAudit.現在のコンポーネント})
                     +(chosenAudit.缺口.length?'<div class="we-chips">'+chosenAudit.缺口.map(x=>pill(x,'future')).join('')+'</div><p class="we-muted">进入世界推进请求的热人物会由后台优先补齐缺口；難易度スクリプトは既存コンポーネントの品質調整のみを担当します。</p>':'<p class="we-muted">現在の構築はこの階層の監査最低要件を満たしています。</p>')+'</div>',
                     '正式な関係人物のみ · NPC生成ルールを再利用'
                 ):'';
@@ -4478,7 +4478,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                     +section('人物名簿',roster,'正式 '+formalCount+' · 世界の人物 '+worldCount)
                     +(chosen?section('身分と現在の行動',person(chosen[0],chosen[1],true),chosenMeta.正式?'正式な関係人物':'世界のバックステージ人物')+surroundingsPanel+section('日程と行動',fields({行程:chosen[1].行程,开始时间:chosen[1].开始时间,预计结束:chosen[1].预计结束,下次检查:chosen[1].下次检查}))+auditPanel:empty('人物が選択されていません'))
                     +'</div><aside>'+backgroundPanel+alienPanel+(chosen?[['情報',chosen[1].认知来源||chosen[1].认知],['直近の動向',chosen[1].公开动态]].filter(([,v])=>exists(v)).map(([label,v])=>section(label,value(v))).join(''):'')+'</aside></div>';
-            }else if(this.tab==='探索与势力'){
+            }else if(this.tab==='探索と勢力'){
                 const regionRecords=state.势力地区||{};
                 const exploration=entries(w.探索).map(([name,ledger])=>[name,{...(regionRecords[name]||{}),...ledger,タイプ:'探索'}]);
                 const factionList=entries(w.勢力).map(([name,ledger])=>[name,{...(regionRecords[name]||{}),...ledger,タイプ:'勢力'}]);
@@ -4528,7 +4528,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                         const backstage=regionRecords[n]||{};
                         return '<div class="we-area-detail"><div class="we-area-facts">'+fields({リスク:r.リスク,控制方:r.控制方||'不明',争夺方:r.争夺方,环境状态:r.环境状态})+'<div class="we-area-note">'+text(r.説明||'確定済みのプレイヤー探索の説明はありません。')+'</div></div>'
                             +areaSceneBody(backstage)
-                            +'<div class="we-area-archive">'+(exists(backstage.进展)||exists(backstage.公开动态)||exists(backstage.资源)||exists(backstage.近期变化)?details('area-world-'+n,{世界进展:backstage.进展,公开动态:backstage.公开动态,资源:backstage.资源,近期变化:backstage.近期变化},'世界地区記録'):'')
+                            +'<div class="we-area-archive">'+(exists(backstage.进展)||exists(backstage.公开动态)||exists(backstage.资源)||exists(backstage.近期变化)?details('area-world-'+n,{世界進展:backstage.进展,公开动态:backstage.公开动态,资源:backstage.资源,近期变化:backstage.近期变化},'世界地区記録'):'')
                             +(exists(r.隠された真実)?details('area-truth-'+n,{隠された真実:r.隠された真実},'主持人档案'):'')+'</div></div>';
                     })():empty('探索ランドマークなし','世界.探索にすでに投影された全体区域のみがここに表示されます。');
                     html+=section('探索決算名簿','<div class="we-explore-grid we-explore-index">'+(cards||empty('探索ランドマークなし','プレイヤーが実際に全体区域を発見するのを待機します。'))+'</div>');
@@ -4547,7 +4547,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                             +'<div class="we-muted">'+(rep>0?'正の声望ボーナス重み '+(rep/100).toFixed(1)+'×（合計上限 3×）':'スペースコイン報酬：0（声望が正でない）')+'</div>'
                             +'<p>'+text(r.説明||r.目標||'勢力の説明なし')+'</p><small>'+text(r.領地||'領地未記録')+'</small></button>';
                     }).join('');
-                    const factionDetail=chosenFaction?'<h3>'+text(chosenFaction[0])+'</h3>'+fields({実力:chosenFaction[1].実力,声望:chosenFaction[1].声望,关系阶段:repStage(chosenFaction[1].声望),領地:chosenFaction[1].領地,目標:chosenFaction[1].目標,説明:chosenFaction[1].説明,当前进展:chosenFaction[1].进展}):empty('勢力記録なし');
+                    const factionDetail=chosenFaction?'<h3>'+text(chosenFaction[0])+'</h3>'+fields({実力:chosenFaction[1].実力,声望:chosenFaction[1].声望,関係段階:repStage(chosenFaction[1].声望),領地:chosenFaction[1].領地,目標:chosenFaction[1].目標,説明:chosenFaction[1].説明,現在の進展:chosenFaction[1].进展}):empty('勢力記録なし');
                     html+=section('勢力決算名簿','<div class="we-explore-layout"><div class="we-faction-grid">'+(factionCards||empty('既知の勢力なし'))+'</div><aside class="we-area-side">'+section('勢力記録',factionDetail,'左の勢力をクリックして切り替え')+'</aside></div>','声望は勢力からプレイヤーへの実際の関係のみを反映');
                 }
             }else if(this.tab==='资产'){
@@ -4555,9 +4555,9 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 const assets=entries(s.资产).filter(([,asset])=>plain(asset));
                 const list=assets.filter(([name,asset])=>{
                     const owners=ownersOf(asset),category=this.filter||'全部';
-                    return (category==='全部'||category==='玩家相关'&&owners.includes('<user>')||category==='共同持有'&&owners.length>1||category==='无主'&&!owners.length)&&matched(name,{...asset,归属:owners.join(' ')});
+                    return (category==='全部'||category==='プレイヤー関連'&&owners.includes('<user>')||category==='共同持有'&&owners.length>1||category==='无主'&&!owners.length)&&matched(name,{...asset,帰属:owners.join(' ')});
                 });
-                html+=tools(['全部','玩家相关','共同持有','无主']);
+                html+=tools(['全部','プレイヤー関連','共同持有','无主']);
                 html+=section('資産と帰属',list.map(([name,asset])=>{
                     const owners=ownersOf(asset);
                     const ownerLinks=owners.length?owners.map(owner=>{
@@ -4579,8 +4579,8 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 if(showRadar&&exists(radar.現在モード))html+=section('干渉モード','<article class="we-card"><p>'+text(radar.現在モード)+'</p></article>');
 
                 const historyMemory=projectWorldHistoryMemory(state);
-                html+=section('近期历史锚点',entries(historyMemory.近期锚点).reverse().map(([n,r])=>'<article class="we-card"><div class="we-meta">'+text(r.时间)+'</div><p>'+text(r.事实)+'</p>'+fields({关联事件:r.关联事件})+'</article>').join('')||empty('未収納の直近アンカーはありません'),(historyMemory.统计?.原始锚点总数||0)+' 件の原始履歴 · 現在のホットルートノードのみ表示');
-                html+=section('长期历史总结',(historyMemory.长期总结||[]).slice().reverse().map(r=>'<article class="we-card"><div class="we-card-top"><h3>'+text(r.名称)+'</h3>'+pill('L'+text(r.階層),'dim')+'</div><div class="we-meta">'+text([r.起始时间,r.结束时间].filter(Boolean).join(' → '))+'</div><p>'+text(r.要約)+'</p></article>').join('')||empty('長期の履歴要約はまだありません','履歴アンカーが蓄積されると自動で階層圧縮されます；下層の事実はMVUに保持されたままです。'),(historyMemory.统计?.总结节点总数||0)+' 件の要約ノード · 原始履歴は削除されません');
+                html+=section('近期歴史アンカー',entries(historyMemory.近期锚点).reverse().map(([n,r])=>'<article class="we-card"><div class="we-meta">'+text(r.时间)+'</div><p>'+text(r.事实)+'</p>'+fields({关联事件:r.关联事件})+'</article>').join('')||empty('未収納の直近アンカーはありません'),(historyMemory.统计?.原始锚点总数||0)+' 件の原始履歴 · 現在のホットルートノードのみ表示');
+                html+=section('長期歴史総括',(historyMemory.長期総括||[]).slice().reverse().map(r=>'<article class="we-card"><div class="we-card-top"><h3>'+text(r.名称)+'</h3>'+pill('L'+text(r.階層),'dim')+'</div><div class="we-meta">'+text([r.開始時刻,r.終了時刻].filter(Boolean).join(' → '))+'</div><p>'+text(r.要約)+'</p></article>').join('')||empty('長期の履歴要約はまだありません','履歴アンカーが蓄積されると自動で階層圧縮されます；下層の事実はMVUに保持されたままです。'),(historyMemory.统计?.总结节点总数||0)+' 件の要約ノード · 原始履歴は削除されません');
             }else if(this.tab==='設定'){
                 const api=this.normalizeDedicatedApi(this.config.dedicatedApi);
                 const fontButtons=Object.entries(WORLD_FONT_SCALES).map(([key,item])=>'<button class="we-setting-btn '+(this.config.fontScale===key?'active':'')+'" data-font-option="'+key+'">'+text(item.name)+' · '+text(item.size)+'</button>').join('');
@@ -4602,7 +4602,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                          +'<p class="we-muted">インターフェースは OpenAI-compatible /v1/chat/completions と /v1/models 方式で接続し、JSON Schema → JSON Object → プレーンテキストへの構造化互換フォールバックを保持します。</p>'
                         :'<div class="we-notice">現在は専用 API がオフです。世界進行は引き続き主神端末の「追加モデル設定」を使用します；ここでステータスバーの API Keyを複製・読み取りすることはありません。</div>')
                     ,'インターフェース設定はローカルの localStorage にのみ保存され、MVUには書き込まれません');
-            }else if(this.tab==='提示词预设'){
+            }else if(this.tab==='プロンプトプリセット'){
                 const promptView=this.promptDraft||{
                     preset:this.config.preset,
                     corePrompt:this.config.corePrompt??CORE_WORLD_RULES,
@@ -4630,9 +4630,9 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                     }).join('')+'</div></details>').join(''):empty('カタログ未読み込み','“カタログを読み込み / 更新”をクリックして、現在紐づいている世界書とグローバル有効な世界書を読み取ります。')));
                 const segments=splitPresetSegments(promptView.preset);
                 html+=section('セグメントプロンプト','<div class="we-segment-toolbar"><span>既定は読み取り専用、展開して閲覧；編集を開始すると変更できます。</span><button class="we-btn" data-action="prompt-edit" aria-pressed="'+!!this.promptEditing+'">'+(this.promptEditing?'編集をロック':'編集を開始')+'</button><button class="we-btn" data-action="segment-add" '+(this.promptEditing?'':'disabled')+'>＋ セグメント追加</button></div><div class="we-segment-list" data-segment-list>'+segments.map((part,i)=>'<details class="we-segment" data-segment-row><summary>'+text(part.title||'名称未設定のセグメント')+' <small>'+formatTokenCount(estimateTokens(part.body),true)+'</small></summary><div class="we-segment-head"><input '+(this.promptEditing?'':'readonly')+' data-segment-title aria-label="セグメントタイトル '+i+'" placeholder="セグメントタイトル（空欄可）" value="'+text(part.title)+'"><small>'+formatTokenCount(estimateTokens(part.body),true)+'</small><span class="we-segment-actions"><button type="button" '+(this.promptEditing?'':'disabled')+' data-action="segment-up" title="上へ移動">↑</button><button type="button" '+(this.promptEditing?'':'disabled')+' data-action="segment-down" title="下へ移動">↓</button><button type="button" '+(this.promptEditing?'':'disabled')+' data-action="segment-delete" title="削除">削除</button></span></div><textarea '+(this.promptEditing?'':'readonly')+' data-segment="'+i+'" data-title="'+text(part.title)+'" aria-label="プリセットセグメント '+i+'">'+text(part.body)+'</textarea></details>').join('')+'</div><p class="we-muted">これらのセグメントは主要な作業レイヤーで、追加・削除・順序変更が可能です。コア制約と条件付きプロンプトは下で個別に編集し、同じプリセット文書と一緒に保存されます。</p>');
-                html+=section('系统提示词','<div class="we-notice">ここに表示されるテキストはすべて実際の system リクエストに直接含まれ、プリセット文書とともに保存・適用・インポート・エクスポートされます。条件付きプロンプトは対応する条件が成立した時だけ送信されます；固定なのはプログラムフィールドの Schema のみです。</div>'+                    '<details class="we-segment"><summary>世界引擎核心约束 · '+(this.promptEditing?'編集中':'クリックで展開')+'</summary><textarea data-core-prompt '+(this.promptEditing?'':'readonly')+'>'+text(promptView.corePrompt??CORE_WORLD_RULES)+'</textarea><p class="we-muted">常に送信されます。変更または空欄可；空欄にするとコア制約は追加注入されません。</p></details>'+                    '<details class="we-segment"><summary>マクロ骨格の受渡し · 条件付きプロンプト</summary><textarea data-macro-prompt '+(this.promptEditing?'':'readonly')+'>'+text(promptView.macroPrompt??DEFAULT_MACRO_PROMPT)+'</textarea><p class="we-muted">今回、マクロ骨格の確立/補完が必要な時のみ送信されます。</p></details>'+                    '<details class="we-segment"><summary>世界の自己修復 · 条件付きプロンプトテンプレート</summary><textarea data-stability-prompt '+(this.promptEditing?'':'readonly')+'>'+text(promptView.stabilityPromptTemplate??DEFAULT_STABILITY_PROMPT_TEMPLATE)+'</textarea><p class="we-muted">世界安定値が100未満かつ世界超稳が有効でない時に送信されます。 {{段階}}、{{稳定值}}、{{规则}} プレースホルダーを使用できます。</p></details>'+                    '<details class="we-segment"><summary>角色管理 · NPC構築監査 · '+(this.isNpcBuildAuditEnabled()?'現在有効':'現在オフ')+'</summary><textarea data-npc-audit-prompt '+(this.promptEditing?'':'readonly')+'>'+text(promptView.npcAuditPrompt??NPC_BUILD_AUDIT_RULES)+'</textarea><p class="we-muted">スイッチの状態にかかわらず編集・保存できます；監査が有効で、かつ今回監査対象が存在する時のみ送信されます。</p></details>','コアと条件付きプロンプトはどちらも編集可能');
+                html+=section('システムプロンプト','<div class="we-notice">ここに表示されるテキストはすべて実際の system リクエストに直接含まれ、プリセット文書とともに保存・適用・インポート・エクスポートされます。条件付きプロンプトは対応する条件が成立した時だけ送信されます；固定なのはプログラムフィールドの Schema のみです。</div>'+                    '<details class="we-segment"><summary>世界引擎核心约束 · '+(this.promptEditing?'編集中':'クリックで展開')+'</summary><textarea data-core-prompt '+(this.promptEditing?'':'readonly')+'>'+text(promptView.corePrompt??CORE_WORLD_RULES)+'</textarea><p class="we-muted">常に送信されます。変更または空欄可；空欄にするとコア制約は追加注入されません。</p></details>'+                    '<details class="we-segment"><summary>マクロ骨格の受渡し · 条件付きプロンプト</summary><textarea data-macro-prompt '+(this.promptEditing?'':'readonly')+'>'+text(promptView.macroPrompt??DEFAULT_MACRO_PROMPT)+'</textarea><p class="we-muted">今回、マクロ骨格の確立/補完が必要な時のみ送信されます。</p></details>'+                    '<details class="we-segment"><summary>世界の自己修復 · 条件付きプロンプトテンプレート</summary><textarea data-stability-prompt '+(this.promptEditing?'':'readonly')+'>'+text(promptView.stabilityPromptTemplate??DEFAULT_STABILITY_PROMPT_TEMPLATE)+'</textarea><p class="we-muted">世界安定値が100未満かつ世界超稳が有効でない時に送信されます。 {{段階}}、{{稳定值}}、{{规则}} プレースホルダーを使用できます。</p></details>'+                    '<details class="we-segment"><summary>角色管理 · NPC構築監査 · '+(this.isNpcBuildAuditEnabled()?'現在有効':'現在オフ')+'</summary><textarea data-npc-audit-prompt '+(this.promptEditing?'':'readonly')+'>'+text(promptView.npcAuditPrompt??NPC_BUILD_AUDIT_RULES)+'</textarea><p class="we-muted">スイッチの状態にかかわらず編集・保存できます；監査が有効で、かつ今回監査対象が存在する時のみ送信されます。</p></details>','コアと条件付きプロンプトはどちらも編集可能');
                 html+=section('WorldResult 出力プロトコル','<details class="we-segment"><summary>WorldResult プロトコル説明 · クリックで展開</summary><textarea data-structure-prompt '+(this.promptEditing?'':'readonly')+'>'+text(promptView.structurePrompt??protocol().split('【Canonical WorldResult JSON Schema】')[0].trim())+'</textarea></details><details class="we-segment"><summary>プログラムフィールド Schema · 読み取り専用</summary><textarea readonly>'+text(JSON.stringify(WORLD_RESULT_SCHEMA,null,2))+'</textarea></details><p class="we-muted">プロトコル説明は上部の編集スイッチを使用します。保存後は実際の system リクエストに使われます；Schema は固定で読み取り専用、テキストプロンプトを変更してもプログラム変数の構造は変わりません。</p>');
-            }else if(this.tab==='请求检查'){
+            }else if(this.tab==='リクエスト検査'){
                 const fold=(title,body)=>'<details class="we-inspect"><summary>'+text(title)+'</summary><div class="we-inspect-body">'+body+'</div></details>';
                 const raw=(label,v)=>fold(label,'<textarea class="we-raw" readonly>'+text(v)+'</textarea>');
                 const readable=(name,v)=>Array.isArray(v)?v.map((item,i)=>fold((item.名称||item.楼层!==undefined&&(item.キャラ+' · 第 '+item.楼层+' 層')||name+' '+(i+1)),fields(item))).join(''):fields(plain(v)?v:{内容:v});
@@ -4643,18 +4643,18 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                     return '<div class="we-change"><time>#'+text(item.尝试)+'</time><div><b>モデルの応答が拒否されました</b><p>'+text(feedback.summary)+'</p>'+details+guidance+'</div></div>';
                 }).join('');
                 const tokenLabel=(value,estimated=true)=>Number.isFinite(Number(value))?formatTokenCount(Number(value),estimated):'—';
-                html+=section('失败自动重试','<div class="we-config-row"><label>最大試行回数 <input data-retries type="number" min="1" max="5" value="'+text(this.config.retryAttempts??5)+'"> 回</label><span class="we-muted">初回リクエストを含みます。1 = 一度だけリクエスト；5 = 最大で合計5回試行。修正するのは WorldResult の業務結果/コンパイル検証のみで、危険な権限逸脱・コンテキスト変化・書き込み未確認は自動再試行しません。</span></div>'+(this.lastAttemptCount?'<p class="we-muted">直近は合計 '+text(this.lastAttemptCount)+' 回試行しました；モデルの業務拒否は毎回、最後の失敗も含めて以下に完全に保持されます。</p>':'')+(retryLog||''));
+                html+=section('失敗時の自動再試行','<div class="we-config-row"><label>最大試行回数 <input data-retries type="number" min="1" max="5" value="'+text(this.config.retryAttempts??5)+'"> 回</label><span class="we-muted">初回リクエストを含みます。1 = 一度だけリクエスト；5 = 最大で合計5回試行。修正するのは WorldResult の業務結果/コンパイル検証のみで、危険な権限逸脱・コンテキスト変化・書き込み未確認は自動再試行しません。</span></div>'+(this.lastAttemptCount?'<p class="we-muted">直近は合計 '+text(this.lastAttemptCount)+' 回試行しました；モデルの業務拒否は毎回、最後の失敗も含めて以下に完全に保持されます。</p>':'')+(retryLog||''));
                 html+='<div class="we-tools"><button data-action="preview">次のリクエストプレビューを生成（実際の APIは呼び出しません）</button></div>';
                 for(const [label,r] of [['最近の実際の送信',this.lastRequest],['次のリクエストプレビュー',this.previewRequest]]){
                     if(!r){html+=section(label,empty('記録なし：'+label));continue;}
-                    const m=r.manifest||{},books=m.世界书条目||[],floors=m.正文楼层||[],obs=m.观测||requestTokenTelemetry(r.system,r.input,r.schema||WORLD_RESULT_SCHEMA);
-                    const readChecks=(m.读取判定||[]).filter(item=>item.读取===true);
-                    const exactInput=obs.实际输入Tokens!=null,exactOutput=obs.实际输出Tokens!=null;
-                    let body='<div class="we-request-summary">'+pill(m.输出协议||'WorldResult v1','dim')+pill('構造化 '+(obs.结构化实际模式||m.结构化输出||'auto'),'dim')+pill(obs.接口来源||m.接口来源||this.apiSourceLabel(),'dim')+pill(books.length+' 件の世界書','dim')+pill(floors.length+' 層の本文','dim')+pill((exactInput?tokenLabel(obs.实际输入Tokens,false):tokenLabel(obs.请求估算Tokens,true))+' 入力','dim')+(obs.输出估算Tokens!=null?pill((exactOutput?tokenLabel(obs.实际输出Tokens,false):tokenLabel(obs.输出估算Tokens,true))+' 出力','dim'):'')+(m.尝试序号?pill('試行 '+m.尝试序号,'dim'):'')+(m.最大尝试次数!==undefined?pill('最大試行 '+m.最大尝试次数,'dim'):'')+'</div>';
+                    const m=r.manifest||{},books=m.世界書エントリ||[],floors=m.本文フロア||[],obs=m.观测||requestTokenTelemetry(r.system,r.input,r.schema||WORLD_RESULT_SCHEMA);
+                    const readChecks=(m.読取判定||[]).filter(item=>item.读取===true);
+                    const exactInput=obs.実測入力Tokens!=null,exactOutput=obs.実測出力Tokens!=null;
+                    let body='<div class="we-request-summary">'+pill(m.输出协议||'WorldResult v1','dim')+pill('構造化 '+(obs.構造化実測モード||m.構造化出力||'auto'),'dim')+pill(obs.接口来源||m.接口来源||this.apiSourceLabel(),'dim')+pill(books.length+' 件の世界書','dim')+pill(floors.length+' 層の本文','dim')+pill((exactInput?tokenLabel(obs.実測入力Tokens,false):tokenLabel(obs.请求估算Tokens,true))+' 入力','dim')+(obs.出力推定Tokens!=null?pill((exactOutput?tokenLabel(obs.実測出力Tokens,false):tokenLabel(obs.出力推定Tokens,true))+' 出力','dim'):'')+(m.尝试序号?pill('試行 '+m.尝试序号,'dim'):'')+(m.最大尝试次数!==undefined?pill('最大試行 '+m.最大尝试次数,'dim'):'')+'</div>';
                     const userTokenFields=Object.fromEntries((obs.User分段||[]).map(item=>[item.名称,tokenLabel(item.估算Tokens,true)]));
                     body+='<p class="we-muted">“≈”付きの tk はローカル容量の概算にすぎず、プロバイダの実際の token とは異なります；主神端末の経路で usage が取得できない場合は正確な総量を確認できません。総入力 = System + 以下の User 内訳；ここでは User の総計や Schema の子項目は重複表示しません。専用 API が usage を返す場合、総入力/出力のみサーバー側の実際の tokenに切り替わります。</p>';
-                    body+=fold('Token 構成（クリックで展開）',fields(Object.assign({总输入:exactInput?tokenLabel(obs.实际输入Tokens,false):tokenLabel(obs.请求估算Tokens,true),System:tokenLabel(obs.System估算Tokens,true)},userTokenFields,{接口:obs.接口来源||m.接口来源||'',模型:obs.模型||'',模式尝试:Array.isArray(obs.模式尝试)&&obs.模式尝试.length?obs.模式尝试.join(' → '):'',耗时:Number.isFinite(Number(obs.耗时毫秒))?(Number(obs.耗时毫秒)/1000).toFixed(2).replace(/\.00$/,'')+' s':''}))+fold('system セグメント',fields({分段:(obs.System分段||[]).map(item=>item.名称+' · '+tokenLabel(item.估算Tokens,true))})));
-                    body+=fold('今回実際に読み取った資料（クリックで展開）',(readChecks.length?readable('エントリ',readChecks):empty('今回世界書を読み取りませんでした','チェックに一致した、または強制読み取りの世界書エントリがありません。'))+fold('実際に読み取った世界書',fields({条目:books.map(item=>item.名称+' · '+tokenLabel(item.估算Tokens,true))}))+fold('実際の本文階層',fields({楼层:floors.map(f=>'第 '+f.楼层+' 層 · '+f.キャラ+' · '+tokenLabel(f.估算Tokens,true))}))+fold('時間容量',fields(m.本轮时间容量||{})));
+                    body+=fold('Token 構成（クリックで展開）',fields(Object.assign({総入力:exactInput?tokenLabel(obs.実測入力Tokens,false):tokenLabel(obs.请求估算Tokens,true),System:tokenLabel(obs.System估算Tokens,true)},userTokenFields,{接口:obs.接口来源||m.接口来源||'',模型:obs.模型||'',模式尝试:Array.isArray(obs.模式尝试)&&obs.模式尝试.length?obs.模式尝试.join(' → '):'',耗时:Number.isFinite(Number(obs.所要ミリ秒))?(Number(obs.所要ミリ秒)/1000).toFixed(2).replace(/\.00$/,'')+' s':''}))+fold('system セグメント',fields({分段:(obs.System分段||[]).map(item=>item.名称+' · '+tokenLabel(item.估算Tokens,true))})));
+                    body+=fold('今回実際に読み取った資料（クリックで展開）',(readChecks.length?readable('エントリ',readChecks):empty('今回世界書を読み取りませんでした','チェックに一致した、または強制読み取りの世界書エントリがありません。'))+fold('実際に読み取った世界書',fields({条目:books.map(item=>item.名称+' · '+tokenLabel(item.估算Tokens,true))}))+fold('実際の本文階層',fields({楼层:floors.map(f=>'第 '+f.楼层+' 層 · '+f.キャラ+' · '+tokenLabel(f.估算Tokens,true))}))+fold('時間容量',fields(m.今回の時間容量||{})));
                     body+=fold('出力契約 · JSON Schema',raw('samsara_world_result_v1',JSON.stringify(r.schema||WORLD_RESULT_SCHEMA,null,2)));
                     body+=fold('system · セグメント閲覧',r.system.split(/\n(?=【)/).map((part,i)=>fold((part.match(/^【([^】]+)】/)||[])[1]||'アイデンティティ / プロトコル '+(i+1),'<div class="we-prose">'+text(part)+'</div>')).join(''))+raw('system · 実際の送信原文',r.system);
                     let payload;try{payload=JSON.parse(r.input);}catch(_){payload={正文:r.input};}
@@ -4665,7 +4665,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 if((this.lastCompiledPatches||[]).length)html+=section('プログラムコンパイルパッチ · ストレージ層',raw(' WorldResult Compiler が生成；モデルはこれらのパスを直接制御しません',JSON.stringify(this.lastCompiledPatches,null,2)));
                 if((this.lastCompileWarnings||[]).length)html+=section('コンパイル警告',(this.lastCompileWarnings||[]).map(w=>'<div class="we-notice">'+text(w)+'</div>').join(''));
                 if(this.lastFailure)html+='<div class="we-notice">'+text(this.lastFailure)+'</div>';
-                if(this.lastReply){const lastAttempt=(this.lastAttemptTelemetry||[]).at(-1),replyTk=lastAttempt?.API输出Tokens!=null?formatTokenCount(lastAttempt.API输出Tokens,false):formatTokenCount(estimateTokens(this.lastReply),true);html+=section('副 API の生の応答 · '+replyTk,raw('モデルの返答原文を表示（フォーマット問題の特定用）',this.lastReply));}
+                if(this.lastReply){const lastAttempt=(this.lastAttemptTelemetry||[]).at(-1),replyTk=lastAttempt?.API出力Tokens!=null?formatTokenCount(lastAttempt.API出力Tokens,false):formatTokenCount(estimateTokens(this.lastReply),true);html+=section('副 API の生の応答 · '+replyTk,raw('モデルの返答原文を表示（フォーマット問題の特定用）',this.lastReply));}
             }
             main.innerHTML=html;main.scrollTop=force?0:scroll;
             if(this.jumpEvent){
@@ -4742,11 +4742,11 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 const after=npcBuildAssessment(next,target,next.関係リスト[target]);
                 if(!after)continue;
                 const proposal=proposals.find(item=>nameKey(item?.名称)===nameKey(before.名称));
-                const touched=proposal&&(before.建议字段||[]).some(field=>Object.hasOwn(proposal,field));
+                const touched=proposal&&(before.推奨フィールド||[]).some(field=>Object.hasOwn(proposal,field));
                 if(touched&&after.缺口.length<before.缺口.length)continue;
                 const submitted=proposal?Object.keys(proposal).filter(field=>!['名称','操作'].includes(field)):[];
                 const unresolved=(after.缺口||[]).length?after.缺口:before.缺口||[];
-                const suggested=(after.建议字段||before.建议字段||[]).filter(Boolean);
+                const suggested=(after.推奨フィールド||before.推奨フィールド||[]).filter(Boolean);
                 details.push(
                     before.名称+'：未解决缺口：'+(unresolved.length?unresolved.join('、'):'未识别')
                     +'；推奨修正フィールド：'+(suggested.length?suggested.join('、'):'なし')
@@ -4999,7 +4999,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         for(const category of RUMOR_PUBLIC_CATEGORIES){
             const bucket=plain(rumors?.[category])?rumors[category]:{};
             const count=Object.keys(bucket).length;
-            publicState[category]={当前数量:count,为空补足:count===0?2:0};
+            publicState[category]={当前数量:count,空欄補完:count===0?2:0};
         }
         const review=[];
         for(const [名称,record] of Object.entries(propagation)){
@@ -5018,7 +5018,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             if(changedEvents.length){reasons.push('関連イベントに新しい進展：'+changedEvents.join('、'));semantic=true;}
             if(!reasons.length)continue;
             review.push({
-                名称,原因:reasons,需语义变化:semantic,
+                名称,原因:reasons,意味変化が必要:semantic,
                 現在:{出典:String(record.来源||''),范围:String(record.范围||''),时间:String(record.时间||''),更新时间:updatedText,到期时间:String(record.到期时间||''),内容:String(record.内容||''),状態:String(record.状态||''),受众:copy(record.受众||[]),引发行动:copy(record.引发行动||[]),关联事件:copy(record.关联事件||[])}
             });
         }
@@ -5031,12 +5031,12 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         return {
             世界:String(stat?.世界?.名称||''),世界时间:worldTime,当前地点:String(stat?.世界?.地点||''),
             话题:copy(RUMOR_LIVELINESS_TOPICS),公开传闻:publicState,
-            本轮必须复核的传播链:review,可传播候选事件:candidates
+            今回再確認必須の伝播チェーン:review,伝播候補イベント:candidates
         };
     }
     function rumorMaintenanceNeeded(stat) {
         const required=rumorMaintenanceRequirements(stat);
-        return Object.values(required.公开传闻).some(item=>item.当前数量===0)||required.本轮必须复核的传播链.length>0;
+        return Object.values(required.公开传闻).some(item=>item.当前数量===0)||required.今回再確認必須の伝播チェーン.length>0;
     }
     function ensureRumorLiveliness(next,required) {
         if(!plain(required)||String(next?.世界?.名称||'')!==String(required.世界||'')||String(next?.世界?.時間||'')!==String(required.世界时间||''))return;
@@ -5049,14 +5049,14 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         }
         if(shortages.length)throw new Error('传闻为空未补足：'+shortages.join('、')+'；空分类本轮必须补2条，三类各自展示最近3条');
         const unresolved=[];
-        for(const item of required.本轮必须复核的传播链||[]){
+        for(const item of required.今回再確認必須の伝播チェーン||[]){
             const record=next?.世界?.[PATH]?.传播?.[item.名称];
             if(!record)continue;
             if(propagationEnded(record,worldDateKey(required.世界时间)))continue;
             const updated=String(record.更新时间||'').trim()===String(required.世界时间||'').trim();
             const before=item.現在||{};
             const semantic=['范围','内容','受众','引发行动','状態','到期时间'].some(key=>!same(record?.[key],before?.[key]));
-            if(!updated||(item.需语义变化&&!semantic))unresolved.push(item.名称);
+            if(!updated||(item.意味変化が必要&&!semantic))unresolved.push(item.名称);
         }
         if(unresolved.length)throw new Error('传播链仍未复核：'+unresolved.join('、')+'；更新到当前世界时间，并按真实变化推进范围/受众/内容/引发行动，或明确结束/移除');
     }
@@ -5092,18 +5092,18 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             const request=await super.buildRequest(base);
             const payload=JSON.parse(request.input);
             if(Array.isArray(request.timeAnomalies))request.timeAnomalies=request.timeAnomalies.filter(item=>item?.タイプ!=='传闻维护');
-            if(Array.isArray(payload.本轮必须修复的时间越界记录))payload.本轮必须修复的时间越界记录=payload.本轮必须修复的时间越界记录.filter(item=>item?.タイプ!=='传闻维护');
+            if(Array.isArray(payload.今回修正必須の時刻範囲外記録))payload.今回修正必須の時刻範囲外記録=payload.今回修正必須の時刻範囲外記録.filter(item=>item?.タイプ!=='传闻维护');
             payload.传闻维护={
                 当前地点:rumorMaintenance.当前地点,
                 话题:rumorMaintenance.话题,
                 公开传闻:rumorMaintenance.公开传闻,
-                本轮必须复核的传播链:rumorMaintenance.本轮必须复核的传播链,
-                可传播候选事件:rumorMaintenance.可传播候选事件
+                今回再確認必須の伝播チェーン:rumorMaintenance.今回再確認必須の伝播チェーン,
+                伝播候補イベント:rumorMaintenance.伝播候補イベント
             };
             request.input=JSON.stringify(payload,null,2);
             request.system=String(request.system||'')+'\n\n'+RUMOR_LIVELINESS_RULES;
             request.rumorMaintenance=copy(rumorMaintenance);
-            request.manifest=Object.assign({},request.manifest,{传闻维护:{空分类:RUMOR_PUBLIC_CATEGORIES.filter(category=>rumorMaintenance.公开传闻[category].当前数量===0),待复核传播:rumorMaintenance.本轮必须复核的传播链.map(item=>item.名称),可传播候选:rumorMaintenance.可传播候选事件.map(item=>item.名称)}});
+            request.manifest=Object.assign({},request.manifest,{传闻维护:{空分类:RUMOR_PUBLIC_CATEGORIES.filter(category=>rumorMaintenance.公开传闻[category].当前数量===0),要再確認の伝播:rumorMaintenance.今回再確認必須の伝播チェーン.map(item=>item.名称),可传播候选:rumorMaintenance.伝播候補イベント.map(item=>item.名称)}});
             request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
             return request;
         }
@@ -5194,9 +5194,9 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         async buildRequest(base) {
             const request=await super.buildRequest(base);
             const payload=JSON.parse(request.input);
-            if(plain(payload.输入语义)){
-                payload.输入语义.当前变量='世界進行専用のホットデータ投影；世界、人物能力、完全な資産台帳、アクティブな伝播、直近の履歴、直近の因果偏移、および任務.リストの読み取り専用の因果フィールドを含みます。任務報酬、ペナルティ、副本実績、キル、ショップ、純粋な決算データは世界進行には入りません。';
-                payload.输入语义.任务列表='読み取り専用の因果台帳。イベントは关联任务で既存の任務を参照できます；任務の作成・削除・状態変更・提出・決算は禁止です。';
+            if(plain(payload.入力セマンティクス)){
+                payload.入力セマンティクス.当前变量='世界進行専用のホットデータ投影；世界、人物能力、完全な資産台帳、アクティブな伝播、直近の履歴、直近の因果偏移、および任務.リストの読み取り専用の因果フィールドを含みます。任務報酬、ペナルティ、副本実績、キル、ショップ、純粋な決算データは世界進行には入りません。';
+                payload.入力セマンティクス.任务列表='読み取り専用の因果台帳。イベントは关联任务で既存の任務を参照できます；任務の作成・削除・状態変更・提出・決算は禁止です。';
             }
             request.input=JSON.stringify(payload,null,2);
             // 前バージョンの噂活性層における旧表現との互換；購入後の消費的 remove は世界エンジンの責務ではない。
@@ -5317,15 +5317,15 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             for(const book of chronologyOnly){const text=String(book?.内容||'');if(text&&!seen.has(text)){seen.add(text);merged.push(text);}}
             payload.世界书=merged;
             ACTIVE_CHRONOLOGY_GUARD={worldTime:String(state?.世界?.時間||''),books:merged.slice()};
-            const next=payload?.时间线调度?.下一宏观节点||null;
-            payload.时间线基准={
+            const next=payload?.タイムライン編成?.下一宏观节点||null;
+            payload.タイムライン基準={
                 当前世界时间:String(state?.世界?.時間||''),
                 下一宏观节点:next?{名称:String(next.名称||''),当前排期:String(next.時間||'')}:null,
                 原著时间资料:chronologyOnly.length?'資料から '+chronologyOnly.length+' 件の明確なタイムライン/年表を読み込みました':'明確なタイムライン項目が見つかりません；モデルが持つ原作知識で慎重に推定し、物語を進めるためにスパンを圧縮してはなりません',
                 规划原则:{
-                    滚动窗口:'3~5個のマクロノードは現在の計画視野にすぎず、全篇章を覆う必要はありません；近めに計画する方が、遠い大事件をまとめて詰め込むより望ましい。',
+                    ローリングウィンドウ:'3~5個のマクロノードは現在の計画視野にすぎず、全篇章を覆う必要はありません；近めに計画する方が、遠い大事件をまとめて詰め込むより望ましい。',
                     节点粒度:'マクロノード一つは一つの段階転換のみを表します；遠征、集結、連続戦役、複数の独立した劇情段階は分割するかスパンを広げてください。',
-                    间隔自检:'スケジューリング前に、前ノードから本ノードまで現実に何を経る必要があるかを判断し、移動・準備・組織動員・因果の発展に十分な時間を残してください。',
+                    間隔セルフチェック:'スケジューリング前に、前ノードから本ノードまで現実に何を経る必要があるかを判断し、移動・準備・組織動員・因果の発展に十分な時間を残してください。',
                     时间精度:'資料が月/時段/順序までしかない場合は同じ精度を保ち慎重に余白を残し、並べ替えの便宜のために日単位の日付を無理に作らないこと。'
                 },
                 要求:'マクロノードはまず原作/データベースの日付・ノード粒度・妥当なスパンを定め、その後に現在→次ノードの区間を展開します。日まで明確な日付には必ず従うこと；月・時段・順序のみの場合はソフト制約として慎重に計画し、推定の差異で期日を繰り返し変更しないこと。'
@@ -5333,20 +5333,20 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             request.input=JSON.stringify(payload,null,2);
             request.system=String(request.system||'')+'\n\n'+CHRONOLOGY_GUARD_RULES;
             const manifest=request.manifest||(request.manifest={});
-            const rows=Array.isArray(manifest.世界书条目)?manifest.世界书条目:[];
+            const rows=Array.isArray(manifest.世界書エントリ)?manifest.世界書エントリ:[];
             const rowKeys=new Set(rows.map(row=>String(row?.世界书||'')+'\u0000'+String(row?.条目ID||'')));
             for(const book of chronologyOnly){
                 const key=String(book?.世界书||'')+'\u0000'+String(book?.条目ID||'');
                 if(rowKeys.has(key))continue;rowKeys.add(key);
                 rows.push({世界书:book?.世界书,条目ID:book?.条目ID,名称:book?.名称,估算Tokens:estimateTokens(book?.内容)});
             }
-            manifest.世界书条目=rows;
-            if(plain(manifest.世界书读取))manifest.世界书读取.实际读取=merged.length;
-            manifest.原著时间轴={
+            manifest.世界書エントリ=rows;
+            if(plain(manifest.世界書読取))manifest.世界書読取.実測読取=merged.length;
+            manifest.原作年表={
                 强制校准:true,
                 校验模式:'日まで明確な資料はハード検証；月・時段・順序とノード粒度はソフト誘導',
                 当前世界时间:String(state?.世界?.時間||''),
-                时间线资料:chronologyOnly.map(book=>String(book?.名称||'')).filter(Boolean),
+                タイムライン資料:chronologyOnly.map(book=>String(book?.名称||'')).filter(Boolean),
                 下一宏观节点:next?String(next.名称||''):''
             };
             manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
@@ -5400,12 +5400,12 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             if(this.autoProgressCycleKey===key)return;
             this.autoProgressCycleKey=key;
             this.autoProgressRoundsSinceRun=0;
-            const handled=String(snapshot?.stat?.世界?.[PATH]?.已处理楼层||'');
+            const handled=String(snapshot?.stat?.世界?.[PATH]?.処理済みフロア||'');
             const currentChat=this.autoProgressFingerprintChat(snapshot?.fingerprint);
             const handledChat=this.autoProgressFingerprintChat(handled);
             const sameContext=!!handled&&(!currentChat||!handledChat||currentChat===handledChat);
             // 「処理マーク + 実際のバックグラウンド内容」が同時に存在する場合にのみ、このチャットが実際に世界進行を実行済みだと判断できる。
-            // 開局/変数の再処理では古い 已处理楼层 だけを引き継ぐ場合がある；バックグラウンドが空のままなら、現在の本文を最初の有効な本文として直ちに進行させる。
+            // 開局/変数の再処理では古い 処理済みフロア だけを引き継ぐ場合がある；バックグラウンドが空のままなら、現在の本文を最初の有効な本文として直ちに進行させる。
             const restoredRun=sameContext&&this.autoProgressBackendHasContent(snapshot);
             this.autoProgressHasRun=restoredRun;
             this.autoProgressLastSeenFingerprint=restoredRun?handled:'';
@@ -5415,7 +5415,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             this.initializeAutoProgressCycle(snapshot);
             const fingerprint=String(snapshot?.fingerprint||'');
             if(!fingerprint)return false;
-            const handled=String(snapshot?.stat?.世界?.[PATH]?.已处理楼层||'');
+            const handled=String(snapshot?.stat?.世界?.[PATH]?.処理済みフロア||'');
             // 変数の再処理は本層の MVU を再構築するが、本文フィンガープリントは変わらない。期限到来済みの層のコミットマークが
             // ロールバックされた場合は追い実行を許可する；重複通知や間隔内でスキップされた層は追加のラウンドとして数えない。
             if(this.autoProgressLastSeenFingerprint===fingerprint){
@@ -5502,12 +5502,12 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             button.innerHTML='<span>自動進行</span><span class="we-switch-track"><i></i></span>';
         }
         mountAutoProgressIntervalSetting() {
-            if(this.tab!=='请求检查'||!this.panel)return;
+            if(this.tab!=='リクエスト検査'||!this.panel)return;
             const main=this.panel.querySelector('main');if(!main)return;
             let section=main.querySelector('[data-auto-progress-interval-setting]');
             if(!section){
                 section=this.host.document.createElement('section');section.className='we-section';section.dataset.autoProgressIntervalSetting='';
-                const retry=[...main.querySelectorAll('.we-section')].find(item=>item.querySelector('.we-section-head h2')?.textContent?.trim()==='失败自动重试');
+                const retry=[...main.querySelectorAll('.we-section')].find(item=>item.querySelector('.we-section-head h2')?.textContent?.trim()==='失敗時の自動再試行');
                 if(retry)main.insertBefore(section,retry);else main.prepend(section);
             }
             const enabled=this.config.autoProgress===true,interval=this.autoProgressIntervalValue();
@@ -5678,7 +5678,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         handleWorldReplayVariableEvent(variables,before) {
             if(!plain(variables))return false;
             const pending=String(this.worldReplayPendingFingerprint||'');
-            const handled=String(variables?.stat_data?.世界?.[PATH]?.已处理楼层||'');
+            const handled=String(variables?.stat_data?.世界?.[PATH]?.処理済みフロア||'');
             // 世界進行のコミット成功：MVU が実際に保存する前に、今回の「実際の変更」を同一層の復元パッケージへ圧縮して併せて保存する。
             if(pending&&handled===pending&&plain(before?.stat_data)&&plain(variables.stat_data)){
                 const replay=this.buildWorldReplayPackage(before.stat_data,variables.stat_data,pending);
@@ -5688,14 +5688,14 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             }
 
             // MVU の「変数再処理」は現在メッセージの stat_data/schema を先に空にするが、未知の root フィールドは保持する。
-            // 現在メッセージ自身の replay フィンガープリント、または before 内の 已处理楼层 が旧結果を証明できる場合にのみ、同一本文の再処理と判定する。
+            // 現在メッセージ自身の replay フィンガープリント、または before 内の 処理済みフロア が旧結果を証明できる場合にのみ、同一本文の再処理と判定する。
             const current=this.worldReplayCurrentMessage();
             if(!current||!plain(variables.stat_data))return false;
             const mvu=this.env.Mvu||this.host.Mvu;
             let raw;try{raw=mvu?.getMvuData?.({type:'message',message_id:current.id});}catch(_){return false;}
             if(!raw||plain(raw.stat_data))return false;
             const storedReplay=raw.__samsaraWorldReplay;
-            const beforeHandled=String(before?.stat_data?.世界?.[PATH]?.已处理楼层||'');
+            const beforeHandled=String(before?.stat_data?.世界?.[PATH]?.処理済みフロア||'');
             const replayMatches=plain(storedReplay)&&String(storedReplay.fingerprint||'')===current.fingerprint;
             if(!replayMatches&&beforeHandled!==current.fingerprint)return false;
 
@@ -5726,7 +5726,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             this.initializeAutoProgressCycle(snapshot);
             const fingerprint=String(snapshot?.fingerprint||'');
             if(!fingerprint)return false;
-            const handled=String(snapshot?.stat?.世界?.[PATH]?.已处理楼层||'');
+            const handled=String(snapshot?.stat?.世界?.[PATH]?.処理済みフロア||'');
             if(this.autoProgressLastSeenFingerprint===fingerprint){
                 return this.autoProgressDueFingerprint===fingerprint&&handled!==fingerprint;
             }
@@ -5751,10 +5751,10 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         }
         snapshot() {
             const snapshot=super.snapshot();
-            // 明示的な手動「世界を進行」の場合にのみ、同一本文が 已处理楼层 を迂回して再推演することを許可する。
+            // 明示的な手動「世界を進行」の場合にのみ、同一本文が 処理済みフロア を迂回して再推演することを許可する。
             // ここではリクエストが使うコピーのみを変更する；旧世界状態と復元パッケージは新リクエストが成功するまで常に MVU 内に保持される。
-            if(this.worldReplayManualForce&&snapshot?.fingerprint&&snapshot?.stat?.世界?.[PATH]?.已处理楼层===snapshot.fingerprint){
-                snapshot.stat.世界[PATH].已处理楼层='';
+            if(this.worldReplayManualForce&&snapshot?.fingerprint&&snapshot?.stat?.世界?.[PATH]?.処理済みフロア===snapshot.fingerprint){
+                snapshot.stat.世界[PATH].処理済みフロア='';
                 snapshot.stat.世界[PATH].已处理時間='';
             }
             return snapshot;
@@ -5861,7 +5861,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         const required=rumorMaintenanceRequirementsBeforeSoftMaintenance(stat);
         for(const category of RUMOR_PUBLIC_CATEGORIES){
             const item=required?.公开传闻?.[category];
-            if(item&&Number(item.当前数量)===0)item.为空补足=1;
+            if(item&&Number(item.当前数量)===0)item.空欄補完=1;
         }
         return required;
     };
@@ -5874,13 +5874,13 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             const initial=Number(required?.公开传闻?.[category]?.当前数量)||0;
             if(initial===0&&count===0)result.公开传闻.push(category);
         }
-        for(const item of required.本轮必须复核的传播链||[]){
+        for(const item of required.今回再確認必須の伝播チェーン||[]){
             const record=next?.世界?.[PATH]?.传播?.[item.名称];
             if(!record||propagationEnded(record,worldDateKey(required.世界时间)))continue;
             const updated=String(record.更新时间||'').trim()===String(required.世界时间||'').trim();
             const before=item.現在||{};
             const semantic=['范围','内容','受众','引发行动','状態','到期时间'].some(key=>!same(record?.[key],before?.[key]));
-            if(!updated||(item.需语义变化&&!semantic))result.传播链.push(item.名称);
+            if(!updated||(item.意味変化が必要&&!semantic))result.传播链.push(item.名称);
         }
         return result;
     }
@@ -5897,7 +5897,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             if(plain(payload?.传闻维护?.公开传闻)){
                 for(const category of RUMOR_PUBLIC_CATEGORIES){
                     const item=payload.传闻维护.公开传闻[category];
-                    if(item&&Number(item.当前数量)===0)item.为空补足=1;
+                    if(item&&Number(item.当前数量)===0)item.空欄補完=1;
                 }
             }
             payload.验收策略={
@@ -6106,7 +6106,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             const request=await super.buildRequest(base);
             request.system=String(request.system||'')+'\n\n'+WORLD_INTEGRITY_GUARD_RULES;
             request.manifest=request.manifest||{};
-            request.manifest.因果与时间约束={启用:true,因果偏移处理:'重大な世界級の変化がある時のみ維持；変化がなければ省略',单条建议范围:'-12~-1 / +1~+15',宏观事实时间:'同一自然日は許可；日をまたぐ未来は拒否',人物精确时间:'双方が HH:mm の場合のみ精密比較'};
+            request.manifest.因果と時間の制約={启用:true,因果偏移処理:'重大な世界級の変化がある時のみ維持；変化がなければ省略',単一助言範囲:'-12~-1 / +1~+15',マクロ事実時刻:'同一自然日は許可；日をまたぐ未来は拒否',人物精密時刻:'双方が HH:mm の場合のみ精密比較'};
             request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema||WORLD_RESULT_SCHEMA);
             return request;
         }
@@ -6118,9 +6118,9 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         '早上':'早晨',
         '黄昏':'傍晚',
         '夜晚':'晚上',
-        '夜间':'晚上',
+        '夜間':'晚上',
         '夜里':'晚上',
-        '晚间':'晚上'
+        '夜':'晚上'
     });
     function normalizeWorldDaypartAlias(value) {
         let source=String(value||'');
@@ -6335,13 +6335,13 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             request.system=String(request.system||'')+'\n\n'+WORLD_TIME_RULES;
             try{
                 const payload=JSON.parse(request.input);
-                payload.世界时间维护={
+                payload.世界時間保守={
                     当前时间:String(base?.stat?.世界?.時間||''),
                     是否需要初始化:worldTimeUnset(base?.stat?.世界?.時間),
                     所有权:'世界推进独占写入；变量 AI 只读',
                     精确日期格式:'顶层时间及所有事件/历史/传播等日期，只要精确到月日就使用 {yyy}年-{mm}月-{dd}日-{时间段}。月份必须是数字；不要用自定义月份名称替代数字月。',
-                    时间段候选:['凌晨','黎明','清晨','早晨','上午','中午','午后','下午','傍晚','入夜','晚上','深夜'],
-                    推进原则:'时间段是粗粒度锚点，不是每轮计数器；没有足够时间流逝跨过当前时段就保持原值，只有正文或明确资料表明确实经过合理时长才推进。'
+                    時間帯候補:['凌晨','黎明','清晨','早晨','上午','中午','午后','下午','傍晚','入夜','晚上','深夜'],
+                    推進原則:'时间段是粗粒度锚点，不是每轮计数器；没有足够时间流逝跨过当前时段就保持原值，只有正文或明确资料表明确实经过合理时长才推进。'
                 };
                 request.input=JSON.stringify(payload,null,2);
             }catch(_){}
@@ -6373,7 +6373,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             return true;
         }
     };    // 復元パッケージの信頼性：世界進行の成功後に自ら replay を永続化し、replaceMvuData が有効な VARIABLE_UPDATE_ENDED を発火するかどうかに依存しない。
-    // 旧メッセージで replay が欠落している場合は、今回の再処理イベントの before/已处理楼层 を優先して復元する；旧状態が本当に無い場合は自動進行スイッチに従って即時再構築するか決める。
+    // 旧メッセージで replay が欠落している場合は、今回の再処理イベントの before/処理済みフロア を優先して復元する；旧状態が本当に無い場合は自動進行スイッチに従って即時再構築するか決める。
     const SamsaraWorldEngineBeforeReplayPersistence=SamsaraWorldEngine;
     SamsaraWorldEngine=class SamsaraWorldEngine extends SamsaraWorldEngineBeforeReplayPersistence {
         worldReplayReprocessContext(variables,before) {
@@ -6388,7 +6388,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             const beforeStat=plain(before?.stat_data)?before.stat_data:null;
             const replay=raw.__samsaraWorldReplay;
             const replayMatches=plain(replay)&&String(replay.fingerprint||'')===current.fingerprint;
-            const beforeHandled=String(beforeStat?.世界?.[PATH]?.已处理楼层||'');
+            const beforeHandled=String(beforeStat?.世界?.[PATH]?.処理済みフロア||'');
             if(!replayMatches&&beforeHandled!==current.fingerprint)return null;
             return {current,raw,mvu,beforeStat};
         }
@@ -6402,15 +6402,15 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         worldReplayClearHandledForRetry(stat,fingerprint) {
             const state=stat?.世界?.[PATH];
             if(!plain(state))return;
-            if(!fingerprint||String(state.已处理楼层||'')===String(fingerprint)){
-                state.已处理楼层='';
-                state.已处理时间='';
+            if(!fingerprint||String(state.処理済みフロア||'')===String(fingerprint)){
+                state.処理済みフロア='';
+                state.処理済み時刻='';
             }
         }
         worldReplayLegacyPackage(context,variables) {
             const beforeStat=context?.beforeStat;
             if(!plain(beforeStat)||!plain(variables?.stat_data))return null;
-            if(String(beforeStat?.世界?.[PATH]?.已处理楼层||'')!==context.current.fingerprint)return null;
+            if(String(beforeStat?.世界?.[PATH]?.処理済みフロア||'')!==context.current.fingerprint)return null;
             return this.buildWorldReplayPackage(variables.stat_data,beforeStat,context.current.fingerprint);
         }
         handleWorldReplayVariableEvent(variables,before) {
@@ -6432,7 +6432,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                     return true;
                 }
 
-                // before/已处理楼层 はこのメッセージが過去に確かに正常進行したことを証明済み；replay が欠けていても進行間隔を再計算する必要はない。
+                // before/処理済みフロア はこのメッセージが過去に確かに正常進行したことを証明済み；replay が欠けていても進行間隔を再計算する必要はない。
                 // 失効した処理マークを消し、このメッセージを再び due としてマークする。自動進行が有効な時はこの分岐が自ら追い実行を手配し、基礎の VARIABLE_UPDATE_ENDED 監視のフォールバックに依存しない。
                 this.worldReplayClearHandledForRetry(variables.stat_data,context.current.fingerprint);
                 delete variables.__samsaraWorldReplay;
@@ -6553,7 +6553,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         const roster=next?.世界?.異端レーダー?.名簿||{},people=next?.世界?.[PATH]?.人物||{},proposals=acceptedResult?.人物||[],missing=[];
         const canonicalTime=String(next?.世界?.時間||worldTime||'').trim();
         for(const item of required||[]){
-            const rosterName=stableNameIn(roster,item.雷达名称||item.名称),alien=rosterName?roster[rosterName]:null;
+            const rosterName=stableNameIn(roster,item.レーダー名称||item.名称),alien=rosterName?roster[rosterName]:null;
             if(!alien||alien.状態==='死亡')continue;
             const personName=stableNameIn(people,item.名称)||stableNameIn(people,rosterName),person=personName?people[personName]:null;
             const proposal=proposals.find(p=>nameKey(p.名称)===nameKey(item.名称)||nameKey(p.名称)===nameKey(rosterName));
@@ -6592,16 +6592,16 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
     rumorMaintenanceRequirements=function(stat) {
         const required=rumorMaintenanceRequirementsBeforeThrottle(stat);
         const emptyCategories=RUMOR_PUBLIC_CATEGORIES.filter(category=>Number(required?.公开传闻?.[category]?.当前数量||0)===0);
-        const review=Array.isArray(required?.本轮必须复核的传播链)?required.本轮必须复核的传播链:[];
+        const review=Array.isArray(required?.今回再確認必須の伝播チェーン)?required.今回再確認必須の伝播チェーン:[];
         const currentTime=String(required?.世界时间||'').trim();
-        const candidates=(Array.isArray(required?.可传播候选事件)?required.可传播候选事件:[])
+        const candidates=(Array.isArray(required?.伝播候補イベント)?required.伝播候補イベント:[])
             .filter(item=>String(item?.更新时间||'').trim()===currentTime)
             .slice(-2);
         const reasons=[];
         if(emptyCategories.length)reasons.push('空の分類：'+emptyCategories.join('、'));
         if(review.length)reasons.push('伝播再確認：'+review.map(item=>item.名称).join('、'));
         if(candidates.length)reasons.push('新たな公開事実：'+candidates.map(item=>item.名称).join('、'));
-        required.可传播候选事件=candidates;
+        required.伝播候補イベント=candidates;
         required.刷新原因=reasons;
         required.本轮公开传闻动作=reasons.length?'必要に応じて更新；各トリガーにつき分類ごと最大1件':'変更なし';
         return required;
@@ -6653,16 +6653,16 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             payload.传闻维护=Object.assign({},payload.传闻维护||{}, {
                 本轮公开传闻动作:maintenance.本轮公开传闻动作,
                 刷新原因:copy(maintenance.刷新原因||[]),
-                可传播候选事件:copy(maintenance.可传播候选事件||[])
+                伝播候補イベント:copy(maintenance.伝播候補イベント||[])
             });
             request.input=JSON.stringify(payload,null,2);
             request.system=String(request.system||'')+'\n\n'+RUMOR_THROTTLE_RULES;
             request.manifest=request.manifest||{};
-            request.manifest.传闻节流={
+            request.manifest.噂スロットル={
                 模式:'必要時更新',
-                本轮动作:maintenance.本轮公开传闻动作,
+                今回の動作:maintenance.本轮公开传闻动作,
                 刷新原因:copy(maintenance.刷新原因||[]),
-                软失败不重试:true
+                ソフト失敗は再試行しない:true
             };
             request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema||WORLD_RESULT_SCHEMA);
             return request;
@@ -6687,42 +6687,42 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
     }
     function worldPublicRumorFacts(stat){
         const backend=stat?.世界?.[PATH]||{},now=String(stat?.世界?.時間||'').trim(),facts=[];
-        const add=item=>{if(plain(item)&&String(item.公开内容||'').trim())facts.push(item);};
+        const add=item=>{if(plain(item)&&String(item.公開内容||'').trim())facts.push(item);};
         for(const [名称,event] of Object.entries(backend.事件||{})){
             if(!plain(event)||!['進行中','已完成'].includes(String(event.状态||'')))continue;
             const visible=[String(event.公开征兆||'').trim(),...(Array.isArray(event.可见影响)?event.可见影响.map(x=>String(x?.影响||'').trim()):[])].filter(Boolean);
             if(!visible.length)continue;
             const time=String(event.更新时间||event.时间||'').trim();
-            add({タイプ:'公开事件',名称,地点:String(event.地点||''),时间:time,公开内容:visible.join('；'),关联事件:[名称],新近:rumorWorldSameTime(time,now)});
+            add({タイプ:'公开事件',名称,地点:String(event.地点||''),时间:time,公開内容:visible.join('；'),关联事件:[名称],新近:rumorWorldSameTime(time,now)});
         }
         for(const [名称,person] of Object.entries(backend.人物||{})){
             const text=String(person?.公开动态||'').trim();if(!text)continue;
             const time=String(person?.更新时间||'').trim();
-            add({タイプ:'人物公开动态',名称,时间:time,公开内容:text,关联事件:copy(Array.isArray(person?.关联事件)?person.关联事件:[]),新近:rumorWorldSameTime(time,now)});
+            add({タイプ:'人物公开动态',名称,时间:time,公開内容:text,关联事件:copy(Array.isArray(person?.关联事件)?person.关联事件:[]),新近:rumorWorldSameTime(time,now)});
         }
         for(const [名称,area] of Object.entries(backend.势力地区||{})){
             const text=String(area?.公开动态||'').trim();if(!text)continue;
             const time=String(area?.更新时间||'').trim();
-            add({タイプ:'地区公开动态',名称,时间:time,公开内容:text,新近:rumorWorldSameTime(time,now)});
+            add({タイプ:'地区公开动态',名称,时间:time,公開内容:text,新近:rumorWorldSameTime(time,now)});
         }
         for(const [名称,faction] of Object.entries(stat?.世界?.勢力||{})){
             const text=[faction?.領地,faction?.説明].map(x=>String(x||'').trim()).filter(Boolean).join('；');
-            add({タイプ:'势力公开背景',名称,公开内容:text,新近:false});
+            add({タイプ:'势力公开背景',名称,公開内容:text,新近:false});
         }
-        for(const [名称,place] of Object.entries(stat?.世界?.探索||{}))add({タイプ:'探索公开背景',名称,リスク:String(place?.リスク||''),公开内容:String(place?.説明||''),新近:false});
+        for(const [名称,place] of Object.entries(stat?.世界?.探索||{}))add({タイプ:'探索公开背景',名称,リスク:String(place?.リスク||''),公開内容:String(place?.説明||''),新近:false});
         const economy=String(stat?.世界?.通貨?.経済変動||'').trim();
-        if(economy)add({タイプ:'经济公开背景',名称:'経済変動',公开内容:economy,新近:false});
+        if(economy)add({タイプ:'经济公开背景',名称:'経済変動',公開内容:economy,新近:false});
         return facts.slice(-24);
     }
 
     const rumorMaintenanceRequirementsBeforeWorldSource=rumorMaintenanceRequirements;
     rumorMaintenanceRequirements=function(stat){
         const required=rumorMaintenanceRequirementsBeforeWorldSource(stat),facts=worldPublicRumorFacts(stat),fresh=facts.filter(item=>item.新近).slice(-6);
-        const empty=RUMOR_PUBLIC_CATEGORIES.filter(category=>Number(required?.公开传闻?.[category]?.当前数量||0)===0),review=required?.本轮必须复核的传播链||[],reasons=[];
+        const empty=RUMOR_PUBLIC_CATEGORIES.filter(category=>Number(required?.公开传闻?.[category]?.当前数量||0)===0),review=required?.今回再確認必須の伝播チェーン||[],reasons=[];
         if(empty.length)reasons.push('空の分類：'+empty.join('、'));
         if(review.length)reasons.push('伝播再確認：'+review.map(item=>item.名称).join('、'));
         if(fresh.length)reasons.push('新たな世界側公開事実：'+fresh.map(item=>item.名称).join('、'));
-        required.世界侧可传播事实=facts;required.本轮新公开事实=fresh;required.刷新原因=reasons;required.本轮公开传闻动作=reasons.length?'必要に応じて更新；各トリガーにつき分類ごと最大1件':'変更なし';
+        required.世界侧可传播事实=facts;required.今回の新規公開事実=fresh;required.刷新原因=reasons;required.本轮公开传闻动作=reasons.length?'必要に応じて更新；各トリガーにつき分類ごと最大1件':'変更なし';
         delete required.当前地点;
         return required;
     };
@@ -6733,18 +6733,18 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             const maintenance=rumorMaintenanceRequirements(base?.stat||{});
             const payload=JSON.parse(request.input);
             payload.传闻维护=Object.assign({},payload.传闻维护||{}, {
-                取材边界:'世界側の可伝播事実、既存の伝播チェーン、既存の公開噂のみを使用する；本文は直接の伝播源ではない',
+                取材境界:'世界側の可伝播事実、既存の伝播チェーン、既存の公開噂のみを使用する；本文は直接の伝播源ではない',
                 本轮公开传闻动作:maintenance.本轮公开传闻动作,
                 刷新原因:copy(maintenance.刷新原因||[]),
                 世界侧可传播事实:copy(maintenance.世界侧可传播事实||[]),
-                本轮新公开事实:copy(maintenance.本轮新公开事实||[])
+                今回の新規公開事実:copy(maintenance.今回の新規公開事実||[])
             });
             delete payload.传闻维护.当前地点;
-            delete payload.传闻维护.可传播候选事件;
+            delete payload.传闻维护.伝播候補イベント;
             request.input=JSON.stringify(payload,null,2);
             request.rumorMaintenance=copy(maintenance);
             request.manifest=request.manifest||{};
-            request.manifest.传闻节流={模式:'世界側の事実駆動',本轮动作:maintenance.本轮公开传闻动作,刷新原因:copy(maintenance.刷新原因||[]),正文直接取材:false,软失败不重试:true};
+            request.manifest.噂スロットル={模式:'世界側の事実駆動',今回の動作:maintenance.本轮公开传闻动作,刷新原因:copy(maintenance.刷新原因||[]),正文直接取材:false,ソフト失敗は再試行しない:true};
             return request;
         }
     };
@@ -6905,7 +6905,7 @@ Schema、不正な状態、因果参照、明確な日付の衝突はハード�
             return request;
         }
         mountEditableModulePrompts(){
-            if(this.tab!=='提示词预设'||!this.panel)return;
+            if(this.tab!=='プロンプトプリセット'||!this.panel)return;
             const main=this.panel.querySelector('main');if(!main)return;
             const audit=main.querySelector('[data-npc-audit-prompt]');
             if(!this.isNpcBuildAuditEnabled())audit?.closest('details')?.remove();
@@ -6913,7 +6913,7 @@ Schema、不正な状態、因果参照、明確な日付の衝突はハード�
             if(!section){
                 section=this.host.document.createElement('section');
                 section.className='we-section';section.dataset.worldModulePrompts='';
-                const systemSection=[...main.querySelectorAll('.we-section')].find(item=>item.querySelector('.we-section-head h2')?.textContent?.trim()==='系统提示词');
+                const systemSection=[...main.querySelectorAll('.we-section')].find(item=>item.querySelector('.we-section-head h2')?.textContent?.trim()==='システムプロンプト');
                 if(systemSection)systemSection.insertAdjacentElement('afterend',section);else main.appendChild(section);
             }
             const prompts=normalizeWorldModulePrompts(this.config.modulePrompts),editable=!!this.promptEditing;
@@ -6990,7 +6990,7 @@ Schema、不正な状態、因果参照、明確な日付の衝突はハード�
         const interferenceHtml=interference?'<section class="we-section we-causal-interference"><div class="we-section-head"><h2>干渉モード</h2><small>インスタンス干渉状況</small></div><article class="we-card"><p>'+causalOverviewEscape(interference)+'</p></article></section>':'';
         const moneyHtml='<article class="we-card"><dl><dt>通貨体系</dt><dd>'+causalOverviewEscape(money.体系||'未記録')+'</dd><dt>購買力基準</dt><dd>'+causalOverviewEscape(money.購買力基準||'未記録')+'</dd><dt>経済変動</dt><dd>'+causalOverviewEscape(money.経済変動||'未記録')+'</dd></dl></article>';
         const lawHtml=laws.length?'<div class="we-reading we-world-laws">'+laws.map(item=>'<article><p>'+causalOverviewEscape(item)+'</p></article>').join('')+'</div>':'<div class="we-empty"><b>世界法則はまだありません</b><small>明確に有効な法則がここで保守されます。</small></div>';
-        return '<div class="we-causal-archive-grid"><div><section class="we-section"><div class="we-section-head"><h2>因果偏移アーカイブ</h2><small>'+offsets.length+' 件 · 新しい順</small></div>'+stability+offsetList+olderHtml+'</section></div><aside><section class="we-section"><div class="we-section-head"><h2>因果軌道</h2><small>長期的な方向</small></div>'+story+'</section>'+interferenceHtml+'<section class="we-section"><div class="we-section-head"><h2>货币与经济</h2><small>世界進行が保守</small></div>'+moneyHtml+'</section><section class="we-section"><div class="we-section-head"><h2>世界法則</h2><small>'+laws.length+' 件</small></div>'+lawHtml+'</section></aside></div>';
+        return '<div class="we-causal-archive-grid"><div><section class="we-section"><div class="we-section-head"><h2>因果偏移アーカイブ</h2><small>'+offsets.length+' 件 · 新しい順</small></div>'+stability+offsetList+olderHtml+'</section></div><aside><section class="we-section"><div class="we-section-head"><h2>因果軌道</h2><small>長期的な方向</small></div>'+story+'</section>'+interferenceHtml+'<section class="we-section"><div class="we-section-head"><h2>通貨と経済</h2><small>世界進行が保守</small></div>'+moneyHtml+'</section><section class="we-section"><div class="we-section-head"><h2>世界法則</h2><small>'+laws.length+' 件</small></div>'+lawHtml+'</section></aside></div>';
     }
     function causalSectionByTitle(root,title) {
         return Array.from(root?.querySelectorAll?.('.we-section')||[]).find(section=>section.querySelector('.we-section-head h2')?.textContent?.trim()===title)||null;
@@ -7018,7 +7018,7 @@ Schema、不正な状態、因果参照、明確な日付の衝突はハード�
         }
         compactWorldOverview() {
             const main=this.panel?.querySelector?.('main');if(!main)return;
-            const stat=this.snapshot().stat,causal=causalSectionByTitle(main,'因果状态');
+            const stat=this.snapshot().stat,causal=causalSectionByTitle(main,'因果状態');
             main.querySelector('.we-kpi-grid.we-kpi-compact')?.remove();
             if(causal){
                 const head=causal.querySelector('.we-section-head');
@@ -7026,7 +7026,7 @@ Schema、不正な状態、因果参照、明確な日付の衝突はハード�
                 Array.from(causal.children).filter(child=>child!==head).forEach(child=>child.remove());
                 causal.insertAdjacentHTML('beforeend',causalCompactHtml(stat));
             }
-            for(const title of ['货币与经济','世界法則'])causalSectionByTitle(main,title)?.remove();
+            for(const title of ['通貨と経済','世界法則'])causalSectionByTitle(main,title)?.remove();
         }
         removeRunRecordInterference() {
             const main=this.panel?.querySelector?.('main');if(!main)return;
@@ -7362,9 +7362,9 @@ JSONのみを出力：{"要約":"..."}`;
         return Object.entries(source.历史总结||{}).filter(([,item])=>plain(item)&&Number(item.階層)===level)
             .map(([name,item],index)=>({
                 id:'总结:'+name,name,level,text:String(item.要約||'').trim(),
-                timeStart:String(item.起始时间||'').trim(),timeEnd:String(item.结束时间||'').trim(),
+                timeStart:String(item.開始時刻||'').trim(),timeEnd:String(item.終了時刻||'').trim(),
                 lo:historyMemorySummaryOrder(item,index+1),
-                hi:Number.isFinite(Number(item.结束序位))?Number(item.结束序位):historyMemorySummaryOrder(item,index+1)
+                hi:Number.isFinite(Number(item.終了序位))?Number(item.終了序位):historyMemorySummaryOrder(item,index+1)
             })).filter(node=>node.text&&!collected.has(node.id))
             .sort((a,b)=>a.lo-b.lo||a.hi-b.hi||a.name.localeCompare(b.name,'zh-CN'));
     }
@@ -7409,9 +7409,9 @@ JSONのみを出力：{"要約":"..."}`;
         }));
         return JSON.stringify({
             世界:String(world?.名称||''),
-            输出层级:'L'+outputLevel,
+            出力階層:'L'+outputLevel,
             説明:'指定された順序で圧縮すること；時間フィールドは権威あるアンカーであり、書き換えたり捏造してはならない。',
-            历史节点:nodes
+            歴史ノード:nodes
         },null,2);
     }
     function projectWorldHistoryMemory(backend) {
@@ -7427,7 +7427,7 @@ JSONのみを出力：{"要約":"..."}`;
         const rootSummaries=Object.entries(summaries).filter(([name,item])=>plain(item)&&!collected.has('总结:'+name))
             .map(([name,item],index)=>({
                 名称:name,階層:Math.max(1,Number(item.階層)||1),
-                起始时间:String(item.起始时间||''),结束时间:String(item.结束时间||''),要約:String(item.要約||''),
+                開始時刻:String(item.開始時刻||''),終了時刻:String(item.終了時刻||''),要約:String(item.要約||''),
                 __order:historyMemorySummaryOrder(item,index+1)
             })).filter(item=>item.要約)
             .sort((a,b)=>a.__order-b.__order||a.階層-b.階層||a.名称.localeCompare(b.名称,'zh-CN'))
@@ -7435,13 +7435,13 @@ JSONのみを出力：{"要約":"..."}`;
         return {
             説明:'世界の長期的な叙事と因果の記憶；章をまたぐ連続性を保つためのものであり、自動的にいずれかのキャラクターが既に知得した情報を意味するものではない。',
             近期锚点:recentMap,
-            长期总结:rootSummaries,
+            長期総括:rootSummaries,
             统计:{
                 原始锚点总数:allLeaves.length,
                 总结节点总数:Object.keys(summaries).length,
                 未收纳锚点数:rawRoots.length,
                 隐藏未压缩锚点数:Math.max(0,rawRoots.length-recent.length),
-                冷归档事实数:Math.max(0,Object.keys(raw).length-allLeaves.length)
+                冷アーカイブ事実数:Math.max(0,Object.keys(raw).length-allLeaves.length)
             }
         };
     }
@@ -7513,7 +7513,7 @@ JSONのみを出力：{"要約":"..."}`;
             if(!plain(backend.历史))backend.历史={};
             if(!plain(backend.历史总结))backend.历史总结={};
             const key=historyMemoryLeafKey(messageId),record={
-                时间:String(next.世界?.時間||backend.已处理时间||context.baseStat?.世界?.時間||''),
+                时间:String(next.世界?.時間||backend.処理済み時刻||context.baseStat?.世界?.時間||''),
                 事实:summary,
                 关联事件:[]
             };
@@ -7546,11 +7546,11 @@ JSONのみを出力：{"要約":"..."}`;
                     const key=historyMemoryNextKey(backend,outputLevel);
                     backend.历史总结[key]={
                         階層:outputLevel,要約:summary,子项:batch.map(node=>node.id),
-                        起始时间:String(batch.find(node=>node.timeStart)?.timeStart||''),
-                        结束时间:String([...batch].reverse().find(node=>node.timeEnd)?.timeEnd||''),
+                        開始時刻:String(batch.find(node=>node.timeStart)?.timeStart||''),
+                        終了時刻:String([...batch].reverse().find(node=>node.timeEnd)?.timeEnd||''),
                         起始序位:Math.min(...batch.map(node=>Number(node.lo)||0).filter(n=>n>0)),
-                        结束序位:Math.max(...batch.map(node=>Number(node.hi)||0).filter(n=>n>0)),
-                        创建时间:String(stat.世界?.時間||'')
+                        終了序位:Math.max(...batch.map(node=>Number(node.hi)||0).filter(n=>n>0)),
+                        作成時刻:String(stat.世界?.時間||'')
                     };
                     made++;
                 }
@@ -7614,7 +7614,7 @@ JSONのみを出力：{"要約":"..."}`;
             if(!plain(backend))throw new Error('世界バックエンドが存在しません');
             const bucketName=kind==='summary'?'历史总结':'历史';
             const bucket=backend[bucketName];
-            if(!plain(bucket)||!plain(bucket[name]))throw new Error((kind==='summary'?'长期历史总结':'近期历史锚点')+'が存在しません：'+name);
+            if(!plain(bucket)||!plain(bucket[name]))throw new Error((kind==='summary'?'長期歴史総括':'近期歴史アンカー')+'が存在しません：'+name);
             const updated=build(copy(bucket[name]));
             if(!plain(updated))throw new Error('歴史編集の結果が無効です');
             bucket[name]=updated;
@@ -7643,19 +7643,19 @@ JSONのみを出力：{"要約":"..."}`;
                 时间:time,
                 事实:fact,
                 关联事件:related
-            }),'近期历史锚点を修正しました');
+            }),'近期歴史アンカーを修正しました');
         }
         async setHistorySummaryRecord(name,record) {
             const summary=String(record?.摘要||'').trim();
             if(!summary)throw new Error('長期歴史要約は空にできません');
-            const start=String(record?.起始时间||'').trim(),end=String(record?.结束时间||'').trim();
+            const start=String(record?.開始時刻||'').trim(),end=String(record?.終了時刻||'').trim();
             return this.persistHistoryMemoryEdit('summary',name,current=>({
                 ...current,
                 // 階層・子項・序位・作成時間はすべて保持し、追跡可能な要約ツリーを壊さないようにする。
                 要約:summary,
-                起始时间:start,
-                结束时间:end
-            }),'长期历史总结を修正しました');
+                開始時刻:start,
+                終了時刻:end
+            }),'長期歴史総括を修正しました');
         }
         historyMemoryEditorBackend() {
             return this.snapshot().stat?.世界?.[PATH]||{};
@@ -7666,7 +7666,7 @@ JSONのみを出力：{"要約":"..."}`;
         }
         historyAnchorInlineEditorHtml(name,record) {
             return '<div class="we-history-inline-editor" data-history-editor="anchor" data-history-name="'+historyMemoryEditorEscape(name)+'">'
-                +'<div class="we-history-edit-title"><b>'+historyMemoryEditorEscape(name)+'</b><span>近期历史锚点</span></div>'
+                +'<div class="we-history-edit-title"><b>'+historyMemoryEditorEscape(name)+'</b><span>近期歴史アンカー</span></div>'
                 +'<div class="we-history-edit-grid">'
                 +'<label class="we-history-edit-field"><span>時間</span><input type="text" data-history-field="time" value="'+historyMemoryEditorEscape(record?.时间||'')+'"></label>'
                 +'<label class="we-history-edit-field we-history-edit-wide"><span>確認済みの事実</span><textarea rows="4" data-history-field="fact" placeholder="すでに確認された歴史的事実のみを書く">'+historyMemoryEditorEscape(record?.事实||'')+'</textarea></label>'
@@ -7680,8 +7680,8 @@ JSONのみを出力：{"要約":"..."}`;
             return '<div class="we-history-inline-editor" data-history-editor="summary" data-history-name="'+historyMemoryEditorEscape(name)+'">'
                 +'<div class="we-history-edit-title"><b>'+historyMemoryEditorEscape(name)+'</b><span>L'+historyMemoryEditorEscape(Number(record?.层级)||1)+' · ツリー構造ロック</span></div>'
                 +'<div class="we-history-edit-grid">'
-                +'<label class="we-history-edit-field"><span>開始時間</span><input type="text" data-history-field="start" value="'+historyMemoryEditorEscape(record?.起始时间||'')+'"></label>'
-                +'<label class="we-history-edit-field"><span>終了時間</span><input type="text" data-history-field="end" value="'+historyMemoryEditorEscape(record?.结束时间||'')+'"></label>'
+                +'<label class="we-history-edit-field"><span>開始時間</span><input type="text" data-history-field="start" value="'+historyMemoryEditorEscape(record?.開始時刻||'')+'"></label>'
+                +'<label class="we-history-edit-field"><span>終了時間</span><input type="text" data-history-field="end" value="'+historyMemoryEditorEscape(record?.終了時刻||'')+'"></label>'
                 +'<label class="we-history-edit-field we-history-edit-wide"><span>長期歴史要約</span><textarea rows="5" data-history-field="summary" placeholder="この長期歴史の確認済み事実の要約を修正">'+historyMemoryEditorEscape(record?.摘要||'')+'</textarea></label>'
                 +'</div><div class="we-history-actions">'
                 +'<button type="button" class="we-history-save" data-action="history-summary-save" data-history-name="'+historyMemoryEditorEscape(name)+'">保存</button>'
@@ -7711,8 +7711,8 @@ JSONのみを出力：{"要約":"..."}`;
             if(!card)return false;
             const value=key=>card.querySelector('[data-history-field="'+key+'"]')?.value;
             return this.setHistorySummaryRecord(name,{
-                起始时间:String(value('start')||'').trim(),
-                结束时间:String(value('end')||'').trim(),
+                開始時刻:String(value('start')||'').trim(),
+                終了時刻:String(value('end')||'').trim(),
                 要約:String(value('summary')||'').trim()
             });
         }
@@ -7724,7 +7724,7 @@ JSONのみを出力：{"要約":"..."}`;
             if(this.tab!=='运行记录'||!this.panel)return;
             const backend=this.historyMemoryEditorBackend(),memory=projectWorldHistoryMemory(backend);
             const recentNames=Object.entries(memory.近期锚点||{}).reverse().map(([name])=>name);
-            const recentSection=this.historyMemoryEditorSection('近期历史锚点');
+            const recentSection=this.historyMemoryEditorSection('近期歴史アンカー');
             Array.from(recentSection?.querySelectorAll('.we-card')||[]).forEach((card,index)=>{
                 const name=recentNames[index];if(!name||card.querySelector('.we-history-actions'))return;
                 card.dataset.historyName=name;card.dataset.historyKind='anchor';
@@ -7732,8 +7732,8 @@ JSONのみを出力：{"要約":"..."}`;
                 actions.innerHTML='<button type="button" data-action="history-anchor-edit" data-history-name="'+historyMemoryEditorEscape(name)+'">編集</button>';
                 card.appendChild(actions);
             });
-            const summaryNames=(memory.长期总结||[]).slice().reverse().map(item=>item.名称);
-            const summarySection=this.historyMemoryEditorSection('长期历史总结');
+            const summaryNames=(memory.長期総括||[]).slice().reverse().map(item=>item.名称);
+            const summarySection=this.historyMemoryEditorSection('長期歴史総括');
             Array.from(summarySection?.querySelectorAll('.we-card')||[]).forEach((card,index)=>{
                 const name=summaryNames[index];if(!name||card.querySelector('.we-history-actions'))return;
                 card.dataset.historyName=name;card.dataset.historyKind='summary';
@@ -7778,7 +7778,7 @@ JSONのみを出力：{"要約":"..."}`;
         const nextCheck=String(event?.下次检查||'').trim();
         if(nextCheck)return {原文:nextCheck,键:worldDateKey(nextCheck),出典:'下次检查'};
         const planned=String(event?.时间||event?.开始时间||'').trim();
-        return {原文:planned,键:worldDateKey(planned),出典:'计划时间'};
+        return {原文:planned,键:worldDateKey(planned),出典:'計画時刻'};
     }
     function relaxedDueEvents(stat) {
         const now=worldDateKey(stat?.世界?.時間);if(now===null)return [];
@@ -7788,7 +7788,7 @@ JSONのみを出力：{"要約":"..."}`;
             const review=dueEventReviewPoint(event);
             // 明確な将来の再確認時刻がまだ到来していない場合は重ねて催促しない；意味論的な「下次检查」が比較できない場合はソフト警告のみを行い、書き込みを阻害しない。
             if(review.来源==='下次检查'&&review.键!==null&&review.键>now)continue;
-            if(review.来源==='计划时间'&&(review.键===null||review.键>now))continue;
+            if(review.来源==='計画時刻'&&(review.键===null||review.键>now))continue;
             due.push({
                 名称,
                 时间:String(event.时间||event.开始时间||''),
@@ -7813,7 +7813,7 @@ JSONのみを出力：{"要約":"..."}`;
             request.due=due;
             try{
                 const payload=JSON.parse(request.input);
-                payload.本轮必须复核的到期事件=due;
+                payload.今回再確認必須の期限到来イベント=due;
                 request.input=JSON.stringify(payload,null,2);
             }catch(_){}
             if(request.manifest)request.manifest.观测=requestTokenTelemetry(request.system,request.input,request.schema);
