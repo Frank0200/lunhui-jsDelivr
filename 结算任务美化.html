@@ -536,10 +536,10 @@
 
           function escapeHtml(s) {
             if (typeof s !== 'string') return '';
-            return s.replace(/&/g, '&')
-                .replace(/</g, '<')
-                .replace(/>/g, '>')
-                .replace(/"/g, '"');
+            return s.replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
           }
 
           function stripDecor(s) {
@@ -1952,48 +1952,48 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             function sub(name) { items.push({ kind:'sub', sub:'', name:name }); }
             function sum(name, value) { items.push({ kind:'sum', sub:'', name:name, v:fmtNum(value) + ' スペースコイン' }); }
 
-            sub('主神/试炼任务保底スペースコイン');
+            sub('主神/試練任務保証スペースコイン');
             if (result.taskRewardDetails.length) {
               result.taskRewardDetails.forEach(function(x) {
-                items.push({ kind:'kv', sub:'主神/试炼任务保底スペースコイン', k:'[' + x.name + ']', v:fmtNum(x.amount) + ' スペースコイン' });
+                items.push({ kind:'kv', sub:'主神/試練任務保証スペースコイン', k:'[' + x.name + ']', v:fmtNum(x.amount) + ' スペースコイン' });
               });
             } else {
-              items.push({ kind:'empty', sub:'主神/试炼任务保底スペースコイン', text:'今回、成功任務のスペースコイン報酬はない' });
+              items.push({ kind:'empty', sub:'主神/試練任務保証スペースコイン', text:'今回、成功任務のスペースコイン報酬はない' });
             }
             sum('任務スペースコイン合計', result.taskReward);
 
-            sub('击杀目标附加收益明细');
+            sub('キル目標追加収益明細');
             if (result.killDetails.length) {
               result.killDetails.forEach(function(x) {
-                items.push({ kind:'calc', sub:'击杀目标附加收益明细', src:x.tier, formula:fmtNum(x.count) + ' × ' + fmtNum(x.unit), result:fmtNum(x.subtotal) + ' スペースコイン' });
+                items.push({ kind:'calc', sub:'キル目標追加収益明細', src:x.tier, formula:fmtNum(x.count) + ' × ' + fmtNum(x.unit), result:fmtNum(x.subtotal) + ' スペースコイン' });
               });
             } else {
-              items.push({ kind:'empty', sub:'击杀目标附加收益明细', text:'今回、キル収益はない' });
+              items.push({ kind:'empty', sub:'キル目標追加収益明細', text:'今回、キル収益はない' });
             }
             sum('キル報酬合計', result.killRaw);
             sum('キル報酬上限', result.killCap);
             sum('キル計入済み収益', result.killReward);
 
             if (!result.isSingleWorld) {
-              sub('世界探索附加收益明细');
+              sub('世界探索追加収益明細');
               if (result.explorationDetails.length) {
                 result.explorationDetails.forEach(function(x) {
-                  items.push({ kind:'calc', sub:'世界探索附加收益明细', src:x.name, formula:fmtNum(result.base) + ' × 50%', result:fmtNum(x.subtotal) + ' スペースコイン' });
+                  items.push({ kind:'calc', sub:'世界探索追加収益明細', src:x.name, formula:fmtNum(result.base) + ' × 50%', result:fmtNum(x.subtotal) + ' スペースコイン' });
                 });
               } else {
-                items.push({ kind:'empty', sub:'世界探索附加收益明细', text:'今回、探索収益はない' });
+                items.push({ kind:'empty', sub:'世界探索追加収益明細', text:'今回、探索収益はない' });
               }
               sum('探索報酬合計', result.explorationRaw);
               sum('探索報酬上限', result.explorationCap);
               sum('探索計入済み収益', result.explorationReward);
 
-              sub('势力羁绊附加收益明细');
+              sub('勢力絆追加収益明細');
               if (result.reputationDetails.length) {
                 result.reputationDetails.forEach(function(x) {
-                  items.push({ kind:'calc', sub:'势力羁绊附加收益明细', src:x.name, formula:fmtNum(result.base) + ' × (' + x.reputation + ' ÷ 100)', result:fmtNum(x.subtotal) + ' スペースコイン' });
+                  items.push({ kind:'calc', sub:'勢力絆追加収益明細', src:x.name, formula:fmtNum(result.base) + ' × (' + x.reputation + ' ÷ 100)', result:fmtNum(x.subtotal) + ' スペースコイン' });
                 });
               } else {
-                items.push({ kind:'empty', sub:'势力羁绊附加收益明细', text:'今回、正の声望収益はない' });
+                items.push({ kind:'empty', sub:'勢力絆追加収益明細', text:'今回、正の声望収益はない' });
               }
               sum('声望報酬合計', result.reputationRaw);
               sum('声望報酬上限', result.reputationCap);
@@ -2022,7 +2022,9 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
               else d.stages.push(stage);
             }
             // SETTLEMENT_LEGACY_INCOME_CLEANUP
-            const legacyIncomeSubs = new Set(['击杀目标附加收益明细','世界探索附加收益明细','势力羁绊附加收益明细']);
+            // 旧チャットの簡体字見出し(3件)と本パネル自身の日本語見出しの両方を除外対象にする。
+            // 本関数は再入時に自分の直前の出力も再フィルタするため、日本語形が無いと見出しが二重化する。
+            const legacyIncomeSubs = new Set(['击杀目标附加收益明细','世界探索附加收益明细','势力羁绊附加收益明细','キル目標追加収益明細','世界探索追加収益明細','勢力絆追加収益明細']);
             const aiNonCoinItems = (stage.items || []).filter(function(item) {
               if (item.kind === 'calc' || item.kind === 'sum' || item.kind === 'total') return false;
               const legacySub = String(item && item.sub || '').trim();
