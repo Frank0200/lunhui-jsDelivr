@@ -2055,8 +2055,8 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
               case 'sub': return '<div class="st-sub">' + escapeHtml(it.name) + '</div>';
               case 'kv': {
                 const k = it.k, v = it.v;
-                if (/评级|等级|难度|基准/.test(k) && /^[A-Za-z]{1,3}$/.test(v.trim()) && GRADES.indexOf(v.trim().toUpperCase()) >= 0) return rateRow(k, v);
-                if (/难度|评级/.test(k) && /^[A-Za-z]{1,3}\s*[-~—–]\s*[A-Za-z]{1,3}$/.test(v.trim())) return rateRow(k, v);
+                if (/评级|等级|難易度|难度|基準|基准/.test(k) && /^[A-Za-z]{1,3}$/.test(v.trim()) && GRADES.indexOf(v.trim().toUpperCase()) >= 0) return rateRow(k, v);
+                if (/難易度|难度|评级/.test(k) && /^[A-Za-z]{1,3}\s*[-~—–]\s*[A-Za-z]{1,3}$/.test(v.trim())) return rateRow(k, v);
                 if ((k === '獲得物品' || k === '獲得') && /^【.+】$/.test(v)) return '<div class="st-relic-name">' + escapeHtml(v) + '</div>';
                 if (k === '判定結果') { const okV = /充足|授与|满足|授予/.test(v) && !/未獲得|未获得/.test(v); return '<div class="st-verdict ' + (okV ? 'ok' : 'no') + '">' + (okV ? '✔ ' : '✕ ') + escapeHtml(v) + '</div>'; }
                 if (k === '説明' && /[“”"]/.test(v)) return '<div class="st-relic-quote">' + escapeHtml(v) + '</div>';

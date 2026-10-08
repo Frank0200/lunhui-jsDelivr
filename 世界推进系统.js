@@ -4431,7 +4431,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                     +'</div><aside class="we-command-side">'
                     +section('因果状态',causalHtml,'安定と軌道偏移')
                     +section('货币与经济',exists(w.通貨)?fields({货币体系:w.通貨?.体系,購買力基準:w.通貨?.購買力基準,経済変動:w.通貨?.経済変動}):empty('通貨資料なし','世界進行は設定や経済情勢が明確になった時点で保守します。'),'世界進行が保守')
-                    +(exists(w.法則)?section('世界法则',prose(w.法則),'現在有効なルール · '+(Array.isArray(w.法則)?w.法則.length:1)+' 件'):'')
+                    +(exists(w.法則)?section('世界法則',prose(w.法則),'現在有効なルール · '+(Array.isArray(w.法則)?w.法則.length:1)+' 件'):'')
                     +section('人物の動向',(compactPeople.length?'<div class="we-people-strip">'+compactPeople.map(([n,p])=>compactPerson(n,p)).join('')+'</div><button class="we-link-btn" data-tab="角色管理">人物名簿を表示 →</button>':empty('人物の動向なし')),'主要 NPC')
                     +'</aside></div>';
             }else if(this.tab==='角色管理'){
@@ -4576,7 +4576,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 for(const category of ['街頭の噂','情報取引','布告と檄文'])html+=section(category,entries((s.噂||{})[category]).filter(([n,r])=>matched(n,r)).map(([n,r])=>'<article class="we-card"><h3>'+text(n)+'</h3><p>'+text(r.内容||r.要約)+'</p>'+fields({出典:r.出典||r.売り手||r.発布者,信頼度:r.信頼度,要求価格:r.要求価格,位置:r.掲示位置})+details('rumor-'+n,{真の内幕:r.真の内幕},'主持人档案')+'</article>').join('')||empty('該当なし：'+category,'噂はすでに発生したイベントと伝播経路から生まれます。'));
                 html+=section('伝播チェーン',entries(state.传播).map(([n,r])=>'<article class="we-card"><div class="we-card-top"><h3>'+text(n)+'</h3>'+pill(r.状態,'dim')+'</div><p>'+text(r.内容)+'</p>'+fields({时间:r.时间,出典:r.出典,范围:r.范围,受众:r.受众,到期时间:r.到期时间})+details('spread-'+n,{关联事件:r.关联事件,引发行动:r.引发行动,真相:r.真相},'因果と伝播の詳細')+'</article>').join('')||empty('伝播チェーンなし'));
             }else if(this.tab==='运行记录'){
-                if(showRadar&&exists(radar.現在モード))html+=section('干涉模式','<article class="we-card"><p>'+text(radar.現在モード)+'</p></article>');
+                if(showRadar&&exists(radar.現在モード))html+=section('干渉モード','<article class="we-card"><p>'+text(radar.現在モード)+'</p></article>');
 
                 const historyMemory=projectWorldHistoryMemory(state);
                 html+=section('近期历史锚点',entries(historyMemory.近期锚点).reverse().map(([n,r])=>'<article class="we-card"><div class="we-meta">'+text(r.时间)+'</div><p>'+text(r.事实)+'</p>'+fields({关联事件:r.关联事件})+'</article>').join('')||empty('未収納の直近アンカーはありません'),(historyMemory.统计?.原始锚点总数||0)+' 件の原始履歴 · 現在のホットルートノードのみ表示');
@@ -6972,7 +6972,7 @@ Schema、不正な状態、因果参照、明確な日付の衝突はハード�
         const rows=latest.map(([name,record])=>'<button class="we-causal-jump" data-tab="因果档案"><span><b>'+causalOverviewEscape(name)+'</b><small>'+causalOverviewEscape(record?.引发者||'引發者未記録')+'</small></span><strong>'+causalOverviewEscape(causalImpactLabel(record?.影响程度))+'</strong><p>'+causalOverviewEscape(record?.描述||'偏移の説明はまだありません')+'</p></button>').join('');
         return '<div class="we-causal-summary"><button class="we-stability-compact" data-tab="因果档案"><span><small>世界安定値</small><strong>'+causalOverviewEscape(stable===null?'未記録':stable)+'</strong></span><em>因果档案を開く →</em></button>'
             +(rows?'<div class="we-causal-latest">'+rows+'</div>':'<div class="we-empty"><b>因果偏移はまだありません</b><small>重大かつ確認済みの因果変化がここに記録されます。</small></div>')
-            +'<button class="we-link-btn" data-tab="因果档案">全 '+offsets.length+' 件の偏移・ストーリーラインと世界法则を見る →</button></div>';
+            +'<button class="we-link-btn" data-tab="因果档案">全 '+offsets.length+' 件の偏移・ストーリーラインと世界法則を見る →</button></div>';
     }
     function causalArchiveHtml(stat) {
         const world=stat?.世界||{},orbit=world.因果軌道||{},offsets=causalOffsetEntries(stat),stable=world.安定!==null&&world.安定!==''&&Number.isFinite(Number(world.安定))?Number(world.安定):null;
@@ -6987,10 +6987,10 @@ Schema、不正な状態、因果参照、明確な日付の衝突はハード�
             +'</div>';
         const offsetList=recent.length?recent.map(offsetCard).join(''):'<div class="we-empty"><b>因果偏移はまだありません</b><small>記録が作られるのは、発生済みの重大かつ不可逆な結果のみです。</small></div>';
         const olderHtml=older.length?'<details class="we-offset-more"><summary>さらに古い '+older.length+' 件の偏移を見る</summary>'+older.map(offsetCard).join('')+'</details>':'';
-        const interferenceHtml=interference?'<section class="we-section we-causal-interference"><div class="we-section-head"><h2>干涉模式</h2><small>インスタンス干渉状況</small></div><article class="we-card"><p>'+causalOverviewEscape(interference)+'</p></article></section>':'';
+        const interferenceHtml=interference?'<section class="we-section we-causal-interference"><div class="we-section-head"><h2>干渉モード</h2><small>インスタンス干渉状況</small></div><article class="we-card"><p>'+causalOverviewEscape(interference)+'</p></article></section>':'';
         const moneyHtml='<article class="we-card"><dl><dt>通貨体系</dt><dd>'+causalOverviewEscape(money.体系||'未記録')+'</dd><dt>購買力基準</dt><dd>'+causalOverviewEscape(money.購買力基準||'未記録')+'</dd><dt>経済変動</dt><dd>'+causalOverviewEscape(money.経済変動||'未記録')+'</dd></dl></article>';
-        const lawHtml=laws.length?'<div class="we-reading we-world-laws">'+laws.map(item=>'<article><p>'+causalOverviewEscape(item)+'</p></article>').join('')+'</div>':'<div class="we-empty"><b>世界法则はまだありません</b><small>明確に有効な法則がここで保守されます。</small></div>';
-        return '<div class="we-causal-archive-grid"><div><section class="we-section"><div class="we-section-head"><h2>因果偏移アーカイブ</h2><small>'+offsets.length+' 件 · 新しい順</small></div>'+stability+offsetList+olderHtml+'</section></div><aside><section class="we-section"><div class="we-section-head"><h2>因果軌道</h2><small>長期的な方向</small></div>'+story+'</section>'+interferenceHtml+'<section class="we-section"><div class="we-section-head"><h2>货币与经济</h2><small>世界進行が保守</small></div>'+moneyHtml+'</section><section class="we-section"><div class="we-section-head"><h2>世界法则</h2><small>'+laws.length+' 件</small></div>'+lawHtml+'</section></aside></div>';
+        const lawHtml=laws.length?'<div class="we-reading we-world-laws">'+laws.map(item=>'<article><p>'+causalOverviewEscape(item)+'</p></article>').join('')+'</div>':'<div class="we-empty"><b>世界法則はまだありません</b><small>明確に有効な法則がここで保守されます。</small></div>';
+        return '<div class="we-causal-archive-grid"><div><section class="we-section"><div class="we-section-head"><h2>因果偏移アーカイブ</h2><small>'+offsets.length+' 件 · 新しい順</small></div>'+stability+offsetList+olderHtml+'</section></div><aside><section class="we-section"><div class="we-section-head"><h2>因果軌道</h2><small>長期的な方向</small></div>'+story+'</section>'+interferenceHtml+'<section class="we-section"><div class="we-section-head"><h2>货币与经济</h2><small>世界進行が保守</small></div>'+moneyHtml+'</section><section class="we-section"><div class="we-section-head"><h2>世界法則</h2><small>'+laws.length+' 件</small></div>'+lawHtml+'</section></aside></div>';
     }
     function causalSectionByTitle(root,title) {
         return Array.from(root?.querySelectorAll?.('.we-section')||[]).find(section=>section.querySelector('.we-section-head h2')?.textContent?.trim()===title)||null;
@@ -7026,11 +7026,11 @@ Schema、不正な状態、因果参照、明確な日付の衝突はハード�
                 Array.from(causal.children).filter(child=>child!==head).forEach(child=>child.remove());
                 causal.insertAdjacentHTML('beforeend',causalCompactHtml(stat));
             }
-            for(const title of ['货币与经济','世界法则'])causalSectionByTitle(main,title)?.remove();
+            for(const title of ['货币与经济','世界法則'])causalSectionByTitle(main,title)?.remove();
         }
         removeRunRecordInterference() {
             const main=this.panel?.querySelector?.('main');if(!main)return;
-            causalSectionByTitle(main,'干涉模式')?.remove();
+            causalSectionByTitle(main,'干渉モード')?.remove();
         }
         renderCausalArchive() {
             const main=this.panel?.querySelector?.('main');if(!main)return;
