@@ -5745,7 +5745,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
        present-> 表示可能なものは全て表示+伸縮枠(性格/服装/好み/状態/装備/スキル等)
        absent -> 名前/種族/身分/階層/好感度/外見/背景 */
     /* AIにのみ見える身分キーワード: プレイヤーパネルには表示しない(データベース上でAIに見せるだけ) */
-    var HIDDEN_IDENTITY_KEYWORDS = ['守护者', '篡夺者', '织梦者', '残魂', '穿越者'];
+    var HIDDEN_IDENTITY_KEYWORDS = ['守护者', '篡夺者', '织梦者', '残魂', '穿越者', '守護者', '簒奪者', '夢織り'];
     function isHiddenIdentity(s) {
         if (typeof s !== 'string') return false;
         for (var i = 0; i < HIDDEN_IDENTITY_KEYWORDS.length; i++) {

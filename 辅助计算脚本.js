@@ -1140,7 +1140,8 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
      *   マッピング: Ⅰ↔F Ⅱ↔E Ⅲ↔D Ⅳ↔C Ⅴ↔B Ⅵ↔A Ⅶ↔S Ⅷ↔SS Ⅸ↔SSS ( ROMAN_TO_QUALITY / TIER_ORDER) を再利用
      */
     const NATIVE_SPECIAL_IDENTITY_SET = {
-        '輪廻者': 1, '轮回者': 1, '穿越者': 1, '守护者': 1, '织梦者': 1, '篡夺者': 1, '残魂': 1
+        '輪廻者': 1, '轮回者': 1, '穿越者': 1, '守护者': 1, '织梦者': 1, '篡夺者': 1, '残魂': 1,
+        '守護者': 1, '簒奪者': 1, '夢織り': 1
     };
     function clampNativeNpcToWorldTier(statData, statDataBefore) {
         if (!statData) return;
