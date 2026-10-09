@@ -7807,7 +7807,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
     // 派生属性を再計算(体力/精神 + 血統パッシブ + 装備済みDEF/MDEF)
     function shopRecalcDerived(character) {
         if (!character) return;
-        var base = character.基础属性 || {};
+        var base = character.原始属性 || character.基础属性 || {};
         var old = character.衍生属性 || {};
         var oldHpMax = Math.max(Number(old.HP上限 || old.HP || 1), 1);
         var oldMpMax = Math.max(Number(old.MP上限 || old.MP || 1), 1);

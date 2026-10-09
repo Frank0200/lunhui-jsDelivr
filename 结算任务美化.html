@@ -2062,7 +2062,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 if ((k === '獲得物品' || k === '獲得') && /^【.+】$/.test(v)) return '<div class="st-relic-name">' + escapeHtml(v) + '</div>';
                 if (k === '判定結果') { const okV = /充足|授与|满足|授予/.test(v) && !/未獲得|未获得/.test(v); return '<div class="st-verdict ' + (okV ? 'ok' : 'no') + '">' + (okV ? '✔ ' : '✕ ') + escapeHtml(v) + '</div>'; }
                 if (k === '説明' && /[“”"]/.test(v)) return '<div class="st-relic-quote">' + escapeHtml(v) + '</div>';
-                if (k === '効果' && /事迹留存/.test(v)) return '<div class="st-kv effect"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>';
+                if (k === '効果' && /事跡留存|事迹留存/.test(v)) return '<div class="st-kv effect"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>';
                 if (/(?:評述|评述)/.test(k)) return '<div class="st-comment">' + escapeHtml(v) + '</div>';
                 if (st && st.type === 'income' && /奖励|報酬|收益/.test(k)) return '<div class="st-kv income-v"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>';
                 return '<div class="st-kv"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + escapeHtml(v) + '</span></div>';
