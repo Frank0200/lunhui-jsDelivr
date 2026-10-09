@@ -7188,6 +7188,15 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         return '<div class="sam-row"><span class="k">'+esc(k)+'</span><span class="v">'+esc(vs)+'</span></div>';
     }
     /* 効果オブジェクトを行ごとにレンダリング {a:b,c:d} → 複数行 */
+    /* 旧セーブ互換: 決算レンダラーが簡体字で書いた効果キーを日本語表記へ読み替える (読み取り境界専用)。 */
+    var LEGACY_EFFECT_KEY_RENAMES = { '事迹': '事跡', '持有时': '所持時' };
+    function normalizeLegacyEffectKey(k) {
+        var s = String(k == null ? '' : k);
+        var exact = LEGACY_EFFECT_KEY_RENAMES[s];
+        if (exact) return exact;
+        var m = /^(事迹)(\d+)$/.exec(s);
+        return m ? '事跡' + m[2] : s;
+    }
     function formatEffects(effects, path, editMode) {
         if (!effects || typeof effects !== 'object') return '';
         var keys = Object.keys(effects);
@@ -7201,7 +7210,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 // オブジェクト値(ネストした効果)は json エディタ, スカラーはテキスト
                 html += '<div class="sam-effect-line"><span class="ek">'+esc(k)+':</span> '+editInput(path+'.'+k, vs, isObj ? 'json' : 'text')+'</div>';
             } else {
-                html += '<div class="sam-effect-line"><span class="ek">'+esc(k)+':</span> '+esc(vs)+'</div>';
+                html += '<div class="sam-effect-line"><span class="ek">'+esc(normalizeLegacyEffectKey(k))+':</span> '+esc(vs)+'</div>';
             }
         });
         html += '</div>';

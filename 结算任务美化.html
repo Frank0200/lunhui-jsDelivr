@@ -2380,7 +2380,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
               const samsaraMonth = Math.floor(samsaraDayOfYear / 30) + 1;
               const samsaraDay = (samsaraDayOfYear % 30) + 1;
               const settlementPad2 = function(value) { return String(value).padStart(2, '0'); };
-              const samsaraTime = '轮回历' + samsaraYear + '年-' + settlementPad2(samsaraMonth) + '月-' + settlementPad2(samsaraDay) + '日-清晨';
+              const samsaraTime = '輪廻暦' + samsaraYear + '年-' + settlementPad2(samsaraMonth) + '月-' + settlementPad2(samsaraDay) + '日-早朝';
 
               setValue(world, '名称', '主神空間');
               setValue(world, '位格', 'Ⅸ');
@@ -2507,8 +2507,8 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 win._.set(c, key + '.タイプ', 'ブラインドボックス');
                 win._.set(c, key + '.数量', currentQty + missing);
                 win._.set(c, key + '.タグ', tags);
-                win._.set(c, key + '.効果', old.効果 && typeof old.効果 === 'object' ? old.効果 : { 开启:'ブラインドボックス抽選，打开后随机抽取「' + (g.world || '主神空間') + '」对应品质的奖励。' });
-                win._.set(c, key + '.説明', old.説明 || '副本成就奖励。');
+                win._.set(c, key + '.効果', old.効果 && typeof old.効果 === 'object' ? old.効果 : { 開封:'ブラインドボックス抽選。開封すると「' + (g.world || '主神空間') + '」に対応する品質の報酬をランダムに抽選する。' });
+                win._.set(c, key + '.説明', old.説明 || 'インスタンス実績報酬。');
                 win._.set(c, key + '.状態', [0,1,2].includes(Number(old.状態)) ? Number(old.状態) : 0);
                 changed = true;
               });
@@ -2539,12 +2539,12 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                     eff[pm[0].trim()] = pm.slice(1).join('：').trim();
                   } else if (em) eff[em[1].trim()] = em[2].trim();
                   else if (nm && bm) eff[bm[1].trim()] = bm[2].trim();
-                  else if (nm) eff['事迹' + (Object.keys(eff).length + 1)] = nm[1];
+                  else if (nm) eff['事跡' + (Object.keys(eff).length + 1)] = nm[1];
                   else if (bm) eff[bm[1].trim()] = bm[2].trim();
                   else {
                     const last = Object.keys(eff).pop();
                     if (last) eff[last] += ' ' + ln;
-                    else eff['持有时'] = ln;
+                    else eff['所持時'] = ln;
                   }
                 });
                 return eff;
