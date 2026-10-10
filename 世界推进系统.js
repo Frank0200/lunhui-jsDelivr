@@ -980,6 +980,32 @@ Step 7 · 差分の出力：まず「歴史摘要」の規則に従って摘要�
         }
         return out;
     }
+    /* EVENT_STATE_KEY_COMPAT: 世界エンジン自身の記録モデル (RECORDS / DETAILS / EVENT_RESULT_SCHEMA /
+       世界書の EJS 消費者 / 補助計算スクリプト) はイベント・人物・伝播の状態フィールドを簡体字キー 状态 で
+       書き・読みする。一方 世界.バックステージ.* は LEGACY_OPAQUE_SUBTREES に含まれるため F2 の再帰
+       リネームはこの部分木を通らず、描画側が読む日本語キー 状態 は境界で一度も作られない。さらに
+       normalizeBackendRecord は RECORDS/DETAILS に宣言されたキーだけを残すホワイトリスト再構築なので、
+       仮に 状態 を上流で立てても normalizeBackendState の通過時に必ず落ちる。
+       したがって再構築の直後・描画の直前で正規キー 状態 を実体化する。冪等: 状態 が既にあれば何もしない。
+       旧キー 状态 は削除しない — プロデューサと既存の消費者はそのまま動く。 */
+    var EVENT_STATE_RECORD_CONTAINERS=['事件','人物','传播'];
+    function normalizeLegacyEventStateKeys(stat){
+        if(!stat||typeof stat!=='object')return stat;
+        var world=stat.世界;if(!world||typeof world!=='object')return stat;
+        var state=world[PATH];if(!state||typeof state!=='object')return stat;
+        for(var i=0;i<EVENT_STATE_RECORD_CONTAINERS.length;i++){
+            var bucket=state[EVENT_STATE_RECORD_CONTAINERS[i]];
+            if(!bucket||typeof bucket!=='object')continue;
+            for(var name in bucket){
+                if(!Object.prototype.hasOwnProperty.call(bucket,name))continue;
+                var record=bucket[name];
+                if(!record||typeof record!=='object'||Array.isArray(record))continue;
+                if(!Object.prototype.hasOwnProperty.call(record,'状态'))continue;
+                if(record.状態===undefined||record.状態===null)record.状態=record.状态;
+            }
+        }
+        return stat;
+    }
     function normalizeBackendState(stat) {
         const state=stat?.世界?.[PATH]; if(!state)return stat;
         // v3 → v4：旧「公開摘要」はそのまま因果軌道.現在段階の説明へ移行し、その後で重複する二つの引き継ぎフィールドを削除する。
@@ -4218,7 +4244,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             try{
                 snapshot=this.snapshot();
                 snapshot.stat.世界[PATH]=Object.assign(emptyState(),snapshot.stat.世界[PATH]||{});
-                normalizeBackendState(snapshot.stat);normalizeEventLayers(snapshot.stat);repairCausalProjection(snapshot.stat);
+                normalizeBackendState(snapshot.stat);normalizeLegacyEventStateKeys(snapshot.stat);normalizeEventLayers(snapshot.stat);repairCausalProjection(snapshot.stat);
                 state=Object.assign(state,snapshot.stat.世界[PATH]||{});
                 reason=this.blocked(snapshot);
             }catch(e){reason=e.message;}
@@ -4259,7 +4285,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 '开始时间':'開始時刻','时间':'時刻','范围':'範囲','受众':'対象','资源':'資源',
                 '认知':'認知','认知来源':'認知の出典','登场条件':'登場条件','关联事件':'関連イベント',
                 '引发行动':'誘発行動','控制方':'支配側','争夺方':'争奪側','接口':'インターフェース',
-                '模型':'モデル'
+                '模型':'モデル','已完成':'完了','已取消':'中止'
             };
             const displayLabel=v=>{const s=v==null?'':String(v);return Object.prototype.hasOwnProperty.call(DISPLAY_LABELS,s)?DISPLAY_LABELS[s]:s;};
             const tabs=[['世界推进','◈','世界推進'],['角色管理','♙','キャラクター管理'],['探索と勢力','⌖'],['世界事件','▤'],['资产','▣','資産'],['噂','◎'],['プロンプトプリセット','✎'],['リクエスト検査','⌕'],['运行记录','≋','歴史記憶'],['設定','⚙']];
@@ -5219,7 +5245,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             const request=await super.buildRequest(base);
             const payload=JSON.parse(request.input);
             if(plain(payload.入力セマンティクス)){
-                payload.入力セマンティクス.当前变量='世界進行専用のホットデータ投影；世界、人物能力、完全な資産台帳、アクティブな伝播、直近の履歴、直近の因果偏移、および任務.リストの読み取り専用の因果フィールドを含みます。任務報酬、ペナルティ、副本実績、キル、ショップ、純粋な決算データは世界進行には入りません。';
+                payload.入力セマンティクス.当前变量='世界進行専用のホットデータ投影；世界、人物能力、完全な資産台帳、アクティブな伝播、直近の履歴、直近の因果偏移、および任務.リストの読み取り専用の因果フィールドを含みます。任務報酬、ペナルティ、インスタンス実績、キル、ショップ、純粋な決算データは世界進行には入りません。';
                 payload.入力セマンティクス.任务列表='読み取り専用の因果台帳。イベントは关联任务で既存の任務を参照できます；任務の作成・削除・状態変更・提出・決算は禁止です。';
             }
             request.input=JSON.stringify(payload,null,2);

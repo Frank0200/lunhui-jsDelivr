@@ -809,7 +809,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         .sam-tier-prog.npc { margin:7px 0 3px; padding:6px 8px; }
         .sam-tier-prog.npc .sam-tier-side { font-size:15px; min-width:28px; }
         .sam-tier-prog.npc .sam-tier-bar { height:11px; }
-        /* 副本実績: 達成済みカードは金色の枠線でハイライト + ヘッダに達成バッジ */
+        /* インスタンス実績: 達成済みカードは金色の枠線でハイライト + ヘッダに達成バッジ */
         .sam-ach-item.done .sam-full-card { border-left-color:#d4af37; box-shadow:0 0 8px rgba(212,175,55,0.25); }
         .sam-ach-item.done .sam-fc-title { color:var(--sam-thp, #e5c166); }
         .sam-ach-done-chip { flex:0 0 auto; font-size:10px; font-weight:900; color:#d4af37; border:1px solid rgba(212,175,55,0.55); background:rgba(212,175,55,0.12); border-radius:8px; padding:1px 8px; white-space:nowrap; letter-spacing:0.5px; }
@@ -4971,7 +4971,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
     }
 
     /* ===== 23. Tab: 任務 ===== */
-    /* 副本実績の難易度: 1~6星に固定, どの値も強制的に★の数へ正規化(数字1~6 または ★の個数を数える, 範囲外は切り捨て, ★なしは既定で1星) */
+    /* インスタンス実績の難易度: 1~6星に固定, どの値も強制的に★の数へ正規化(数字1~6 または ★の個数を数える, 範囲外は切り捨て, ★なしは既定で1星) */
     function achDiffStars(v) {
         var s = safeStr(v, '').trim();
         var n = /^[1-6]$/.test(s) ? parseInt(s, 10) : (s.match(/★/g) || []).length;
@@ -5026,7 +5026,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
         var taskTitle = '📜 任務一覧 (達成 '+taskDoneCnt+'/'+listKeys.length+')';
         if (taskFailCnt > 0) taskTitle += ' · 失敗 '+taskFailCnt;
         html += secBlock(taskTitle, tHtml, listKeys.length > 0);
-        // 単一世界では副本実績を完全に非表示；マルチワールドモードでは通常どおり表示し、初回達成報酬を即時付与する
+        // 単一世界ではインスタンス実績を完全に非表示；マルチワールドモードでは通常どおり表示し、初回達成報酬を即時付与する
         if (!isSingleWorld) {
             var ach = m.インスタンス実績 || {};
             var achKeys = Object.keys(ach);
@@ -5037,7 +5037,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             });
             var aHtml = '';
             if (achKeys.length === 0) {
-                aHtml += '<div class="sam-empty">[副本実績なし]</div>';
+                aHtml += '<div class="sam-empty">[インスタンス実績なし]</div>';
             } else {
                 aHtml += '<div class="sam-list-1col">';
                 achKeys.forEach(function(k) {
@@ -5069,7 +5069,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
                 });
                 aHtml += '</div>';
             }
-            html += secBlock('🏅 副本実績 (達成 '+achDoneCnt+'/'+achKeys.length+')', aHtml, achKeys.length > 0);
+            html += secBlock('🏅 インスタンス実績 (達成 '+achDoneCnt+'/'+achKeys.length+')', aHtml, achKeys.length > 0);
         }
         // 撃破統計(キーはローマ数字Ⅰ~ⅨでMVUデータベースを読む; CSSの着色クラスは対応する品質文字F~SSS)
         var kHtml = '<div class="sam-grid">';

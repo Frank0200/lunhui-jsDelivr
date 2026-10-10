@@ -667,8 +667,8 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
     function guardTaskGenerationLock(statData) {
         if (!statData || typeof statData !== 'object') return false;
 
-        // 単一世界 ではデータ層の時点で副本実績の存在を許さない。旧バージョンのタスクロックが実績スナップショットを保持していても、
-        // 復元できるのはタスクリストのみで、副本実績を現在の世界へ持ち戻すことはできない。
+        // 単一世界 ではデータ層の時点でインスタンス実績の存在を許さない。旧バージョンのタスクロックが実績スナップショットを保持していても、
+        // 復元できるのはタスクリストのみで、インスタンス実績を現在の世界へ持ち戻すことはできない。
         const singleWorld = statData?.設定?.単一世界 === true || statData?.設定?.単一世界 === true;
         let singleWorldAchievementClear = false;
         if (singleWorld) {

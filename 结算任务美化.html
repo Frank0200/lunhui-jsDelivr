@@ -1714,7 +1714,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
             const done = achievementTasks.filter(function(x) { return isAchievedStatus(x.status); }).length;
             const pct = Math.round(done / achievementTasks.length * 100);
             let html = '<div class="st-trial-check pending">';
-            html += '<div class="st-trial-head"><div class="st-trial-title" style="color:#f5d76e">✦ 副本実績決算</div><div class="st-trial-count">' + done + ' / ' + achievementTasks.length + '</div></div>';
+            html += '<div class="st-trial-head"><div class="st-trial-title" style="color:#f5d76e">✦ インスタンス実績決算</div><div class="st-trial-count">' + done + ' / ' + achievementTasks.length + '</div></div>';
             achievementTasks.forEach(function(x) {
               const ok = isAchievedStatus(x.status);
               html += '<div class="st-trial-row"><div class="st-trial-name"><b>' + escapeHtml((x.difficulty ? x.difficulty + ' · ' : '') + x.name) + '</b>';
@@ -2393,7 +2393,7 @@ var LEGACY_KEY_PREFERRED = {"关系リスト":true};
               setValue(sys, '主神空間滞在中', true);
             } else {
               // 単一世界は同じ世界を使い続ける：探索档案は長期保持されるが、スペースコイン決算には参加しない。
-              // 単一世界には副本実績がない；決算時に旧インスタンス/旧バージョンの残留を同時に消去するが、現在の世界と未決算の任務には影響しない。
+              // 単一世界にはインスタンス実績がない；決算時に旧インスタンス/旧バージョンの残留を同時に消去するが、現在の世界と未決算の任務には影響しない。
               setValue(tasks, 'インスタンス実績', {});
               const taskList = ensureObject(tasks, 'リスト');
               settlementTaskKeys.forEach(function(taskKey) {
